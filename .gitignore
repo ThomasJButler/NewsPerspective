@@ -5,3 +5,9 @@ __pycache__/
 /dist/
 /build/
 /*.egg-info
+
+# Development learning files (keep private)
+DEVELOPMENT_JOURNAL.md
+to-do.md
+ai-search-azure-portal.png
+config.json

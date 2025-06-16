@@ -1,0 +1,36 @@
+2025-06-16 01:58:29 | INFO     | NewsPerspective.Main | <module> | NewsPerspective Application Started
+2025-06-16 01:58:29 | INFO     | NewsPerspective.Main | <module> | Configuration: MAX_ARTICLES=20, DEPLOYMENT=gpt-35-turbo-instruct
+2025-06-16 01:58:29 | DEBUG    | NewsPerspective.Main | wrapper | Starting fetch_articles_with_pagination
+2025-06-16 01:58:29 | INFO     | NewsPerspective.Main | fetch_articles_with_pagination | Fetching NewsAPI page 1, requesting 20 articles
+2025-06-16 01:58:29 | DEBUG    | NewsPerspective.Main | increment | Stat updated: api_calls = 1
+2025-06-16 01:58:30 | INFO     | NewsPerspective.Main | fetch_articles_with_pagination | Successfully fetched 19 articles from page 1
+2025-06-16 01:58:30 | DEBUG    | NewsPerspective.Main | increment | Stat updated: articles_fetched = 19
+2025-06-16 01:58:31 | INFO     | NewsPerspective.Main | fetch_articles_with_pagination | Fetching NewsAPI page 2, requesting 1 articles
+2025-06-16 01:58:31 | DEBUG    | NewsPerspective.Main | increment | Stat updated: api_calls = 2
+2025-06-16 01:58:32 | INFO     | NewsPerspective.Main | fetch_articles_with_pagination | Successfully fetched 1 articles from page 2
+2025-06-16 01:58:32 | DEBUG    | NewsPerspective.Main | increment | Stat updated: articles_fetched = 20
+2025-06-16 01:58:33 | INFO     | NewsPerspective.Main | wrapper | fetch_articles_with_pagination completed in 3.54s
+2025-06-16 01:58:33 | INFO     | NewsPerspective.Main | <module> | Fetch complete: 20 articles retrieved
+2025-06-16 01:58:33 | INFO     | NewsPerspective.Main | <module> | Processing article 1/20: Britain Agrees to Open New Inquiry Into Child Sex ...
+2025-06-16 01:58:33 | DEBUG    | NewsPerspective.Main | increment | Stat updated: articles_processed = 1
+2025-06-16 01:58:33 | DEBUG    | NewsPerspective.Main | <module> | Requesting AI analysis for headline tone
+2025-06-16 01:58:33 | DEBUG    | NewsPerspective.Main | increment | Stat updated: api_calls = 3
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | <module> | AI analysis received: NEEDS_REWRITE: YES
+CONFIDENCE: 95
+REASON: The current headline has a negative connotation, focusing ...
+2025-06-16 01:58:35 | INFO     | NewsPerspective.Main | <module> | Headline analysis: tone=NEGATIVE, confidence=95%, needs_rewrite=True
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | <module> | Requesting rewrite with calm, factual style
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | increment | Stat updated: api_calls = 4
+2025-06-16 01:58:35 | INFO     | NewsPerspective.Main | <module> | Headline rewritten successfully
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | increment | Stat updated: rewrites_successful = 1
+2025-06-16 01:58:35 | INFO     | NewsPerspective.Main | <module> | Processing article 2/20: Paternity leave: How much time off work do new dad...
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | increment | Stat updated: articles_processed = 2
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | <module> | Requesting AI analysis for headline tone
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | increment | Stat updated: api_calls = 5
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | <module> | AI analysis received: NEEDS_REWRITE: YES
+CONFIDENCE: 80
+REASON: The tone can be improved to be more positive.
+TONE: NEUTRA...
+2025-06-16 01:58:35 | INFO     | NewsPerspective.Main | <module> | Headline analysis: tone=NEUTRAL, confidence=80%, needs_rewrite=True
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | <module> | Requesting rewrite with slightly more positive style
+2025-06-16 01:58:35 | DEBUG    | NewsPerspective.Main | increment | Stat updated: api_calls = 6
