@@ -107,11 +107,11 @@ This file outlines key improvements and feature ideas for upcoming versions of t
 
 ## 🔍 Azure Search + Data Handling
 
-- [ ] Display most recent entries in the terminal/log
-- [ ] Add basic search interface (CLI or web)
-- [ ] Add filtering by:
-  - [ ] Source
-  - [ ] Date
+- [x] Display most recent entries in the terminal/log
+- [x] Add basic search interface (CLI or web)
+- [x] Add filtering by:
+  - [x] Source
+  - [x] Date
   - [ ] Confidence score (future feature)
 
 ---
@@ -135,12 +135,12 @@ This file outlines key improvements and feature ideas for upcoming versions of t
 
 ## 🧪 Testing & Monitoring
 
-- [ ] Add logging (basic at first)
-- [ ] Add error reporting (e.g. failed rewrites)
-- [ ] Test edge cases:
-  - [ ] No content
-  - [ ] Already positive headlines
-  - [ ] Misleading titles
+- [x] Add logging (basic at first)
+- [x] Add error reporting (e.g. failed rewrites)
+- [x] Test edge cases:
+  - [x] No content
+  - [x] Already positive headlines
+  - [x] Misleading titles
 
 ---
 
