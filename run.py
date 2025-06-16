@@ -5,6 +5,8 @@ import os
 import time
 from dotenv import load_dotenv
 from logger_config import setup_logger, StatsTracker, log_performance, log_error_details
+from azure_ai_language import ai_language
+from azure_document_intelligence import document_intelligence
 
 # Load environment variables from .env file
 load_dotenv()
@@ -146,39 +148,107 @@ for i, article in enumerate(articles, 1):
     logger.info(f"Processing article {i}/{len(articles)}: {title[:50]}...")
     stats.increment('articles_processed')
     
-    # Step 1: Analyze if rewrite is needed
-    analysis_prompt = f"""Analyze this headline and determine if it needs rewriting for a more positive tone.
-
-Headline: "{title}"
-
-Respond with ONLY this format:
-NEEDS_REWRITE: [YES/NO]
-CONFIDENCE: [0-100]
-REASON: [Brief explanation]
-TONE: [Current tone - POSITIVE/NEUTRAL/NEGATIVE/SENSATIONAL]"""
-
+    # Step 1: Enhanced analysis using Azure AI Language (if available)
     try:
-        # Get analysis from AI
-        logger.debug("Requesting AI analysis for headline tone")
+        # Get enhanced analysis from Azure AI Language
+        logger.debug("Requesting enhanced AI analysis for headline")
         stats.increment('api_calls')
         
-        analysis_result = client.completions.create(
-            model=deployment_name,
-            prompt=analysis_prompt,
-            max_tokens=100
-        )
-        analysis = analysis_result.choices[0].text.strip()
-        logger.debug(f"AI analysis received: {analysis[:100]}...")
+        ai_analysis = ai_language.analyze_text(title)
+        problematic_phrases = ai_language.extract_problematic_phrases(title)
         
-        # Parse the analysis
-        needs_rewrite = "YES" in analysis.split("NEEDS_REWRITE:")[1].split("\n")[0] if "NEEDS_REWRITE:" in analysis else True
-        confidence_match = analysis.split("CONFIDENCE:")[1].split("\n")[0].strip() if "CONFIDENCE:" in analysis else "50"
-        confidence = int(''.join(filter(str.isdigit, confidence_match))) if confidence_match else 50
-        reason = analysis.split("REASON:")[1].split("\n")[0].strip() if "REASON:" in analysis else "Analysis unclear"
-        current_tone = analysis.split("TONE:")[1].split("\n")[0].strip() if "TONE:" in analysis else "UNKNOWN"
+        # Extract sentiment information
+        sentiment = ai_analysis.get('sentiment', 'neutral')
+        confidence_scores = ai_analysis.get('confidence_scores', {})
+        enhanced_reason = ai_analysis.get('enhanced_reason', '')
+        entities = ai_analysis.get('entities', [])
+        key_phrases = ai_analysis.get('key_phrases', [])
         
-        print(f"🔍 Analysis: {current_tone} tone, Confidence: {confidence}%, Reason: {reason}")
-        logger.info(f"Headline analysis: tone={current_tone}, confidence={confidence}%, needs_rewrite={needs_rewrite}")
+        # Determine if rewrite is needed based on enhanced analysis
+        negative_confidence = confidence_scores.get('negative', 0)
+        positive_confidence = confidence_scores.get('positive', 0)
+        
+        needs_rewrite = False
+        confidence = 50
+        current_tone = "NEUTRAL"
+        
+        if sentiment == 'negative' and negative_confidence > 60:
+            needs_rewrite = True
+            confidence = int(negative_confidence)
+            current_tone = "NEGATIVE"
+        elif sentiment == 'positive' and positive_confidence > 80:
+            needs_rewrite = False
+            confidence = int(positive_confidence)
+            current_tone = "POSITIVE"
+        elif problematic_phrases:  # Has problematic phrases even if neutral sentiment
+            needs_rewrite = True
+            confidence = 75
+            current_tone = "NEGATIVE/SENSATIONAL"
+        else:
+            # Fallback to neutral
+            confidence = max(confidence_scores.values()) if confidence_scores else 50
+            current_tone = sentiment.upper()
+            needs_rewrite = negative_confidence > positive_confidence and negative_confidence > 40
+        
+        # Build enhanced reason with specific examples
+        reason_parts = []
+        if enhanced_reason:
+            reason_parts.append(enhanced_reason)
+        
+        if problematic_phrases:
+            phrase_examples = [f"'{p['phrase']}'" for p in problematic_phrases[:2]]
+            reason_parts.append(f"Contains negative language: {', '.join(phrase_examples)}")
+        
+        if entities:
+            high_conf_entities = [e['text'] for e in entities if e['confidence'] > 80]
+            if high_conf_entities:
+                reason_parts.append(f"Key entities: {', '.join(high_conf_entities[:3])}")
+        
+        reason = '. '.join(reason_parts) if reason_parts else "Standard tone analysis"
+        
+        print(f"🔍 Enhanced Analysis: {current_tone} tone, Confidence: {confidence}%")
+        print(f"📊 Sentiment Scores: Pos:{positive_confidence:.0f}% Neu:{confidence_scores.get('neutral', 0):.0f}% Neg:{negative_confidence:.0f}%")
+        if problematic_phrases:
+            phrases_text = ', '.join([p['phrase'] for p in problematic_phrases])
+            print(f"⚠️  Problematic phrases: {phrases_text}")
+        
+        logger.info(f"Enhanced headline analysis: tone={current_tone}, confidence={confidence}%, needs_rewrite={needs_rewrite}")
+        
+        # Step 1.5: Enhanced content analysis using Document Intelligence (if URL available)
+        content_extraction = None
+        article_url = article.get("url", "")
+        
+        if article_url and needs_rewrite:
+            try:
+                print(f"📄 Analyzing article content from URL...")
+                logger.debug(f"Starting Document Intelligence analysis for: {article_url}")
+                
+                content_extraction = document_intelligence.extract_content_from_url(article_url)
+                
+                if content_extraction.get('content_extracted'):
+                    print(f"📋 Content Analysis: {content_extraction['content_summary']}")
+                    
+                    # Extract key quotes that justify the rewrite
+                    key_quotes = content_extraction.get('key_quotes', [])
+                    if key_quotes:
+                        print(f"💬 Found problematic content: {len(key_quotes)} concerning phrases")
+                        for quote in key_quotes[:2]:  # Show first 2
+                            print(f"   → \"{quote['quote'][:80]}...\" (trigger: {quote['trigger_word']})")
+                    
+                    # Enhance the reasoning with content analysis
+                    enhanced_content_reason = document_intelligence.enhance_rewrite_reasoning(title, content_extraction)
+                    if enhanced_content_reason:
+                        reason = f"{reason}. {enhanced_content_reason}"
+                        
+                    logger.info(f"Document Intelligence analysis completed: {content_extraction['content_summary']}")
+                else:
+                    print(f"⚠️  Content extraction unavailable for this URL")
+                    logger.debug("Document Intelligence extraction failed or disabled")
+                    
+            except Exception as e:
+                print(f"⚠️  Content analysis error: {str(e)}")
+                logger.warning(f"Document Intelligence analysis failed: {str(e)}")
+                content_extraction = None
         
         # Step 2: Only rewrite if needed and confidence is reasonable
         if needs_rewrite and confidence >= 60:
@@ -227,7 +297,12 @@ Requirements:
                 "rewritten_title": rewritten,
                 "original_content": article.get("content", ""),
                 "source": article.get("source", {}).get("name", ""),
-                "published_date": article.get("publishedAt", "")
+                "published_date": article.get("publishedAt", ""),
+                "article_url": article.get("url", ""),
+                "was_rewritten": True,
+                "original_tone": current_tone,
+                "confidence_score": confidence,
+                "rewrite_reason": reason
             }
         else:
             print(f"📰 Original:  {title}")
@@ -243,7 +318,12 @@ Requirements:
                 "rewritten_title": title,  # Keep original
                 "original_content": article.get("content", ""),
                 "source": article.get("source", {}).get("name", ""),
-                "published_date": article.get("publishedAt", "")
+                "published_date": article.get("publishedAt", ""),
+                "article_url": article.get("url", ""),
+                "was_rewritten": False,
+                "original_tone": current_tone,
+                "confidence_score": confidence,
+                "rewrite_reason": reason
             }
         
         docs.append(doc)
