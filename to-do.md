@@ -93,14 +93,14 @@ This file outlines key improvements and feature ideas for upcoming versions of t
 
 ## 🧠 Rewriting Logic
 
-- [ ] Use OpenAI prompt engineering to:
-  - [ ] Rewrite *only* if needed
-  - [ ] Return a summary of tone difference (optional)
-- [ ] Add confidence score or justification from model
-- [ ] Support different tone styles:
-  - [ ] Positive
-  - [ ] Factual
-  - [ ] Neutral
+- [x] Use OpenAI prompt engineering to:
+  - [x] Rewrite *only* if needed
+  - [x] Return a summary of tone difference (optional)
+- [x] Add confidence score or justification from model
+- [x] Support different tone styles:
+  - [x] Positive
+  - [x] Factual
+  - [x] Neutral
   - [ ] Satirical (just for fun)
 
 ---

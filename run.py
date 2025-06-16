@@ -113,32 +113,92 @@ for i, article in enumerate(articles, 1):
 
     print(f"\n[{i}/{len(articles)}] Processing: {title[:80]}{'...' if len(title) > 80 else ''}")
     
-    prompt = f"Rewrite this headline in a calm, more positive tone:\n\n{title}"
+    # Step 1: Analyze if rewrite is needed
+    analysis_prompt = f"""Analyze this headline and determine if it needs rewriting for a more positive tone.
+
+Headline: "{title}"
+
+Respond with ONLY this format:
+NEEDS_REWRITE: [YES/NO]
+CONFIDENCE: [0-100]
+REASON: [Brief explanation]
+TONE: [Current tone - POSITIVE/NEUTRAL/NEGATIVE/SENSATIONAL]"""
 
     try:
-        result = client.completions.create(
+        # Get analysis from AI
+        analysis_result = client.completions.create(
             model=deployment_name,
-            prompt=prompt,
-            max_tokens=60
+            prompt=analysis_prompt,
+            max_tokens=100
         )
-        rewritten = result.choices[0].text.strip()
+        analysis = analysis_result.choices[0].text.strip()
         
-        # Remove any leading quotes or formatting from the AI response
-        if rewritten.startswith('"') and rewritten.endswith('"'):
-            rewritten = rewritten[1:-1]
+        # Parse the analysis
+        needs_rewrite = "YES" in analysis.split("NEEDS_REWRITE:")[1].split("\n")[0] if "NEEDS_REWRITE:" in analysis else True
+        confidence_match = analysis.split("CONFIDENCE:")[1].split("\n")[0].strip() if "CONFIDENCE:" in analysis else "50"
+        confidence = int(''.join(filter(str.isdigit, confidence_match))) if confidence_match else 50
+        reason = analysis.split("REASON:")[1].split("\n")[0].strip() if "REASON:" in analysis else "Analysis unclear"
+        current_tone = analysis.split("TONE:")[1].split("\n")[0].strip() if "TONE:" in analysis else "UNKNOWN"
         
-        print(f"📰 Original:  {title}")
-        print(f"✨ Rewritten: {rewritten}")
+        print(f"🔍 Analysis: {current_tone} tone, Confidence: {confidence}%, Reason: {reason}")
+        
+        # Step 2: Only rewrite if needed and confidence is reasonable
+        if needs_rewrite and confidence >= 60:
+            # Choose rewrite style based on current tone
+            if "SENSATIONAL" in current_tone or "NEGATIVE" in current_tone:
+                style = "calm, factual"
+            else:
+                style = "slightly more positive"
+                
+            rewrite_prompt = f"""Rewrite this headline in a {style} tone while preserving all factual information:
 
-        doc = {
-            "@search.action": "upload",
-            "id": str(uuid.uuid4()),
-            "original_title": title,
-            "rewritten_title": rewritten,
-            "original_content": article.get("content", ""),
-            "source": article.get("source", {}).get("name", ""),
-            "published_date": article.get("publishedAt", "")
-        }
+Original: "{title}"
+
+Requirements:
+- Keep all facts accurate
+- Maintain the core message
+- Use {style} language
+- Return ONLY the rewritten headline"""
+
+            result = client.completions.create(
+                model=deployment_name,
+                prompt=rewrite_prompt,
+                max_tokens=80
+            )
+            rewritten = result.choices[0].text.strip()
+            
+            # Clean up the response
+            if rewritten.startswith('"') and rewritten.endswith('"'):
+                rewritten = rewritten[1:-1]
+            if rewritten.startswith('Rewritten:') or rewritten.startswith('New:'):
+                rewritten = rewritten.split(':', 1)[1].strip()
+            
+            print(f"📰 Original:  {title}")
+            print(f"✨ Rewritten: {rewritten}")
+            
+            doc = {
+                "@search.action": "upload",
+                "id": str(uuid.uuid4()),
+                "original_title": title,
+                "rewritten_title": rewritten,
+                "original_content": article.get("content", ""),
+                "source": article.get("source", {}).get("name", ""),
+                "published_date": article.get("publishedAt", "")
+            }
+        else:
+            print(f"📰 Original:  {title}")
+            print(f"⏭️  Skipped: {reason} (Confidence: {confidence}%)")
+            
+            doc = {
+                "@search.action": "upload",
+                "id": str(uuid.uuid4()),
+                "original_title": title,
+                "rewritten_title": title,  # Keep original
+                "original_content": article.get("content", ""),
+                "source": article.get("source", {}).get("name", ""),
+                "published_date": article.get("publishedAt", "")
+            }
+        
         docs.append(doc)
         processed_count += 1
 
