@@ -8,3 +8,6 @@ __pycache__/
 
 # Development learning files (keep private)
 DEVELOPMENT_JOURNAL.md
+to-do.md
+ai-search-azure-portal.png
+config.json
