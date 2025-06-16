@@ -124,6 +124,26 @@ This file outlines key improvements and feature ideas for upcoming versions of t
 
 ---
 
+## 🚀 Next Level Possibilities
+
+- [ ] **Web Interface** - Beautiful dashboard to browse your positive news
+- [ ] **Chrome Extension** - Replace negative headlines on websites with your rewritten versions
+- [ ] **Daily Email Digest** - Automated positive news summaries
+- [ ] **API Service** - Other apps could use your positive news data
+- [ ] **Trend Analysis** - Track which sources are most negative over time
+
+---
+
+## ⚡ Immediate Next Steps
+
+- [ ] Build a simple web viewer (Streamlit/Flask)
+- [ ] Add automated scheduling (run daily)
+- [ ] Implement source bias tracking
+- [ ] Create export features (JSON, CSV)
+- [ ] Add "Good News Only" sorting mechanic (filter rewritten articles)
+
+---
+
 ## 🔐 Security & Deployment
 
 - [ ] Move keys to `.env` (already done!)
@@ -141,6 +161,58 @@ This file outlines key improvements and feature ideas for upcoming versions of t
   - [x] No content
   - [x] Already positive headlines
   - [x] Misleading titles
+
+---
+
+## 📊 Azure AI Foundry (MLflow) Integration
+
+### **Goal:** Implement MLflow tracking for NewsPerspective to monitor AI performance and operational metrics.
+
+### **Steps:**
+
+1.  **Install Azure ML SDK & MLflow:**
+    *   Add `azure-ai-ml` and `mlflow` to `requirements.txt`.
+    *   Run `pip install -r requirements.txt`.
+
+2.  **Connect to Azure ML Workspace:**
+    *   Use `azure.ai.ml.MLClient` to connect using `config.json` (subscription\_id, resource\_group, account\_name).
+    *   Ensure `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET` (or other authentication methods) are set in `.env` for programmatic access.
+
+3.  **Integrate MLflow Tracking in `run.py` and `batch_processor.py`:**
+    *   **Import MLflow:** `import mlflow`
+    *   **Start MLflow Run:** At the beginning of the main processing function (`run()` in `run.py`, `run_batch_processing()` in `batch_processor.py`), add:
+        ```python
+        with mlflow.start_run() as run:
+            mlflow.log_param("max_articles_per_run", MAX_ARTICLES_PER_RUN)
+            mlflow.log_param("openai_deployment", deployment_name)
+            # For batch_processor.py:
+            # mlflow.log_param("batch_total_articles", self.TOTAL_ARTICLES)
+            # mlflow.log_param("batch_size", self.BATCH_SIZE)
+            # mlflow.log_param("batch_delay", self.BATCH_DELAY)
+            # mlflow.log_param("news_sources_mix", self.news_sources)
+            # ... rest of your processing logic ...
+        ```
+    *   **Log Metrics:** After processing is complete (or after each batch in `batch_processor.py`), log the `stats` data:
+        ```python
+        # Example for run.py (after stats.log_summary()):
+        mlflow.log_metric("articles_fetched", stats.get_metric('articles_fetched'))
+        mlflow.log_metric("articles_processed", stats.get_metric('articles_processed'))
+        mlflow.log_metric("rewrites_successful", stats.get_metric('rewrites_successful'))
+        mlflow.log_metric("articles_skipped", stats.get_metric('articles_skipped'))
+        mlflow.log_metric("rewrites_failed", stats.get_metric('rewrites_failed'))
+        mlflow.log_metric("api_calls", stats.get_metric('api_calls'))
+        mlflow.log_metric("api_errors", stats.get_metric('api_errors'))
+        mlflow.log_metric("uploads_successful", stats.get_metric('uploads_successful'))
+        mlflow.log_metric("uploads_failed", stats.get_metric('uploads_failed'))
+        mlflow.log_metric("rewrite_success_rate", stats.get_metric('rewrite_success_rate'))
+        mlflow.log_metric("total_duration_seconds", total_time)
+        # Add average confidence if calculated
+        ```
+    *   **Set MLflow Tracking URI:** Ensure MLflow knows where to log. This is usually done via environment variables or `mlflow.set_tracking_uri()`. For Azure ML, it often auto-configures if you're authenticated.
+
+4.  **Update `config.json` (Optional):** If you need to store more specific MLflow-related configurations, you can extend this file.
+
+5.  **Update `.env.template`:** Add placeholders for Azure ML authentication (e.g., `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`).
 
 ---
 
