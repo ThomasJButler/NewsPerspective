@@ -270,7 +270,7 @@ Requirements:
                 "article_url": article.get("url", ""),
                 "was_rewritten": needs_rewrite and confidence >= 60,
                 "original_tone": current_tone,
-                "confidence_score": confidence,
+                "confidence_score": int(confidence), # Convert to integer
                 "rewrite_reason": reason
             }
             

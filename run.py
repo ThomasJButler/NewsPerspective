@@ -301,7 +301,7 @@ Requirements:
                 "article_url": article.get("url", ""),
                 "was_rewritten": True,
                 "original_tone": current_tone,
-                "confidence_score": confidence,
+                "confidence_score": int(confidence), # Convert to integer
                 "rewrite_reason": reason
             }
         else:
@@ -322,7 +322,7 @@ Requirements:
                 "article_url": article.get("url", ""),
                 "was_rewritten": False,
                 "original_tone": current_tone,
-                "confidence_score": confidence,
+                "confidence_score": int(confidence), # Convert to integer
                 "rewrite_reason": reason
             }
         
