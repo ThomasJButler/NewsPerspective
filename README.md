@@ -1,6 +1,8 @@
 # News Perspective
 
-A tool to fetch news headlines and rewrite them in a more positive, factual tone.
+A tool to fetch news headlines and rewrite them in a more positive, factual tone. 
+
+# Demo Preview Incoming 
 
 ## What It Does
 
