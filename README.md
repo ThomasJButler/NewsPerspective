@@ -2,7 +2,7 @@
 
 A tool to fetch news headlines and rewrite them in a more positive, factual tone. 
 
-<p align="center"> <img src="./rewrites.png" alt="Rewrites screenshot" width="400" />&nbsp;&nbsp; <img src="./It-works.png" alt="It works screenshot" width="400" /> </p>
+<p align="center"> <img src="./rewrites.png" alt="Rewrites screenshot" width="600" />&nbsp;&nbsp </p>
 
 # Front End Demo Incoming 
 
