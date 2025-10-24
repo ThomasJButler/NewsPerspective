@@ -108,14 +108,21 @@ class AzureAILanguage:
                         ]
                     }
                 }
-                
-                response = requests.post(sentiment_url, headers=headers, json=sentiment_body)
-                
-                if response.status_code == 200:
-                    sentiment_result = response.json()
-                    return self._parse_simple_sentiment_result(sentiment_result, text)
-                else:
-                    logger.error(f"Azure AI Language API error: {response.status_code} - {response.text}")
+
+                try:
+                    response = requests.post(sentiment_url, headers=headers, json=sentiment_body, timeout=20)
+
+                    if response.status_code == 200:
+                        sentiment_result = response.json()
+                        return self._parse_simple_sentiment_result(sentiment_result, text)
+                    else:
+                        logger.error(f"Azure AI Language API error: {response.status_code} - {response.text}")
+                        return self._fallback_analysis(text)
+                except requests.exceptions.Timeout:
+                    logger.error("Azure AI Language timeout")
+                    return self._fallback_analysis(text)
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Azure AI Language request error: {str(e)}")
                     return self._fallback_analysis(text)
             else:
                 return self._fallback_analysis(text)
@@ -136,24 +143,31 @@ class AzureAILanguage:
         
         for attempt in range(max_attempts):
             try:
-                response = requests.get(operation_location, headers=headers)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    
-                    if result.get('status') == 'succeeded':
-                        return self._parse_analysis_result(result)
-                    elif result.get('status') == 'failed':
-                        logger.error(f"Azure AI Language analysis failed: {result}")
-                        return self._fallback_analysis("")
+                try:
+                    response = requests.get(operation_location, headers=headers, timeout=10)
+
+                    if response.status_code == 200:
+                        result = response.json()
+
+                        if result.get('status') == 'succeeded':
+                            return self._parse_analysis_result(result)
+                        elif result.get('status') == 'failed':
+                            logger.error(f"Azure AI Language analysis failed: {result}")
+                            return self._fallback_analysis("")
+                        else:
+                            time.sleep(1)
+                            continue
                     else:
-                        # Still running, wait and retry
-                        time.sleep(1)
-                        continue
-                else:
-                    logger.error(f"Error checking operation status: {response.status_code}")
+                        logger.error(f"Error checking operation status: {response.status_code}")
+                        return self._fallback_analysis("")
+                except requests.exceptions.Timeout:
+                    logger.warning(f"Timeout checking operation status (attempt {attempt+1}/{max_attempts})")
+                    time.sleep(2)
+                    continue
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Request error waiting for result: {str(e)}")
                     return self._fallback_analysis("")
-                    
+
             except Exception as e:
                 logger.error(f"Error waiting for result: {str(e)}")
                 return self._fallback_analysis("")

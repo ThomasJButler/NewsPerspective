@@ -35,12 +35,19 @@ def test_connection():
     @return {bool} Connection successful status
     """
     test_url = f"{azure_search_endpoint}/indexes/{azure_search_index}?api-version=2023-11-01"
-    response = requests.get(test_url, headers=headers)
-    if response.status_code == 200:
-        print("Connected to Azure Search successfully")
-        return True
-    else:
-        print(f"Connection failed: {response.status_code} - {response.text}")
+    try:
+        response = requests.get(test_url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            print("Connected to Azure Search successfully")
+            return True
+        else:
+            print(f"Connection failed: {response.status_code} - {response.text}")
+            return False
+    except requests.exceptions.Timeout:
+        print("Connection timeout after 5 seconds")
+        return False
+    except requests.exceptions.RequestException as e:
+        print(f"Connection error: {str(e)}")
         return False
 
 
@@ -73,19 +80,26 @@ def search_articles(query="*", top=10, filter_source=None, filter_date=None):
     
     if filters:
         search_params["$filter"] = " and ".join(filters)
-    
-    # Execute search
-    response = requests.get(
-        search_base_url,
-        headers=headers,
-        params=search_params
-    )
-    
-    if response.status_code != 200:
-        print(f"Search error: {response.status_code} - {response.text}")
-        return None
 
-    return response.json()
+    try:
+        response = requests.get(
+            search_base_url,
+            headers=headers,
+            params=search_params,
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            print(f"Search error: {response.status_code} - {response.text}")
+            return None
+
+        return response.json()
+    except requests.exceptions.Timeout:
+        print("Search timeout after 10 seconds")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"Search network error: {str(e)}")
+        return None
 
 
 def display_results(results):
@@ -171,29 +185,35 @@ def get_sources_summary():
     search_params = {
         "api-version": "2023-11-01",
         "search": "*",
-        "$top": 0,  # Don't return documents, just facets
+        "$top": 0,
         "facet": "source,count:20"
     }
-    
-    response = requests.get(
-        search_base_url,
-        headers=headers,
-        params=search_params
-    )
-    
-    if response.status_code != 200:
-        print(f"Error getting sources: {response.status_code}")
-        return
 
-    data = response.json()
-    if "@search.facets" in data and "source" in data["@search.facets"]:
-        sources = data["@search.facets"]["source"]
+    try:
+        response = requests.get(
+            search_base_url,
+            headers=headers,
+            params=search_params,
+            timeout=10
+        )
 
-        print("\nArticles by Source:\n")
-        table_data = [[s["value"], s["count"]] for s in sources]
-        print(tabulate(table_data, headers=["Source", "Count"], tablefmt="grid"))
-    else:
-        print("Could not retrieve source summary")
+        if response.status_code != 200:
+            print(f"Error getting sources: {response.status_code}")
+            return
+
+        data = response.json()
+        if "@search.facets" in data and "source" in data["@search.facets"]:
+            sources = data["@search.facets"]["source"]
+
+            print("\nArticles by Source:\n")
+            table_data = [[s["value"], s["count"]] for s in sources]
+            print(tabulate(table_data, headers=["Source", "Count"], tablefmt="grid"))
+        else:
+            print("Could not retrieve source summary")
+    except requests.exceptions.Timeout:
+        print("Timeout getting source summary")
+    except requests.exceptions.RequestException as e:
+        print(f"Error getting sources: {str(e)}")
 
 
 def main():

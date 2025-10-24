@@ -143,12 +143,36 @@ class BatchProcessor:
                 logger.debug(f"Fetching {source_type} articles: page {page}, size {page_size}")
                 self.stats.increment('api_calls')
 
-                response = requests.get(url)
+                try:
+                    response = requests.get(url, timeout=30)
+                except requests.exceptions.Timeout:
+                    print(f"Timeout fetching {source_type} articles. Retrying...")
+                    logger.warning(f"Timeout on {source_type} page {page}")
+                    self.stats.increment('api_errors')
+                    time.sleep(5)
+                    continue
+                except requests.exceptions.RequestException as e:
+                    print(f"Network error fetching {source_type}: {str(e)}")
+                    logger.error(f"RequestException on {source_type} page {page}: {str(e)}")
+                    self.stats.increment('api_errors')
+                    break
 
                 if response.status_code == 429:
-                    print(f"Rate limit hit for {source_type}. Waiting 60 seconds...")
+                    retry_after = response.headers.get('Retry-After', '60')
+                    try:
+                        wait_seconds = int(retry_after)
+                    except ValueError:
+                        from email.utils import parsedate_to_datetime
+                        try:
+                            retry_date = parsedate_to_datetime(retry_after)
+                            wait_seconds = max(0, (retry_date - datetime.now()).total_seconds())
+                        except:
+                            wait_seconds = 60
+                    wait_seconds = min(wait_seconds, 300)
+                    print(f"Rate limit hit for {source_type}. Waiting {wait_seconds} seconds...")
+                    logger.warning(f"Rate limit (429) for {source_type}, waiting {wait_seconds}s")
                     self.stats.increment('api_errors')
-                    time.sleep(60)
+                    time.sleep(wait_seconds)
                     continue
                 elif response.status_code != 200:
                     logger.error(f"NewsAPI error for {source_type}: {response.status_code}")
@@ -311,17 +335,50 @@ Requirements:
             print(f"Uploading batch {batch_num} ({len(docs)} articles)...")
             self.stats.increment('api_calls')
 
-            response = requests.post(
-                self.search_url,
-                headers=self.search_headers,
-                json={"value": docs}
-            )
+            try:
+                response = requests.post(
+                    self.search_url,
+                    headers=self.search_headers,
+                    json={"value": docs},
+                    timeout=30
+                )
+            except requests.exceptions.Timeout:
+                print(f"Batch {batch_num} upload timeout")
+                logger.error(f"Timeout uploading batch {batch_num}")
+                self.stats.increment('uploads_failed', len(docs))
+                return False
+            except requests.exceptions.RequestException as e:
+                print(f"Batch {batch_num} network error: {str(e)}")
+                logger.error(f"RequestException uploading batch {batch_num}: {str(e)}")
+                self.stats.increment('uploads_failed', len(docs))
+                return False
 
             if response.status_code in [200, 201]:
-                print(f"Batch {batch_num} uploaded successfully")
-                logger.info(f"Successfully uploaded batch {batch_num}: {len(docs)} documents")
-                self.stats.increment('uploads_successful', len(docs))
-                return True
+                try:
+                    result_data = response.json()
+                    results = result_data.get('value', [])
+                    successful = sum(1 for r in results if r.get('status') or r.get('statusCode') == 200 or r.get('statusCode') == 201)
+                    failed = len(results) - successful
+
+                    if failed > 0:
+                        print(f"Batch {batch_num}: {successful} succeeded, {failed} failed")
+                        logger.warning(f"Batch {batch_num}: {failed} documents failed indexing")
+                        for r in results:
+                            if r.get('statusCode') not in [200, 201]:
+                                logger.error(f"Document {r.get('key')} failed: {r.get('errorMessage')}")
+                    else:
+                        print(f"Batch {batch_num} uploaded successfully")
+                        logger.info(f"Successfully uploaded batch {batch_num}: {successful} documents")
+
+                    self.stats.increment('uploads_successful', successful)
+                    if failed > 0:
+                        self.stats.increment('uploads_failed', failed)
+                    return successful > 0
+                except (ValueError, KeyError) as e:
+                    print(f"Batch {batch_num} uploaded (unable to parse per-document results)")
+                    logger.warning(f"Could not parse per-document results for batch {batch_num}: {str(e)}")
+                    self.stats.increment('uploads_successful', len(docs))
+                    return True
             else:
                 print(f"Batch {batch_num} upload failed: {response.status_code}")
                 logger.error(f"Failed to upload batch {batch_num}: {response.status_code} - {response.text}")

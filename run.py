@@ -62,13 +62,36 @@ def fetch_articles_with_pagination(max_articles):
             logger.info(f"Fetching NewsAPI page {page}, requesting {articles_needed} articles")
             stats.increment('api_calls')
 
-            response = requests.get(news_url)
+            try:
+                response = requests.get(news_url, timeout=30)
+            except requests.exceptions.Timeout:
+                print("Timeout fetching articles. Retrying...")
+                logger.warning(f"Timeout on NewsAPI page {page}")
+                stats.increment('api_errors')
+                time.sleep(5)
+                continue
+            except requests.exceptions.RequestException as e:
+                print(f"Network error: {str(e)}")
+                logger.error(f"RequestException on page {page}: {str(e)}")
+                stats.increment('api_errors')
+                break
 
             if response.status_code == 429:
-                print("Rate limit hit. Waiting 60 seconds...")
-                logger.warning("NewsAPI rate limit hit, waiting 60 seconds")
+                retry_after = response.headers.get('Retry-After', '60')
+                try:
+                    wait_seconds = int(retry_after)
+                except ValueError:
+                    from email.utils import parsedate_to_datetime
+                    try:
+                        retry_date = parsedate_to_datetime(retry_after)
+                        wait_seconds = max(0, (retry_date - datetime.now()).total_seconds())
+                    except:
+                        wait_seconds = 60
+                wait_seconds = min(wait_seconds, 300)
+                print(f"Rate limit hit. Waiting {wait_seconds} seconds...")
+                logger.warning(f"NewsAPI rate limit (429), waiting {wait_seconds}s")
                 stats.increment('api_errors')
-                time.sleep(60)
+                time.sleep(wait_seconds)
                 continue
             elif response.status_code != 200:
                 print(f"API Error {response.status_code}: {response.text}")
@@ -277,7 +300,20 @@ Requirements:
                 prompt=rewrite_prompt,
                 max_tokens=80
             )
+
+            if not result or not result.choices or len(result.choices) == 0:
+                print(f"OpenAI returned no choices for headline. Skipping rewrite.")
+                logger.error(f"Empty OpenAI response for: {title[:50]}")
+                stats.increment('rewrites_failed')
+                continue
+
             rewritten = result.choices[0].text.strip()
+
+            if not rewritten:
+                print(f"OpenAI returned empty text. Skipping rewrite.")
+                logger.error(f"Empty rewrite text for: {title[:50]}")
+                stats.increment('rewrites_failed')
+                continue
 
             if rewritten.startswith('"') and rewritten.endswith('"'):
                 rewritten = rewritten[1:-1]
@@ -349,20 +385,50 @@ if docs:
         logger.info(f"Uploading {len(docs)} documents to Azure Search")
         stats.increment('api_calls')
 
-        response = requests.post(
-            search_url,
-            headers=headers_search,
-            json={"value": docs}
-        )
-
-        if response.status_code == 200 or response.status_code == 201:
-            print(f"\nUpload complete. Azure Search response: {response.status_code}")
-            logger.info(f"Successfully uploaded {len(docs)} documents to Azure Search")
-            stats.increment('uploads_successful', len(docs))
-        else:
-            print(f"\nUpload failed. Azure Search response: {response.status_code} - {response.text}")
-            logger.error(f"Failed to upload documents: {response.status_code} - {response.text}")
+        try:
+            response = requests.post(
+                search_url,
+                headers=headers_search,
+                json={"value": docs},
+                timeout=30
+            )
+        except requests.exceptions.Timeout:
+            print(f"\nUpload timeout after 30 seconds")
+            logger.error(f"Timeout uploading {len(docs)} documents")
             stats.increment('uploads_failed', len(docs))
+        except requests.exceptions.RequestException as e:
+            print(f"\nUpload network error: {str(e)}")
+            logger.error(f"RequestException uploading documents: {str(e)}")
+            stats.increment('uploads_failed', len(docs))
+        else:
+            if response.status_code == 200 or response.status_code == 201:
+                try:
+                    result_data = response.json()
+                    results = result_data.get('value', [])
+                    successful = sum(1 for r in results if r.get('status') or r.get('statusCode') == 200 or r.get('statusCode') == 201)
+                    failed = len(results) - successful
+
+                    if failed > 0:
+                        print(f"\nUpload complete: {successful} succeeded, {failed} failed")
+                        logger.warning(f"{failed} documents failed indexing")
+                        for r in results:
+                            if r.get('statusCode') not in [200, 201]:
+                                logger.error(f"Document {r.get('key')} failed: {r.get('errorMessage')}")
+                    else:
+                        print(f"\nUpload complete. All {successful} documents indexed successfully")
+                        logger.info(f"Successfully uploaded {successful} documents to Azure Search")
+
+                    stats.increment('uploads_successful', successful)
+                    if failed > 0:
+                        stats.increment('uploads_failed', failed)
+                except (ValueError, KeyError) as e:
+                    print(f"\nUpload complete (unable to parse per-document results)")
+                    logger.warning(f"Could not parse per-document results: {str(e)}")
+                    stats.increment('uploads_successful', len(docs))
+            else:
+                print(f"\nUpload failed. Azure Search response: {response.status_code} - {response.text}")
+                logger.error(f"Failed to upload documents: {response.status_code} - {response.text}")
+                stats.increment('uploads_failed', len(docs))
 
     except Exception as e:
         print(f"\nUpload error: {e}")

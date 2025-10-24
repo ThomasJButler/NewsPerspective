@@ -56,18 +56,24 @@ class AzureDocumentIntelligence:
                 "urlSource": url
             }
             
-            # Start the analysis
             analyze_url = f"{self.endpoint}/documentintelligence/v4.0-preview/documentModels/prebuilt-layout:analyze?api-version=2024-07-31-preview"
-            
+
             logger.debug(f"Starting document analysis for URL: {url}")
-            response = requests.post(analyze_url, headers=headers, json=body)
-            
-            if response.status_code == 202:
-                # Long-running operation - get the result
-                operation_location = response.headers.get('Operation-Location')
-                return self._wait_for_analysis_result(operation_location, headers, url)
-            else:
-                logger.error(f"Document Intelligence API error: {response.status_code} - {response.text}")
+
+            try:
+                response = requests.post(analyze_url, headers=headers, json=body, timeout=30)
+
+                if response.status_code == 202:
+                    operation_location = response.headers.get('Operation-Location')
+                    return self._wait_for_analysis_result(operation_location, headers, url)
+                else:
+                    logger.error(f"Document Intelligence API error: {response.status_code} - {response.text}")
+                    return self._fallback_extraction(url)
+            except requests.exceptions.Timeout:
+                logger.error(f"Timeout starting document analysis for URL: {url}")
+                return self._fallback_extraction(url)
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request error starting document analysis: {str(e)}")
                 return self._fallback_extraction(url)
                 
         except Exception as e:
@@ -78,25 +84,32 @@ class AzureDocumentIntelligence:
         """Wait for document analysis to complete"""
         for attempt in range(max_attempts):
             try:
-                response = requests.get(operation_location, headers=headers)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    status = result.get('status', '')
-                    
-                    if status == 'succeeded':
-                        return self._parse_document_result(result, url)
-                    elif status == 'failed':
-                        logger.error(f"Document analysis failed: {result.get('error', 'Unknown error')}")
-                        return self._fallback_extraction(url)
+                try:
+                    response = requests.get(operation_location, headers=headers, timeout=15)
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        status = result.get('status', '')
+
+                        if status == 'succeeded':
+                            return self._parse_document_result(result, url)
+                        elif status == 'failed':
+                            logger.error(f"Document analysis failed: {result.get('error', 'Unknown error')}")
+                            return self._fallback_extraction(url)
+                        else:
+                            time.sleep(2)
+                            continue
                     else:
-                        # Still running, wait and retry
-                        time.sleep(2)
-                        continue
-                else:
-                    logger.error(f"Error checking analysis status: {response.status_code}")
+                        logger.error(f"Error checking analysis status: {response.status_code}")
+                        return self._fallback_extraction(url)
+                except requests.exceptions.Timeout:
+                    logger.warning(f"Timeout checking analysis status (attempt {attempt+1}/{max_attempts})")
+                    time.sleep(3)
+                    continue
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Request error waiting for analysis result: {str(e)}")
                     return self._fallback_extraction(url)
-                    
+
             except Exception as e:
                 logger.error(f"Error waiting for analysis result: {str(e)}")
                 return self._fallback_extraction(url)

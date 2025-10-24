@@ -128,12 +128,11 @@ def search_articles(query="*", filter_params=None, top=20):
         search_params["$filter"] = " and ".join(filters)
     
     try:
-        response = requests.get(search_url, headers=headers, params=search_params)
+        response = requests.get(search_url, headers=headers, params=search_params, timeout=15)
         if response.status_code == 200:
             return response.json()
         else:
-            # Better error debugging
-            st.error(f"❌ Search error: {response.status_code}")
+            st.error(f"Search error: {response.status_code}")
             if response.status_code == 400:
                 try:
                     error_detail = response.json()
@@ -141,8 +140,14 @@ def search_articles(query="*", filter_params=None, top=20):
                 except:
                     st.error(f"Error response: {response.text}")
             return None
+    except requests.exceptions.Timeout:
+        st.error("Search timeout after 15 seconds")
+        return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Network error: {str(e)}")
+        return None
     except Exception as e:
-        st.error(f"❌ Connection error: {str(e)}")
+        st.error(f"Connection error: {str(e)}")
         return None
 
 def get_sources():
@@ -165,11 +170,15 @@ def get_sources():
     }
     
     try:
-        response = requests.get(search_url, headers=headers, params=search_params)
+        response = requests.get(search_url, headers=headers, params=search_params, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if "@search.facets" in data and "source" in data["@search.facets"]:
                 return [item["value"] for item in data["@search.facets"]["source"]]
+        return []
+    except requests.exceptions.Timeout:
+        return []
+    except requests.exceptions.RequestException:
         return []
     except:
         return []
