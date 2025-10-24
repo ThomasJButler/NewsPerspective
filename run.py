@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from logger_config import setup_logger, StatsTracker, log_performance, log_error_details
 from azure_ai_language import ai_language
 from azure_document_intelligence import document_intelligence
+from clickbait_detector import clickbait_detector
 
 load_dotenv()
 
@@ -179,16 +180,33 @@ for i, article in enumerate(articles, 1):
     try:
         logger.debug("Requesting sentiment analysis for headline")
         stats.increment('api_calls')
-        
+
         ai_analysis = ai_language.analyze_text(title)
         problematic_phrases = ai_language.extract_problematic_phrases(title)
-        
-        # Extract sentiment information
+
         sentiment = ai_analysis.get('sentiment', 'neutral')
         confidence_scores = ai_analysis.get('confidence_scores', {})
         enhanced_reason = ai_analysis.get('enhanced_reason', '')
         entities = ai_analysis.get('entities', [])
         key_phrases = ai_analysis.get('key_phrases', [])
+
+        # Clickbait detection
+        article_url = article.get("url", "")
+        source = article.get("source", {}).get("name", "Unknown")
+        clickbait_analysis = clickbait_detector.detect_clickbait_score(
+            title,
+            article_content=None,
+            article_url=article_url
+        )
+
+        clickbait_score = clickbait_analysis.get('clickbait_score', 0)
+        is_clickbait = clickbait_analysis.get('is_clickbait', False)
+        clickbait_reasons = clickbait_analysis.get('reasons', [])
+
+        clickbait_detector.track_source_reliability(source, clickbait_score, is_clickbait)
+
+        print(f"Clickbait score: {clickbait_score}/100 {'(CLICKBAIT)' if is_clickbait else ''}")
+        logger.info(f"Clickbait score: {clickbait_score}, is_clickbait: {is_clickbait}")
         
         # Determine if rewrite is needed based on enhanced analysis
         negative_confidence = confidence_scores.get('negative', 0)
@@ -332,13 +350,16 @@ Requirements:
                 "original_title": title,
                 "rewritten_title": rewritten,
                 "original_content": article.get("content", ""),
-                "source": article.get("source", {}).get("name", ""),
+                "source": source,
                 "published_date": article.get("publishedAt", ""),
-                "article_url": article.get("url", ""),
+                "article_url": article_url,
                 "was_rewritten": True,
                 "original_tone": current_tone,
-                "confidence_score": int(confidence), # Convert to integer
-                "rewrite_reason": reason
+                "confidence_score": int(confidence),
+                "rewrite_reason": reason,
+                "clickbait_score": clickbait_score,
+                "is_clickbait": is_clickbait,
+                "clickbait_reasons": '; '.join(clickbait_reasons) if clickbait_reasons else ""
             }
         else:
             print(f"Original:  {title}")
@@ -346,20 +367,23 @@ Requirements:
 
             logger.info(f"Skipping rewrite: {reason}")
             stats.increment('articles_skipped')
-            
+
             doc = {
                 "@search.action": "upload",
                 "id": str(uuid.uuid4()),
                 "original_title": title,
-                "rewritten_title": title,  # Keep original
+                "rewritten_title": title,
                 "original_content": article.get("content", ""),
-                "source": article.get("source", {}).get("name", ""),
+                "source": source,
                 "published_date": article.get("publishedAt", ""),
-                "article_url": article.get("url", ""),
+                "article_url": article_url,
                 "was_rewritten": False,
                 "original_tone": current_tone,
-                "confidence_score": int(confidence), # Convert to integer
-                "rewrite_reason": reason
+                "confidence_score": int(confidence),
+                "rewrite_reason": reason,
+                "clickbait_score": clickbait_score,
+                "is_clickbait": is_clickbait,
+                "clickbait_reasons": '; '.join(clickbait_reasons) if clickbait_reasons else ""
             }
         
         docs.append(doc)

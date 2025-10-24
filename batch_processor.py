@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from logger_config import setup_logger, StatsTracker, log_performance, log_error_details
 from azure_ai_language import ai_language
 from azure_document_intelligence import document_intelligence
+from clickbait_detector import clickbait_detector
 from datetime import datetime
 
 load_dotenv()
@@ -221,13 +222,30 @@ class BatchProcessor:
             self.stats.increment('api_calls')
             ai_analysis = ai_language.analyze_text(title)
             problematic_phrases = ai_language.extract_problematic_phrases(title)
-            
-            # Extract sentiment information
+
             sentiment = ai_analysis.get('sentiment', 'neutral')
             confidence_scores = ai_analysis.get('confidence_scores', {})
             enhanced_reason = ai_analysis.get('enhanced_reason', '')
-            
-            # Determine if rewrite is needed
+
+            # Clickbait detection
+            article_url = article.get("url", "")
+            source = article.get("source", {}).get("name", "Unknown")
+            clickbait_analysis = clickbait_detector.detect_clickbait_score(
+                title,
+                article_content=None,
+                article_url=article_url
+            )
+
+            clickbait_score = clickbait_analysis.get('clickbait_score', 0)
+            is_clickbait = clickbait_analysis.get('is_clickbait', False)
+            clickbait_reasons = clickbait_analysis.get('reasons', [])
+
+            # Track source reliability
+            clickbait_detector.track_source_reliability(source, clickbait_score, is_clickbait)
+
+            print(f"   Clickbait score: {clickbait_score}/100 {'(CLICKBAIT DETECTED)' if is_clickbait else ''}")
+            logger.info(f"Clickbait score: {clickbait_score}, is_clickbait: {is_clickbait}")
+
             negative_confidence = confidence_scores.get('negative', 0)
             positive_confidence = confidence_scores.get('positive', 0)
             
@@ -304,13 +322,16 @@ Requirements:
                 "original_title": title,
                 "rewritten_title": rewritten_title,
                 "original_content": article.get("content", ""),
-                "source": article.get("source", {}).get("name", ""),
+                "source": source,
                 "published_date": article.get("publishedAt", ""),
-                "article_url": article.get("url", ""),
+                "article_url": article_url,
                 "was_rewritten": needs_rewrite and confidence >= 60,
                 "original_tone": current_tone,
-                "confidence_score": int(confidence), # Convert to integer
-                "rewrite_reason": reason
+                "confidence_score": int(confidence),
+                "rewrite_reason": reason,
+                "clickbait_score": clickbait_score,
+                "is_clickbait": is_clickbait,
+                "clickbait_reasons": '; '.join(clickbait_reasons) if clickbait_reasons else ""
             }
             
             self.stats.increment('articles_processed')
