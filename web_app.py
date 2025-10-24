@@ -1,3 +1,10 @@
+"""
+@author Tom Butler
+@date 2025-10-24
+@description Streamlit web interface for browsing and searching rewritten news articles.
+             Provides filtering, search, and sentiment analysis visualization.
+"""
+
 import streamlit as st
 import requests
 import os
@@ -5,7 +12,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 # Configure Streamlit page
@@ -61,21 +67,31 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Azure Search configuration
 @st.cache_data
 def get_azure_config():
+    """
+    Get Azure Search configuration from environment variables.
+    @return {dict} Configuration dictionary with keys, endpoint, index
+    """
     return {
         'search_key': os.getenv("AZURE_SEARCH_KEY"),
         'search_endpoint': os.getenv("AZURE_SEARCH_ENDPOINT"),
         'search_index': os.getenv("AZURE_SEARCH_INDEX", "news-perspective-index")
     }
 
+
 def search_articles(query="*", filter_params=None, top=20):
-    """Search articles in Azure Search"""
+    """
+    Search articles in Azure Search with filtering options.
+    @param {str} query - Search query string
+    @param {dict} filter_params - Filter parameters
+    @param {int} top - Number of results to return
+    @return {dict} Search results or None on error
+    """
     config = get_azure_config()
     
     if not config['search_key'] or not config['search_endpoint']:
-        st.error("❌ Azure Search configuration missing. Please check your .env file.")
+        st.error("Azure Search configuration missing. Please check your .env file.")
         return None
     
     search_url = f"{config['search_endpoint']}/indexes/{config['search_index']}/docs"
@@ -130,7 +146,10 @@ def search_articles(query="*", filter_params=None, top=20):
         return None
 
 def get_sources():
-    """Get list of available sources"""
+    """
+    Get list of available news sources.
+    @return {list} List of source names
+    """
     config = get_azure_config()
     search_url = f"{config['search_endpoint']}/indexes/{config['search_index']}/docs"
     headers = {

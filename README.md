@@ -1,34 +1,23 @@
-# News Perspective AI
+# News Perspective
 
-**News Perspective AI** is a Python-based tool that:
-- Fetches the latest news headlines from [NewsAPI.org](https://newsapi.org/)
-- Rewrites them in a more **positive**, **neutral**, or **factual** tone using [Azure OpenAI](https://azure.microsoft.com/en-us/services/cognitive-services/openai-service/)
-- Uploads both the original and rewritten headlines to an Azure AI Search Index for fast semantic retrieval
+A tool to fetch news headlines and rewrite them in a more positive, factual tone.
 
-This was created to help reduce doomscrolling, emotional bias, and misinformation caused by alarmist media.
+## What It Does
 
----
+1. Fetches headlines from [NewsAPI.org](https://newsapi.org/)
+2. Analyses sentiment and identifies problematic language using Azure AI Language
+3. Rewrites negative headlines in a calmer, more factual tone using Azure OpenAI
+4. Indexes results in Azure AI Search for semantic retrieval
+5. Provides a Streamlit web interface to browse and search the results
 
-## ⚙️ How It Works
+Built to help reduce doomscrolling and emotional bias caused by alarmist headlines.
 
-1. **Fetch News** from NewsAPI
-2. **Rewrite** headlines using an Azure OpenAI model (gpt-35-turbo)
-3. **Upload** the results to an Azure AI Search Index
+## Setup
 
----
-
-## 🚀 Quickstart
-
-> ⚠️ This assumes you already have Azure OpenAI and Azure AI Search set up
+Prerequisites: You'll need Azure OpenAI and Azure AI Search configured.
 
 1. Clone the repo
-2. Create a `.env` file with the settings described below
-3. Install the required Python packages
-4. Run the script!
-
-### Environment Variables
-
-Create a `.env` file with:
+2. Create a `.env` file with these variables:
 
 ```
 NEWS_API_KEY=your_newsapi_key
@@ -38,26 +27,60 @@ AZURE_OPENAI_DEPLOYMENT=gpt-35-turbo-instruct
 AZURE_SEARCH_KEY=your_azure_search_key
 AZURE_SEARCH_ENDPOINT=https://<your-search-name>.search.windows.net
 AZURE_SEARCH_INDEX=news-perspective-index
+AZURE_AI_LANGUAGE_ENDPOINT=https://<your-region>.cognitiveservices.azure.com/
+AZURE_AI_LANGUAGE_KEY=your_azure_ai_language_key
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://<your-region>.cognitiveservices.azure.com/
+AZURE_DOCUMENT_INTELLIGENCE_KEY=your_azure_document_intelligence_key
 ```
 
-> **DO NOT COMMIT KEYS TO GIT.** Use environment variables or secure key management tools like Azure Key Vault.
+Keep keys secure - never commit `.env` to git. Use Azure Key Vault for production.
 
----
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## 🧠 Tech Stack
+4. Run the batch processor:
+```bash
+python batch_processor.py
+```
+
+Or run the simple version:
+```bash
+python run.py
+```
+
+## Usage
+
+**Search the index:**
+```bash
+python search.py --keyword "technology"
+python search.py --recent 24      # Last 24 hours
+python search.py --source "BBC"   # Filter by source
+python search.py --test          # Test connection
+```
+
+**Web interface:**
+```bash
+streamlit run web_app.py
+```
+
+## Tech Stack
+
 - Python 3.9+
 - Azure OpenAI (gpt-35-turbo)
+- Azure AI Language
+- Azure AI Document Intelligence
 - Azure AI Search
-- NewsAPI.org
+- NewsAPI
+- Streamlit (web UI)
 
----
+## Files
 
-## 💡 Ideas for Expansion
-- Web UI (Streamlit, Flask, or Next.js)
-- Schedule daily rewrites via GitHub Actions or Azure Functions
-- Add sentiment analysis and topic clustering
-- Build a Chrome extension that rewrites headlines live
-
----
-
-🤘 *Built by Thomas Butler with a relentless need to make the web suck less.*
+- `batch_processor.py` - Main batch processing with enhanced analysis
+- `run.py` - Simple single-run version
+- `search.py` - CLI tool for searching the index
+- `web_app.py` - Streamlit web interface
+- `azure_ai_language.py` - Sentiment and entity analysis
+- `azure_document_intelligence.py` - Content extraction from articles
+- `logger_config.py` - Logging and stats tracking

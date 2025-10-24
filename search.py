@@ -1,3 +1,10 @@
+"""
+@author Tom Butler
+@date 2025-10-24
+@description Command-line search tool for querying articles in Azure AI Search.
+             Supports keyword search, filtering by source/date, and summary views.
+"""
+
 import requests
 import os
 from datetime import datetime
@@ -6,10 +13,7 @@ import argparse
 from tabulate import tabulate
 import textwrap
 
-# Load environment variables from .env file
 load_dotenv()
-
-# Load Azure Search configuration
 azure_search_key = os.getenv("AZURE_SEARCH_KEY")
 azure_search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
 azure_search_index = os.getenv("AZURE_SEARCH_INDEX", "news-perspective-index")
@@ -25,21 +29,30 @@ headers = {
     "api-key": azure_search_key
 }
 
-# Test connection
 def test_connection():
-    """Test if we can connect to Azure Search"""
+    """
+    Test connection to Azure Search index.
+    @return {bool} Connection successful status
+    """
     test_url = f"{azure_search_endpoint}/indexes/{azure_search_index}?api-version=2023-11-01"
     response = requests.get(test_url, headers=headers)
     if response.status_code == 200:
-        print("✅ Connected to Azure Search successfully")
+        print("Connected to Azure Search successfully")
         return True
     else:
-        print(f"❌ Connection failed: {response.status_code} - {response.text}")
+        print(f"Connection failed: {response.status_code} - {response.text}")
         return False
 
 
 def search_articles(query="*", top=10, filter_source=None, filter_date=None):
-    """Search articles in Azure Search index"""
+    """
+    Search articles in Azure Search index.
+    @param {str} query - Search query string
+    @param {int} top - Number of results to return
+    @param {str} filter_source - Filter by news source
+    @param {str} filter_date - Filter by publication date
+    @return {dict} Search results or None on error
+    """
     
     # Build search query
     search_params = {
@@ -69,22 +82,25 @@ def search_articles(query="*", top=10, filter_source=None, filter_date=None):
     )
     
     if response.status_code != 200:
-        print(f"❌ Search error: {response.status_code} - {response.text}")
+        print(f"Search error: {response.status_code} - {response.text}")
         return None
-    
+
     return response.json()
 
 
 def display_results(results):
-    """Display search results in a formatted table"""
+    """
+    Display search results in a formatted table.
+    @param {dict} results - Search results from Azure Search
+    """
     if not results or "@odata.count" not in results:
-        print("❌ No results found")
+        print("No results found")
         return
     
     count = results["@odata.count"]
     articles = results["value"]
-    
-    print(f"\n📊 Found {count} articles\n")
+
+    print(f"\nFound {count} articles\n")
     
     # Prepare data for table
     table_data = []
@@ -118,33 +134,40 @@ def display_results(results):
 
 
 def get_recent_articles(hours=24):
-    """Get articles from the last N hours"""
-    # Calculate date filter
+    """
+    Get articles from the last N hours.
+    @param {int} hours - Hours back to search
+    """
     from datetime import datetime, timedelta
     filter_date = (datetime.utcnow() - timedelta(hours=hours)).strftime("%Y-%m-%d")
-    
-    print(f"🕒 Fetching articles from the last {hours} hours...")
+
+    print(f"Fetching articles from the last {hours} hours...")
     results = search_articles(filter_date=filter_date, top=20)
     display_results(results)
 
 
 def get_by_source(source_name):
-    """Get articles from a specific source"""
-    print(f"📰 Fetching articles from {source_name}...")
+    """
+    Get articles from a specific news source.
+    @param {str} source_name - News source name
+    """
+    print(f"Fetching articles from {source_name}...")
     results = search_articles(filter_source=source_name, top=20)
     display_results(results)
 
 
 def search_by_keyword(keyword):
-    """Search articles by keyword"""
-    print(f"🔍 Searching for '{keyword}'...")
+    """
+    Search articles by keyword.
+    @param {str} keyword - Search keyword
+    """
+    print(f"Searching for '{keyword}'...")
     results = search_articles(query=keyword, top=20)
     display_results(results)
 
 
 def get_sources_summary():
-    """Get summary of articles by source"""
-    # Use faceted search to get source counts
+    """Get summary of articles by source."""
     search_params = {
         "api-version": "2023-11-01",
         "search": "*",
@@ -159,18 +182,18 @@ def get_sources_summary():
     )
     
     if response.status_code != 200:
-        print(f"❌ Error getting sources: {response.status_code}")
+        print(f"Error getting sources: {response.status_code}")
         return
-    
+
     data = response.json()
     if "@search.facets" in data and "source" in data["@search.facets"]:
         sources = data["@search.facets"]["source"]
-        
-        print("\n📈 Articles by Source:\n")
+
+        print("\nArticles by Source:\n")
         table_data = [[s["value"], s["count"]] for s in sources]
         print(tabulate(table_data, headers=["Source", "Count"], tablefmt="grid"))
     else:
-        print("❌ Could not retrieve source summary")
+        print("Could not retrieve source summary")
 
 
 def main():

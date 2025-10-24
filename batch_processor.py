@@ -1,3 +1,11 @@
+"""
+@author Tom Butler
+@date 2025-10-24
+@description Batch processor for handling large volumes of news articles.
+             Fetches headlines from NewsAPI, rewrites negative headlines using Azure OpenAI,
+             and uploads results to Azure AI Search with sentiment analysis.
+"""
+
 import requests
 from openai import AzureOpenAI
 import uuid
@@ -9,24 +17,26 @@ from azure_ai_language import ai_language
 from azure_document_intelligence import document_intelligence
 from datetime import datetime
 
-# Load environment variables from .env file
 load_dotenv()
 
 # Setup logging
 logger = setup_logger("NewsPerspective.BatchProcessor")
 
 class BatchProcessor:
-    """Batch processor for handling large volumes of news articles"""
-    
+    """
+    Batch processor for news headline rewriting and indexing.
+    Orchestrates fetching, analysis, rewriting, and upload of news articles.
+    """
+
     def __init__(self):
+        """Initialise batch processor with configuration and Azure clients."""
         self.stats = StatsTracker(logger)
         self.setup_clients()
-        
-        # Configuration
+
         self.TOTAL_ARTICLES = int(os.getenv("BATCH_TOTAL_ARTICLES", "500"))
         self.BATCH_SIZE = int(os.getenv("BATCH_SIZE", "20"))
-        self.BATCH_DELAY = int(os.getenv("BATCH_DELAY", "10"))  # seconds between batches
-        self.RATE_LIMIT_DELAY = 1  # seconds between API calls
+        self.BATCH_DELAY = int(os.getenv("BATCH_DELAY", "10"))
+        self.RATE_LIMIT_DELAY = 1
         
         # News sources configuration
         self.news_sources = {
@@ -42,11 +52,10 @@ class BatchProcessor:
             }
         }
         
-        logger.info(f"Batch Processor initialized: {self.TOTAL_ARTICLES} articles in {self.BATCH_SIZE}-article batches")
-        
+        logger.info(f"Batch Processor initialised: {self.TOTAL_ARTICLES} articles in {self.BATCH_SIZE}-article batches")
+
     def setup_clients(self):
-        """Setup Azure clients and validate credentials"""
-        # Load keys and endpoints
+        """Initialise Azure clients and validate credentials."""
         self.news_api_key = os.getenv("NEWS_API_KEY")
         self.azure_openai_key = os.getenv("AZURE_OPENAI_KEY")
         self.azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -54,52 +63,50 @@ class BatchProcessor:
         self.azure_search_key = os.getenv("AZURE_SEARCH_KEY")
         self.azure_search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
         self.azure_search_index = os.getenv("AZURE_SEARCH_INDEX", "news-perspective-index")
-        
-        # Validate required credentials
-        if not all([self.news_api_key, self.azure_openai_key, self.azure_openai_endpoint, 
+
+        if not all([self.news_api_key, self.azure_openai_key, self.azure_openai_endpoint,
                    self.azure_search_key, self.azure_search_endpoint]):
             raise EnvironmentError("Missing required environment variables. Please check your .env file.")
-        
-        # Setup Azure OpenAI client
+
         self.openai_client = AzureOpenAI(
             api_version="2024-12-01-preview",
             azure_endpoint=self.azure_openai_endpoint,
             api_key=self.azure_openai_key
         )
-        
-        # Setup Azure Search
+
         self.search_url = f"{self.azure_search_endpoint}/indexes/{self.azure_search_index}/docs/index?api-version=2023-11-01"
         self.search_headers = {
             "Content-Type": "application/json",
             "api-key": self.azure_search_key
         }
-        
-        logger.info("Azure clients initialized successfully")
+
+        logger.info("Azure clients initialised successfully")
 
     def fetch_articles_mixed_sources(self, total_articles):
-        """Fetch articles from mixed sources (general + sports)"""
+        """
+        Fetch articles from multiple sources (general + sports).
+        @param {int} total_articles - Target number of articles to fetch
+        @return {list} List of fetched article objects
+        """
         all_articles = []
-        
-        # Calculate articles per source based on weights
+
         general_count = int(total_articles * self.news_sources["general"]["weight"])
         sports_count = total_articles - general_count
-        
-        print(f"📊 Article Mix: {general_count} general news + {sports_count} sports news")
+
+        print(f"Article Mix: {general_count} general news + {sports_count} sports news")
         logger.info(f"Fetching mixed articles: {general_count} general, {sports_count} sports")
-        
-        # Fetch general news
+
         if general_count > 0:
-            print(f"\n📰 Fetching {general_count} general news articles...")
+            print(f"Fetching {general_count} general news articles...")
             general_articles = self.fetch_articles_by_source("general", general_count)
             all_articles.extend(general_articles)
-            print(f"✅ Fetched {len(general_articles)} general articles")
-        
-        # Fetch sports news  
+            print(f"Fetched {len(general_articles)} general articles")
+
         if sports_count > 0:
-            print(f"\n⚽ Fetching {sports_count} sports news articles...")
+            print(f"Fetching {sports_count} sports news articles...")
             sports_articles = self.fetch_articles_by_source("sports", sports_count)
             all_articles.extend(sports_articles)
-            print(f"✅ Fetched {len(sports_articles)} sports articles")
+            print(f"Fetched {len(sports_articles)} sports articles")
         
         # Shuffle to mix sources
         import random
@@ -108,18 +115,22 @@ class BatchProcessor:
         return all_articles[:total_articles]
 
     def fetch_articles_by_source(self, source_type, count):
-        """Fetch articles for a specific source type"""
+        """
+        Fetch articles from a specific news source.
+        @param {str} source_type - Type of source (general, sports, etc.)
+        @param {int} count - Number of articles to fetch
+        @return {list} List of article objects
+        """
         source_config = self.news_sources[source_type]
         articles = []
         page = 1
-        articles_per_page = min(100, count)  # NewsAPI max per request
-        
+        articles_per_page = min(100, count)
+
         while len(articles) < count:
             try:
-                # Build NewsAPI URL
                 remaining = count - len(articles)
                 page_size = min(articles_per_page, remaining)
-                
+
                 url = (f"https://newsapi.org/v2/everything"
                        f"?q={source_config['query']}"
                        f"&domains={source_config['domains']}"
@@ -128,14 +139,14 @@ class BatchProcessor:
                        f"&pageSize={page_size}"
                        f"&page={page}"
                        f"&apiKey={self.news_api_key}")
-                
+
                 logger.debug(f"Fetching {source_type} articles: page {page}, size {page_size}")
                 self.stats.increment('api_calls')
-                
+
                 response = requests.get(url)
-                
-                if response.status_code == 429:  # Rate limit
-                    print(f"⚠️  Rate limit hit for {source_type}. Waiting 60 seconds...")
+
+                if response.status_code == 429:
+                    print(f"Rate limit hit for {source_type}. Waiting 60 seconds...")
                     self.stats.increment('api_errors')
                     time.sleep(60)
                     continue
@@ -143,42 +154,46 @@ class BatchProcessor:
                     logger.error(f"NewsAPI error for {source_type}: {response.status_code}")
                     self.stats.increment('api_errors')
                     break
-                
+
                 data = response.json()
                 page_articles = data.get("articles", [])
-                
+
                 if not page_articles:
-                    print(f"📄 No more {source_type} articles available")
+                    print(f"No more {source_type} articles available")
                     break
-                
-                # Filter out articles with no title or removed content
-                valid_articles = [a for a in page_articles 
+
+                valid_articles = [a for a in page_articles
                                 if a.get("title") and a.get("title") != "[Removed]"]
-                
+
                 articles.extend(valid_articles)
                 self.stats.increment('articles_fetched', len(valid_articles))
-                
+
                 page += 1
-                time.sleep(self.RATE_LIMIT_DELAY)  # Rate limiting
-                
+                time.sleep(self.RATE_LIMIT_DELAY)
+
             except Exception as e:
                 logger.error(f"Error fetching {source_type} articles: {str(e)}")
                 self.stats.increment('api_errors')
                 break
-        
+
         return articles[:count]
 
     def process_article(self, article, article_num, total_articles):
-        """Process a single article with enhanced analysis"""
+        """
+        Process a single article for headline analysis and rewriting.
+        @param {dict} article - Article object from NewsAPI
+        @param {int} article_num - Current article number in batch
+        @param {int} total_articles - Total articles in processing run
+        @return {dict} Document ready for Azure Search upload or None if skipped
+        """
         title = article.get("title", "")
         if not title or title == "[Removed]":
             return None
-            
+
         print(f"[{article_num}/{total_articles}] {title[:60]}{'...' if len(title) > 60 else ''}")
         logger.info(f"Processing article {article_num}: {title[:50]}...")
-        
+
         try:
-            # Enhanced analysis using Azure AI Language
             self.stats.increment('api_calls')
             ai_analysis = ai_language.analyze_text(title)
             problematic_phrases = ai_language.extract_problematic_phrases(title)
@@ -251,11 +266,11 @@ Requirements:
                     rewritten_title = rewritten_title[1:-1]
                 if rewritten_title.startswith('Rewritten:') or rewritten_title.startswith('New:'):
                     rewritten_title = rewritten_title.split(':', 1)[1].strip()
-                
-                print(f"   ✨ Rewritten: {rewritten_title[:50]}{'...' if len(rewritten_title) > 50 else ''}")
+
+                print(f"   Rewritten: {rewritten_title[:50]}{'...' if len(rewritten_title) > 50 else ''}")
                 self.stats.increment('rewrites_successful')
             else:
-                print(f"   ⏭️  Skipped: {reason[:50]}{'...' if len(reason) > 50 else ''}")
+                print(f"   Skipped: {reason[:50]}{'...' if len(reason) > 50 else ''}")
                 self.stats.increment('articles_skipped')
             
             # Create document for upload
@@ -283,63 +298,69 @@ Requirements:
             return None
 
     def upload_batch(self, docs, batch_num):
-        """Upload a batch of documents to Azure Search"""
+        """
+        Upload a batch of documents to Azure Search.
+        @param {list} docs - List of documents ready for upload
+        @param {int} batch_num - Batch number for logging
+        @return {bool} Success status
+        """
         if not docs:
             return False
-            
+
         try:
-            print(f"🚀 Uploading batch {batch_num} ({len(docs)} articles)...")
+            print(f"Uploading batch {batch_num} ({len(docs)} articles)...")
             self.stats.increment('api_calls')
-            
+
             response = requests.post(
                 self.search_url,
                 headers=self.search_headers,
                 json={"value": docs}
             )
-            
+
             if response.status_code in [200, 201]:
-                print(f"✅ Batch {batch_num} uploaded successfully")
+                print(f"Batch {batch_num} uploaded successfully")
                 logger.info(f"Successfully uploaded batch {batch_num}: {len(docs)} documents")
                 self.stats.increment('uploads_successful', len(docs))
                 return True
             else:
-                print(f"❌ Batch {batch_num} upload failed: {response.status_code}")
+                print(f"Batch {batch_num} upload failed: {response.status_code}")
                 logger.error(f"Failed to upload batch {batch_num}: {response.status_code} - {response.text}")
                 self.stats.increment('uploads_failed', len(docs))
                 return False
-                
+
         except Exception as e:
-            print(f"❌ Batch {batch_num} upload error: {str(e)}")
+            print(f"Batch {batch_num} upload error: {str(e)}")
             logger.error(f"Upload error for batch {batch_num}: {str(e)}")
             self.stats.increment('uploads_failed', len(docs))
             return False
 
     def run_batch_processing(self):
-        """Main batch processing function"""
+        """
+        Main batch processing orchestration.
+        Fetches articles, analyses headlines, rewrites as needed, and uploads to Azure Search.
+        """
         start_time = time.time()
-        print(f"\n🚀 Starting Batch Processing")
-        print(f"📊 Target: {self.TOTAL_ARTICLES} articles in batches of {self.BATCH_SIZE}")
-        print(f"⏱️  Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        
-        # Fetch all articles
-        print(f"\n📡 Fetching {self.TOTAL_ARTICLES} articles from mixed sources...")
+        print(f"\nStarting Batch Processing")
+        print(f"Target: {self.TOTAL_ARTICLES} articles in batches of {self.BATCH_SIZE}")
+        print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        print(f"\nFetching {self.TOTAL_ARTICLES} articles from mixed sources...")
         articles = self.fetch_articles_mixed_sources(self.TOTAL_ARTICLES)
-        
+
         if not articles:
-            print("❌ No articles fetched. Exiting.")
+            print("No articles fetched. Exiting.")
             return
-            
-        print(f"✅ Successfully fetched {len(articles)} articles")
-        
-        # Process in batches
+
+        print(f"Successfully fetched {len(articles)} articles")
+
         total_batches = (len(articles) + self.BATCH_SIZE - 1) // self.BATCH_SIZE
-        
+
         for batch_num in range(1, total_batches + 1):
             batch_start = (batch_num - 1) * self.BATCH_SIZE
             batch_end = min(batch_start + self.BATCH_SIZE, len(articles))
             batch_articles = articles[batch_start:batch_end]
-            
-            print(f"\n📦 Processing Batch {batch_num}/{total_batches} ({len(batch_articles)} articles)")
+
+            print(f"\nProcessing Batch {batch_num}/{total_batches} ({len(batch_articles)} articles)")
             
             # Process articles in this batch
             batch_docs = []
@@ -353,46 +374,42 @@ Requirements:
                 if i % 5 == 0:
                     time.sleep(1)
             
-            # Upload batch
             if batch_docs:
                 success = self.upload_batch(batch_docs, batch_num)
                 if not success:
-                    print(f"⚠️  Batch {batch_num} upload failed, but continuing...")
-            
-            # Progress update
+                    print(f"Batch {batch_num} upload failed, but continuing...")
+
             processed_articles = batch_end
             progress_pct = (processed_articles / len(articles)) * 100
             elapsed_time = time.time() - start_time
-            
+
             if processed_articles < len(articles):
                 avg_time_per_article = elapsed_time / processed_articles
                 remaining_articles = len(articles) - processed_articles
                 eta_seconds = avg_time_per_article * remaining_articles
                 eta_minutes = eta_seconds / 60
-                
-                print(f"📈 Progress: {processed_articles}/{len(articles)} ({progress_pct:.1f}%) | ETA: {eta_minutes:.1f} minutes")
-            
-            # Delay between batches (except last one)
+
+                print(f"Progress: {processed_articles}/{len(articles)} ({progress_pct:.1f}%) | ETA: {eta_minutes:.1f} minutes")
+
             if batch_num < total_batches:
-                print(f"⏸️  Waiting {self.BATCH_DELAY} seconds before next batch...")
+                print(f"Waiting {self.BATCH_DELAY} seconds before next batch...")
                 time.sleep(self.BATCH_DELAY)
-        
-        # Final summary
+
         total_time = time.time() - start_time
-        print(f"\n🎉 Batch Processing Complete!")
-        print(f"⏱️  Total time: {total_time/60:.1f} minutes")
-        print(f"📊 Final Statistics:")
+        print(f"\nBatch Processing Complete!")
+        print(f"Total time: {total_time/60:.1f} minutes")
+        print(f"Final Statistics:")
         self.stats.log_summary()
 
 def main():
-    """Main entry point"""
+    """Main entry point for batch processor."""
     try:
         processor = BatchProcessor()
         processor.run_batch_processing()
     except KeyboardInterrupt:
-        print("\n⚠️  Processing interrupted by user")
+        print("\nProcessing interrupted by user")
     except Exception as e:
-        print(f"\n❌ Fatal error: {str(e)}")
+        print(f"\nFatal error: {str(e)}")
         logger.critical(f"Fatal error in batch processing: {str(e)}")
 
 if __name__ == "__main__":
