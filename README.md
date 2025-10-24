@@ -2,7 +2,9 @@
 
 A tool to fetch news headlines and rewrite them in a more positive, factual tone. 
 
-# Demo Preview Incoming 
+![Backend]((/it-works.png "Backend API Gather Preview") "Backend API Gather Preview")
+
+# Front End Demo Incoming 
 
 ## What It Does
 
