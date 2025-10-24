@@ -1,41 +1,44 @@
+"""
+@author Tom Butler
+@date 2025-10-24
+@description Azure AI Language service integration for sentiment analysis and entity recognition.
+             Provides text analysis capabilities with fallback when service unavailable.
+"""
+
 import os
 import requests
 import json
 from dotenv import load_dotenv
 from logger_config import setup_logger
 
-# Load environment variables
 load_dotenv()
 
-# Setup logging
 logger = setup_logger("NewsPerspective.AILanguage")
 
+
 class AzureAILanguage:
-    """Azure AI Language service integration for enhanced text analysis"""
-    
+    """Sentiment analysis and entity recognition using Azure AI Language."""
+
     def __init__(self):
+        """Initialise Azure AI Language service."""
         self.endpoint = os.getenv("AZURE_AI_LANGUAGE_ENDPOINT")
         self.key = os.getenv("AZURE_AI_LANGUAGE_KEY")
-        
+
         if not self.endpoint or not self.key:
-            logger.warning("Azure AI Language credentials not found. Enhanced analysis will be disabled.")
+            logger.warning("Azure AI Language credentials not found. Analysis disabled.")
             self.enabled = False
         else:
             self.enabled = True
-            logger.info("Azure AI Language service initialized successfully")
-    
+            logger.info("Azure AI Language service initialised successfully")
+
     def analyze_text(self, text, include_sentiment=True, include_entities=True, include_key_phrases=True):
         """
-        Comprehensive text analysis using Azure AI Language
-        
-        Args:
-            text (str): Text to analyze
-            include_sentiment (bool): Include sentiment analysis
-            include_entities (bool): Include entity recognition
-            include_key_phrases (bool): Include key phrase extraction
-            
-        Returns:
-            dict: Analysis results with sentiment, entities, and key phrases
+        Analyse text for sentiment, entities, and key phrases.
+        @param {str} text - Text to analyse
+        @param {bool} include_sentiment - Include sentiment analysis
+        @param {bool} include_entities - Include entity recognition
+        @param {bool} include_key_phrases - Include key phrase extraction
+        @return {dict} Analysis results with sentiment, entities, and key phrases
         """
         if not self.enabled:
             return self._fallback_analysis(text)
@@ -122,7 +125,13 @@ class AzureAILanguage:
             return self._fallback_analysis(text)
     
     def _wait_for_result(self, operation_location, headers, max_attempts=10):
-        """Wait for long-running operation to complete"""
+        """
+        Poll for long-running operation completion.
+        @param {str} operation_location - Operation status URL
+        @param {dict} headers - Request headers with authentication
+        @param {int} max_attempts - Maximum polling attempts
+        @return {dict} Parsed analysis results or fallback
+        """
         import time
         
         for attempt in range(max_attempts):
@@ -153,7 +162,12 @@ class AzureAILanguage:
         return self._fallback_analysis("")
     
     def _parse_simple_sentiment_result(self, result, text):
-        """Parse the simple sentiment analysis result"""
+        """
+        Parse sentiment analysis result from API response.
+        @param {dict} result - Raw API response
+        @param {str} text - Original text analysed
+        @return {dict} Structured sentiment data
+        """
         analysis = {
             'sentiment': 'neutral',
             'confidence_scores': {'positive': 33, 'neutral': 34, 'negative': 33},

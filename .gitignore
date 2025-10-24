@@ -7,7 +7,8 @@ __pycache__/
 /*.egg-info
 
 # Development learning files (keep private)
-DEVELOPMENT_JOURNAL.md
 to-do.md
 ai-search-azure-portal.png
 config.json
+/logs
+logs/news_perspective_20250616.log

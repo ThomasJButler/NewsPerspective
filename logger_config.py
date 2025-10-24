@@ -1,14 +1,25 @@
+"""
+@author Tom Butler
+@date 2025-10-24
+@description Logging configuration and statistics tracking for NewsPerspective.
+             Provides rotating file handlers, console output, and performance metrics.
+"""
+
 import logging
 import logging.handlers
 import os
 from datetime import datetime
 
-# Create logs directory if it doesn't exist
 if not os.path.exists("logs"):
     os.makedirs("logs")
 
+
 def setup_logger(name="NewsPerspective"):
-    """Configure and return a logger instance with file and console handlers"""
+    """
+    Configure logging with file and console handlers.
+    @param {str} name - Logger name
+    @return {Logger} Configured logger instance
+    """
     
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
@@ -107,11 +118,11 @@ class StatsTracker:
             self.logger.debug(f"Stat updated: {stat_name} = {self.stats[stat_name]}")
     
     def log_summary(self):
-        """Log a summary of all statistics"""
+        """Log a summary of all statistics."""
         duration = (datetime.now() - self.start_time).total_seconds()
-        
+
         self.logger.info("=" * 60)
-        self.logger.info("📊 SESSION STATISTICS SUMMARY")
+        self.logger.info("SESSION STATISTICS SUMMARY")
         self.logger.info("=" * 60)
         self.logger.info(f"Duration: {duration:.2f} seconds")
         

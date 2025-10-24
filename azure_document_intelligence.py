@@ -1,3 +1,10 @@
+"""
+@author Tom Butler
+@date 2025-10-24
+@description Azure AI Document Intelligence service for content extraction from URLs.
+             Extracts text, headlines, and problematic phrases from article pages.
+"""
+
 import os
 import requests
 import json
@@ -5,14 +12,13 @@ from dotenv import load_dotenv
 from logger_config import setup_logger
 import time
 
-# Load environment variables
 load_dotenv()
 
-# Setup logging
 logger = setup_logger("NewsPerspective.DocumentIntelligence")
 
+
 class AzureDocumentIntelligence:
-    """Azure AI Document Intelligence service integration for rich content extraction"""
+    """Content extraction from article URLs using Azure Document Intelligence."""
     
     def __init__(self):
         self.endpoint = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
