@@ -16,6 +16,8 @@ from logger_config import setup_logger, StatsTracker, log_performance, log_error
 from azure_ai_language import ai_language
 from azure_document_intelligence import document_intelligence
 from clickbait_detector import clickbait_detector
+from scrapers.scraper_manager import scraper_manager
+from scrapers.content_validator import content_validator
 from datetime import datetime
 
 load_dotenv()
@@ -38,8 +40,11 @@ class BatchProcessor:
         self.BATCH_SIZE = int(os.getenv("BATCH_SIZE", "20"))
         self.BATCH_DELAY = int(os.getenv("BATCH_DELAY", "10"))
         self.RATE_LIMIT_DELAY = 1
-        
-        # News sources configuration
+
+        # Article source mode: 'newsapi', 'rss', or 'mixed'
+        self.SOURCE_MODE = os.getenv("ARTICLE_SOURCE_MODE", "mixed").lower()
+
+        # News sources configuration (NewsAPI)
         self.news_sources = {
             "general": {
                 "query": "UK",
@@ -52,8 +57,9 @@ class BatchProcessor:
                 "weight": 0.5  # 50% of articles
             }
         }
-        
+
         logger.info(f"Batch Processor initialised: {self.TOTAL_ARTICLES} articles in {self.BATCH_SIZE}-article batches")
+        logger.info(f"Article source mode: {self.SOURCE_MODE}")
 
     def setup_clients(self):
         """Initialise Azure clients and validate credentials."""
@@ -203,10 +209,79 @@ class BatchProcessor:
 
         return articles[:count]
 
+    def fetch_articles_from_rss(self, total_articles):
+        """
+        Fetch articles from RSS feeds using scraper manager.
+        @param {int} total_articles - Target number of articles to fetch
+        @return {list} List of validated article objects
+        """
+        print(f"Fetching articles from RSS feeds...")
+        logger.info(f"Fetching {total_articles} articles from RSS sources")
+
+        # Calculate articles per source
+        available_sources = scraper_manager.get_available_sources()
+        source_count = len(available_sources)
+        articles_per_source = (total_articles // source_count) + 5  # Slight excess for deduplication
+
+        print(f"Fetching from {source_count} RSS sources: {', '.join(available_sources.values())}")
+
+        # Fetch from all sources
+        all_articles = scraper_manager.get_all_articles_flat(max_articles_per_source=articles_per_source)
+
+        print(f"Fetched {len(all_articles)} total articles from RSS feeds")
+        logger.info(f"Fetched {len(all_articles)} articles before validation")
+
+        # Validate and deduplicate
+        content_validator.reset()
+        validated_articles = content_validator.validate_articles(
+            all_articles,
+            max_age_days=7,
+            title_similarity_threshold=0.85
+        )
+
+        print(f"Validated {len(validated_articles)} unique articles")
+        logger.info(f"Validated {len(validated_articles)} articles after deduplication")
+
+        self.stats.increment('articles_fetched', len(validated_articles))
+
+        return validated_articles[:total_articles]
+
+    def fetch_articles_mixed_mode(self, total_articles):
+        """
+        Fetch articles from both NewsAPI and RSS sources.
+        @param {int} total_articles - Target number of articles to fetch
+        @return {list} List of article objects from mixed sources
+        """
+        newsapi_count = total_articles // 2
+        rss_count = total_articles - newsapi_count
+
+        print(f"Mixed mode: {newsapi_count} from NewsAPI + {rss_count} from RSS")
+        logger.info(f"Mixed source mode: {newsapi_count} NewsAPI, {rss_count} RSS")
+
+        all_articles = []
+
+        # Fetch from NewsAPI
+        if newsapi_count > 0:
+            newsapi_articles = self.fetch_articles_mixed_sources(newsapi_count)
+            all_articles.extend(newsapi_articles)
+            print(f"Fetched {len(newsapi_articles)} articles from NewsAPI")
+
+        # Fetch from RSS
+        if rss_count > 0:
+            rss_articles = self.fetch_articles_from_rss(rss_count)
+            all_articles.extend(rss_articles)
+            print(f"Fetched {len(rss_articles)} articles from RSS")
+
+        # Shuffle to mix sources
+        import random
+        random.shuffle(all_articles)
+
+        return all_articles[:total_articles]
+
     def process_article(self, article, article_num, total_articles):
         """
         Process a single article for headline analysis and rewriting.
-        @param {dict} article - Article object from NewsAPI
+        @param {dict} article - Article object from NewsAPI or RSS feed
         @param {int} article_num - Current article number in batch
         @param {int} total_articles - Total articles in processing run
         @return {dict} Document ready for Azure Search upload or None if skipped
@@ -229,7 +304,13 @@ class BatchProcessor:
 
             # Clickbait detection
             article_url = article.get("url", "")
-            source = article.get("source", {}).get("name", "Unknown")
+
+            # Handle both NewsAPI format (source is dict) and RSS format (source is string)
+            source_data = article.get("source", "Unknown")
+            if isinstance(source_data, dict):
+                source = source_data.get("name", "Unknown")
+            else:
+                source = source_data
             clickbait_analysis = clickbait_detector.detect_clickbait_score(
                 title,
                 article_content=None,
@@ -316,6 +397,9 @@ Requirements:
                 self.stats.increment('articles_skipped')
             
             # Create document for upload
+            # Handle both NewsAPI (publishedAt) and RSS (published_date) formats
+            published_date = article.get("published_date") or article.get("publishedAt", "")
+
             doc = {
                 "@search.action": "upload",
                 "id": str(uuid.uuid4()),
@@ -323,7 +407,7 @@ Requirements:
                 "rewritten_title": rewritten_title,
                 "original_content": article.get("content", ""),
                 "source": source,
-                "published_date": article.get("publishedAt", ""),
+                "published_date": published_date,
                 "article_url": article_url,
                 "was_rewritten": needs_rewrite and confidence >= 60,
                 "original_tone": current_tone,
@@ -422,8 +506,16 @@ Requirements:
         print(f"Target: {self.TOTAL_ARTICLES} articles in batches of {self.BATCH_SIZE}")
         print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-        print(f"\nFetching {self.TOTAL_ARTICLES} articles from mixed sources...")
-        articles = self.fetch_articles_mixed_sources(self.TOTAL_ARTICLES)
+        # Choose article source based on configuration
+        if self.SOURCE_MODE == 'rss':
+            print(f"\nFetching {self.TOTAL_ARTICLES} articles from RSS feeds...")
+            articles = self.fetch_articles_from_rss(self.TOTAL_ARTICLES)
+        elif self.SOURCE_MODE == 'newsapi':
+            print(f"\nFetching {self.TOTAL_ARTICLES} articles from NewsAPI...")
+            articles = self.fetch_articles_mixed_sources(self.TOTAL_ARTICLES)
+        else:  # mixed mode
+            print(f"\nFetching {self.TOTAL_ARTICLES} articles from mixed sources (NewsAPI + RSS)...")
+            articles = self.fetch_articles_mixed_mode(self.TOTAL_ARTICLES)
 
         if not articles:
             print("No articles fetched. Exiting.")
