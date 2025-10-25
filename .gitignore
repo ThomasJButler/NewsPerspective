@@ -6,9 +6,22 @@ __pycache__/
 /build/
 /*.egg-info
 
+# Azure Functions
+local.settings.json
+.venv/
+.python_packages/
+.vscode/
+bin/
+obj/
+.azure/
+
 # Development learning files (keep private)
 to-do.md
 ai-search-azure-portal.png
 config.json
 /logs
 logs/news_perspective_20250616.log
+
+# Data and output files
+data/
+*.log

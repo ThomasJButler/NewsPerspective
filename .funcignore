@@ -1,0 +1,47 @@
+# Azure Functions ignore file
+# Excludes files from deployment package
+
+.git/
+.github/
+.vscode/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.coverage
+*.log
+
+# Development files
+.env
+local.settings.json
+tests/
+test_*.py
+*_test.py
+
+# Documentation
+*.md
+!README.md
+to-do.md
+customcommitmessages.md
+fixprojectcommentsprompt.md
+tom-code-comment-style-guide.md
+writereadmeprompt.md
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Data files
+data/
+logs/
+*.csv
+*.json
+!host.json
+!local.settings.json.template
