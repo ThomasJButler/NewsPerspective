@@ -16,6 +16,8 @@ from logger_config import setup_logger, StatsTracker, log_performance, log_error
 from azure_ai_language import ai_language
 from azure_document_intelligence import document_intelligence
 from clickbait_detector import clickbait_detector
+from mlflow_tracker import mlflow_tracker
+from datetime import datetime
 
 load_dotenv()
 
@@ -41,6 +43,25 @@ if not all([news_api_key, azure_openai_key, azure_openai_endpoint, azure_search_
 
 logger.info("NewsPerspective Application Started")
 logger.info(f"Configuration: MAX_ARTICLES={MAX_ARTICLES_PER_RUN}, DEPLOYMENT={deployment_name}")
+
+# Start MLflow tracking
+run_timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+run_start_time = time.time()
+mlflow_run = mlflow_tracker.start_run(run_name=f"single_run_{run_timestamp}")
+mlflow_run.__enter__()
+
+# Log configuration parameters
+mlflow_tracker.log_params({
+    "max_articles_per_run": MAX_ARTICLES_PER_RUN,
+    "openai_deployment": deployment_name,
+    "azure_search_index": azure_search_index
+})
+
+# Set tags
+mlflow_tracker.set_tags({
+    "run_type": "single_run",
+    "timestamp": run_timestamp
+})
 
 # === STEP 1: NewsAPI with Pagination ===
 @log_performance(logger)
@@ -464,4 +485,26 @@ else:
 
 # Log final statistics
 stats.log_summary()
+
+# Log metrics to MLflow
+total_duration = time.time() - run_start_time if 'run_start_time' in locals() else 0
+mlflow_tracker.log_metrics({
+    "articles_fetched": stats.get_metric('articles_fetched'),
+    "articles_processed": stats.get_metric('articles_processed'),
+    "articles_skipped": stats.get_metric('articles_skipped'),
+    "rewrites_successful": stats.get_metric('rewrites_successful'),
+    "rewrites_failed": stats.get_metric('rewrites_failed'),
+    "api_calls": stats.get_metric('api_calls'),
+    "api_errors": stats.get_metric('api_errors'),
+    "uploads_successful": stats.get_metric('uploads_successful'),
+    "uploads_failed": stats.get_metric('uploads_failed'),
+    "rewrite_success_rate": stats.get_metric('rewrite_success_rate'),
+    "total_duration_seconds": total_duration,
+    "total_duration_minutes": total_duration / 60 if total_duration > 0 else 0,
+    "avg_seconds_per_article": total_duration / max(stats.get_metric('articles_processed'), 1) if total_duration > 0 else 0
+})
+
+# End MLflow run
+mlflow_run.__exit__(None, None, None)
+
 logger.info("NewsPerspective Application Completed")

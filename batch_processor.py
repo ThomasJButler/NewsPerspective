@@ -18,6 +18,7 @@ from azure_document_intelligence import document_intelligence
 from clickbait_detector import clickbait_detector
 from scrapers.scraper_manager import scraper_manager
 from scrapers.content_validator import content_validator
+from mlflow_tracker import mlflow_tracker
 from datetime import datetime
 
 load_dotenv()
@@ -502,9 +503,38 @@ Requirements:
         Fetches articles, analyses headlines, rewrites as needed, and uploads to Azure Search.
         """
         start_time = time.time()
-        print(f"\nStarting Batch Processing")
-        print(f"Target: {self.TOTAL_ARTICLES} articles in batches of {self.BATCH_SIZE}")
-        print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        run_timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
+        # Start MLflow run
+        with mlflow_tracker.start_run(run_name=f"batch_processing_{run_timestamp}"):
+            # Log configuration parameters
+            mlflow_tracker.log_params({
+                "batch_total_articles": self.TOTAL_ARTICLES,
+                "batch_size": self.BATCH_SIZE,
+                "batch_delay": self.BATCH_DELAY,
+                "source_mode": self.SOURCE_MODE,
+                "openai_deployment": self.deployment_name,
+                "azure_search_index": self.azure_search_index
+            })
+
+            # Set tags
+            mlflow_tracker.set_tags({
+                "run_type": "batch_processing",
+                "source_mode": self.SOURCE_MODE,
+                "timestamp": run_timestamp
+            })
+
+            print(f"\nStarting Batch Processing")
+            print(f"Target: {self.TOTAL_ARTICLES} articles in batches of {self.BATCH_SIZE}")
+            print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+            self._run_batch_processing_internal(start_time)
+
+    def _run_batch_processing_internal(self, start_time):
+        """
+        Internal batch processing logic.
+        @param {float} start_time - Start timestamp
+        """
 
         # Choose article source based on configuration
         if self.SOURCE_MODE == 'rss':
@@ -570,6 +600,23 @@ Requirements:
         print(f"Total time: {total_time/60:.1f} minutes")
         print(f"Final Statistics:")
         self.stats.log_summary()
+
+        # Log metrics to MLflow
+        mlflow_tracker.log_metrics({
+            "articles_fetched": self.stats.get_metric('articles_fetched'),
+            "articles_processed": self.stats.get_metric('articles_processed'),
+            "articles_skipped": self.stats.get_metric('articles_skipped'),
+            "rewrites_successful": self.stats.get_metric('rewrites_successful'),
+            "rewrites_failed": self.stats.get_metric('rewrites_failed'),
+            "api_calls": self.stats.get_metric('api_calls'),
+            "api_errors": self.stats.get_metric('api_errors'),
+            "uploads_successful": self.stats.get_metric('uploads_successful'),
+            "uploads_failed": self.stats.get_metric('uploads_failed'),
+            "rewrite_success_rate": self.stats.get_metric('rewrite_success_rate'),
+            "total_duration_seconds": total_time,
+            "total_duration_minutes": total_time / 60,
+            "avg_seconds_per_article": total_time / max(self.stats.get_metric('articles_processed'), 1)
+        })
 
 def main():
     """Main entry point for batch processor."""
