@@ -38,7 +38,11 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install flake8 pylint black
+        pip install -r requirements-test.txt
+
+    - name: Install Playwright browsers
+      run: |
+        playwright install chromium --with-deps
 
     - name: Run Black formatter check
       run: |
@@ -51,15 +55,27 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       continue-on-error: true
 
-    - name: Run tests
+    - name: Run unit tests
       run: |
-        if [ -d "tests" ]; then
-          pip install pytest pytest-cov
-          pytest tests/ --cov=. --cov-report=xml --cov-report=term
-        else
-          echo "No tests directory found"
-        fi
+        pytest tests/unit/ -v --cov=. --cov-report=xml --cov-report=term
+      continue-on-error: false
+
+    - name: Run integration tests
+      run: |
+        pytest tests/integration/ -v -m "not requires_network"
       continue-on-error: true
+      env:
+        MLFLOW_ENABLED: false
+        KEYVAULT_ENABLED: false
+
+    - name: Run e2e tests
+      run: |
+        pytest tests/e2e/ -v --headed=false
+      continue-on-error: true
+      env:
+        AZURE_SEARCH_KEY: ${{ secrets.AZURE_SEARCH_KEY }}
+        AZURE_SEARCH_ENDPOINT: ${{ secrets.AZURE_SEARCH_ENDPOINT }}
+        AZURE_SEARCH_INDEX: test-index
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
