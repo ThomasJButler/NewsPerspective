@@ -1,4 +1,4 @@
-0a. Study `specs/*` with up to 500 parallel Sonnet subagents to learn the application specifications.
+0a. Study `specs/*` with up to 500 parallel Sonnet and Opus subagents to learn the application specifications.
 0b. Study @IMPLEMENTATION_PLAN.md.
 0c. Study @AGENTS.md for build/run/validate commands.
 0d. For reference, the application source code is in `src/backend/*` (FastAPI) and `src/frontend/*` (Next.js). Legacy v1 code in the project root can be studied for reusable patterns but should NOT be modified.
