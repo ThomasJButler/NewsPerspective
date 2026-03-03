@@ -6,9 +6,19 @@ __pycache__/
 /build/
 /*.egg-info
 
+# Database
+*.db
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Logs
+/logs/
+logs/
+
 # Development learning files (keep private)
 to-do.md
 ai-search-azure-portal.png
 config.json
-/logs
-logs/news_perspective_20250616.log
