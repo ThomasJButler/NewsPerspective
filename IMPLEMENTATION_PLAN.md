@@ -1,103 +1,216 @@
-# Implementation Plan — NewsPerspective v2.0
+# Implementation Plan -- NewsPerspective v2.0
+
+> **Status**: All items unchecked. `src/` is empty. No implementation has started.
+
+---
+
+## Spec Gaps to Resolve During Implementation
+
+These gaps exist in the current specs. They do not block starting work, but must be resolved by the time the relevant step is reached. The plan notes inline where each gap becomes relevant.
+
+1. **GET /api/articles/:id response shape** -- BACKEND.md says "single article with full detail" but does not define the JSON shape. Resolve: return the full Article schema (same fields as in the list response, unwrapped from the array).
+2. **GET /api/sources response shape** -- not defined. Resolve: `{ "sources": [{ "source_name": str, "source_id": str, "article_count": int }] }`.
+3. **GET /api/stats response shape** -- not defined. Resolve: `{ "total_articles": int, "rewritten_count": int, "good_news_count": int, "sources_count": int, "latest_fetch": datetime|null }`.
+4. **POST /api/refresh response shape** -- not defined. Resolve: `{ "status": "processing", "message": str }` returned immediately; processing is async.
+5. **Error response shape** -- not defined anywhere. Resolve: use FastAPI default `{ "detail": str }` with appropriate HTTP status codes.
+6. **Article Detail page (/article/[id]) layout** -- FRONTEND.md lists the route but provides no wireframe or component breakdown. Resolve: full-width single article view showing all fields (rewritten title, original title, TLDR, source, author, published date, sentiment badge, image if available, link to original).
+7. **header.tsx component** -- listed in the project structure but not described in FRONTEND.md components section. Resolve: site name "NewsPerspective", tagline "See the news. Not the spin.", search bar (or link to it), theme toggle, and optional refresh button.
+8. **TldrSection component details** -- listed but not described. Resolve: a styled blockquote/card showing the TLDR text with a "TLDR" label, visually distinct from the headline.
+9. **Image handling when image_url is null** -- not specified. Resolve: hide the image area entirely (no placeholder) when null.
+10. **NewsAPI free tier rate limiting** -- 100 req/day limit not addressed. Resolve: track request count in the news_fetcher, log warnings at 80+ requests, refuse to fetch at 100. Consider caching/dedup to minimize calls.
+11. **No authentication on API** -- acceptable for v2.0 MVP (local/demo use). Document as a future concern.
+
+---
 
 ## Phase 1: Backend Foundation
 
-- [ ] **Step 1: Project structure + config**
-  - Create `src/backend/` directory structure per `specs/BACKEND.md`
-  - `src/backend/__init__.py`
-  - `src/backend/config.py` — pydantic-settings based config loading from `.env` (NEWS_API_KEY, AZURE_OPENAI_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, DATABASE_URL)
-  - `src/backend/database.py` — SQLAlchemy engine + session factory + Base
-  - `src/backend/models.py` — Article ORM model (id, original_title, rewritten_title, tldr, original_description, source_name, source_id, author, url UNIQUE, image_url, published_at, fetched_at, was_rewritten, original_sentiment, sentiment_score, is_good_news, category, processing_status)
-  - `src/backend/utils/__init__.py`
-  - `src/backend/utils/logger.py` — simplified rotating logger (reuse patterns from root `logger_config.py`)
-  - Update `.env.template` with v2 vars (add DATABASE_URL, change AZURE_OPENAI_DEPLOYMENT default to gpt-4o, remove Azure Search/Language/DocIntelligence)
-  - Update `.gitignore` (add node_modules/, .next/, *.db, __pycache__/)
+All backend work lives in `src/backend/`. Each step must be fully functional before moving on -- no stubs or placeholders.
+
+- [ ] **Step 1: Project scaffolding + configuration**
+  - Create directory structure: `src/backend/`, `src/backend/routers/`, `src/backend/services/`, `src/backend/utils/`
+  - Create `__init__.py` in each package directory
+  - `src/backend/config.py` -- pydantic-settings `Settings` class loading from `.env`: `NEWS_API_KEY`, `AZURE_OPENAI_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT` (default `gpt-4o`), `DATABASE_URL` (default `sqlite:///./newsperspective.db`)
+  - `src/backend/database.py` -- SQLAlchemy engine, `SessionLocal` factory, declarative `Base`, `get_db()` dependency
+  - `src/backend/models.py` -- `Article` ORM model with all 18 columns per BACKEND.md schema (id UUID PK, url UNIQUE, processing_status, sentiment fields, etc.)
+  - `src/backend/utils/logger.py` -- simplified rotating logger reusing patterns from root `logger_config.py`
+  - Verify `.env.template` already has v2 vars (it does -- confirmed)
+  - Verify `.gitignore` already covers node_modules/, .next/, *.db, __pycache__/ (it does -- confirmed)
+  - **Dependencies**: none (first step)
 
 - [ ] **Step 2: AI service**
   - `src/backend/services/__init__.py`
-  - `src/backend/services/ai_service.py` — Azure OpenAI chat completions wrapper
-  - Single `analyse_article(title, source, description)` method
-  - System prompt + user prompt per `specs/AI_PROMPTS.md`
-  - Returns structured dict: sentiment, sentiment_score, needs_rewrite, rewritten_title, rewrite_reason, tldr, is_good_news
-  - JSON response parsing with fallback on parse failure
-  - Uses chat completions endpoint (not legacy completions)
+  - `src/backend/services/ai_service.py` -- `AIService` class wrapping Azure OpenAI chat completions
+  - Single method `analyse_article(title: str, source: str, description: str) -> dict` that returns: `sentiment`, `sentiment_score`, `needs_rewrite`, `rewritten_title`, `rewrite_reason`, `tldr`, `is_good_news`
+  - System prompt and user prompt template exactly as specified in `specs/AI_PROMPTS.md`
+  - JSON response parsing with fallback on malformed response (return neutral defaults, mark as failed)
+  - Uses `openai` Python SDK with Azure configuration (chat completions, not legacy completions)
+  - **Dependencies**: Step 1 (config for API keys)
 
 - [ ] **Step 3: News fetcher**
-  - `src/backend/services/news_fetcher.py`
-  - `fetch_top_headlines(country="gb", category=None)` — UK top headlines
-  - `fetch_everything(query="UK", sort_by="publishedAt")` — broader search
-  - Returns normalised list of article dicts
-  - Rate limit handling (429 → wait + retry)
-  - Filter out removed/empty articles
+  - `src/backend/services/news_fetcher.py` -- `NewsFetcher` class
+  - `fetch_top_headlines(country="gb", category=None)` -- UK top headlines via NewsAPI `/v2/top-headlines`
+  - `fetch_everything(query="UK", sort_by="publishedAt")` -- broader search via `/v2/everything`
+  - Returns normalized list of article dicts with consistent field names matching the DB schema
+  - Filter out removed/empty articles (NewsAPI returns `[Removed]` placeholders)
+  - Rate limit handling: catch HTTP 429, log warning, implement basic retry with backoff
+  - **(Spec gap #10)**: Log warnings approaching daily request limit
+  - **Dependencies**: Step 1 (config for NEWS_API_KEY)
 
 - [ ] **Step 4: Article processor**
-  - `src/backend/services/article_processor.py`
-  - `process_new_articles()` — orchestration: fetch → dedup by URL → AI analysis → save to DB
-  - Dedup: skip articles whose URL already exists in database
-  - Mark each article processing_status (pending → processed | failed)
-  - Compatible with FastAPI BackgroundTasks
+  - `src/backend/services/article_processor.py` -- `ArticleProcessor` class (or module-level functions)
+  - `process_new_articles(db: Session)` -- full orchestration: fetch articles -> dedup by URL against DB -> AI analysis for each new article -> save to DB
+  - Dedup: query DB for existing URLs, skip matches
+  - Set `processing_status` = `pending` on insert, update to `processed` on success, `failed` on error
+  - Catch per-article exceptions so one failure does not abort the batch
+  - Must be compatible with `FastAPI BackgroundTasks` (accepts a db session or creates its own)
+  - **Dependencies**: Steps 1-3
 
-- [ ] **Step 5: API schemas + routes**
-  - `src/backend/schemas.py` — Pydantic models: ArticleResponse, ArticleListResponse, SourceResponse, StatsResponse, RefreshResponse
+- [ ] **Step 5: Pydantic schemas**
+  - `src/backend/schemas.py` -- response models:
+    - `ArticleResponse` -- all article fields serialized for JSON (id as str, datetimes as ISO strings)
+    - `ArticleListResponse` -- `{ articles: list[ArticleResponse], total: int, page: int, per_page: int, has_more: bool }`
+    - `SourceResponse` -- `{ sources: list[SourceItem] }` where `SourceItem` = `{ source_name: str, source_id: str, article_count: int }` **(resolves spec gap #2)**
+    - `StatsResponse` -- `{ total_articles: int, rewritten_count: int, good_news_count: int, sources_count: int, latest_fetch: datetime|None }` **(resolves spec gap #3)**
+    - `RefreshResponse` -- `{ status: str, message: str }` **(resolves spec gap #4)**
+  - **Dependencies**: Step 1 (models for field reference)
+
+- [ ] **Step 6: API routers**
   - `src/backend/routers/__init__.py`
-  - `src/backend/routers/articles.py` — GET /api/articles (paginated, filterable by good_news_only, source, category, search), GET /api/articles/{id}
-  - `src/backend/routers/sources.py` — GET /api/sources (list with counts), GET /api/stats, POST /api/refresh
+  - `src/backend/routers/articles.py`:
+    - `GET /api/articles` -- paginated, filterable by `good_news_only`, `source`, `category`, `search` (title substring match). Returns `ArticleListResponse`.
+    - `GET /api/articles/{id}` -- returns single `ArticleResponse` or 404. **(Resolves spec gap #1)**
+  - `src/backend/routers/sources.py`:
+    - `GET /api/sources` -- distinct sources with article counts. Returns `SourceResponse`.
+    - `GET /api/stats` -- aggregate counts. Returns `StatsResponse`.
+    - `POST /api/refresh` -- triggers `process_new_articles` via `BackgroundTasks`. Returns `RefreshResponse` immediately. **(Resolves spec gap #4)**
+  - **Dependencies**: Steps 4-5
 
-- [ ] **Step 6: FastAPI app + CORS**
-  - `src/backend/main.py` — FastAPI app with CORS (allow localhost:3000), include routers, lifespan event to create DB tables on startup
+- [ ] **Step 7: FastAPI app assembly**
+  - `src/backend/main.py` -- create FastAPI app, add CORS middleware (allow `http://localhost:3000`), include both routers, lifespan event to call `Base.metadata.create_all()` on startup
+  - **Dependencies**: Step 6
 
-- [ ] **Step 7: Backend verification**
+- [ ] **Step 8: Backend verification**
   - Start server: `cd src/backend && uvicorn main:app --reload --port 8000`
-  - Verify GET /api/articles returns empty list
-  - Verify POST /api/refresh triggers processing
-  - Verify GET /api/articles returns processed articles after refresh
+  - Verify `GET /api/articles` returns `{ "articles": [], "total": 0, ... }`
+  - Verify `GET /api/sources` returns `{ "sources": [] }`
+  - Verify `GET /api/stats` returns zeroed stats
+  - Verify `POST /api/refresh` returns 200 and triggers background processing
+  - Wait briefly, then verify `GET /api/articles` returns processed articles
+  - Verify `GET /api/articles/{id}` returns a single article
+  - Fix any issues found before proceeding to frontend
+  - **Dependencies**: Step 7
+
+---
 
 ## Phase 2: Frontend
 
-- [ ] **Step 8: Next.js + ShadCN scaffolding**
-  - `npx create-next-app@latest src/frontend` (TypeScript, Tailwind, App Router, no src/ subfolder)
+All frontend work lives in `src/frontend/`. The backend must be functional (Phase 1 complete) before integration testing, but frontend scaffolding and components can be built referencing the known API shapes.
+
+- [ ] **Step 9: Next.js + ShadCN scaffolding**
+  - `npx create-next-app@latest src/frontend` -- TypeScript, Tailwind CSS, App Router, no src/ subfolder within frontend
   - `cd src/frontend && npx shadcn@latest init`
   - Add ShadCN components: Button, Card, Switch, Select, Input, Badge, Skeleton, Separator
-  - Configure `next.config.js` with rewrites: `/api/:path*` → `http://localhost:8000/api/:path*`
+  - Configure `next.config.js` (or `next.config.ts`) with rewrites: `/api/:path*` -> `http://localhost:8000/api/:path*`
+  - **Dependencies**: None (can run in parallel with backend, but verify separately)
 
-- [ ] **Step 9: Types + API client**
-  - `src/frontend/types/article.ts` — Article, ArticleListResponse, Source, Stats interfaces
-  - `src/frontend/lib/api.ts` — fetchArticles(), fetchSources(), fetchStats(), refreshArticles()
-  - `src/frontend/lib/utils.ts` — formatDate(), truncateText()
+- [ ] **Step 10: TypeScript types + API client + utilities**
+  - `src/frontend/types/article.ts` -- `Article`, `ArticleListResponse`, `Source`, `SourcesResponse`, `Stats`, `StatsResponse` interfaces matching backend schemas
+  - `src/frontend/lib/api.ts` -- `fetchArticles(params)`, `fetchArticle(id)`, `fetchSources()`, `fetchStats()`, `refreshArticles()` functions using `fetch()` against `/api/...` (proxied)
+  - `src/frontend/lib/utils.ts` -- `formatDate()` (relative time like "2 hours ago"), `truncateText()`, ShadCN `cn()` utility (may already exist from init)
+  - **Dependencies**: Step 9
 
-- [ ] **Step 10: Core components**
-  - `src/frontend/components/header.tsx` — "NewsPerspective" + tagline "See the news. Not the spin."
-  - `src/frontend/components/article-card.tsx` — rewritten headline (large), TLDR, original headline (muted, collapsible), source + time, Read Full Article link
-  - `src/frontend/components/tldr-section.tsx` — styled TLDR block
-  - `src/frontend/components/good-news-toggle.tsx` — ShadCN Switch
-  - `src/frontend/components/source-filter.tsx` — ShadCN Select
-  - `src/frontend/components/search-bar.tsx` — ShadCN Input, debounced 300ms
-  - `src/frontend/components/article-feed.tsx` — paginated list with Load More
+- [ ] **Step 11: Core UI components**
+  - `src/frontend/components/header.tsx` -- site name, tagline, theme toggle slot, optional refresh button **(resolves spec gap #7)**
+  - `src/frontend/components/article-card.tsx` -- source+time, rewritten headline (large), TLDR section, original headline (muted, collapsible via state toggle), "Read Full Article" external link. If not rewritten, show headline normally without original comparison. Handle null `image_url` by omitting image area **(resolves spec gap #9)**.
+  - `src/frontend/components/tldr-section.tsx` -- styled blockquote/card with "TLDR" label **(resolves spec gap #8)**
+  - `src/frontend/components/good-news-toggle.tsx` -- ShadCN Switch with label "Good News Only"
+  - `src/frontend/components/source-filter.tsx` -- ShadCN Select dropdown populated from `/api/sources`
+  - `src/frontend/components/search-bar.tsx` -- ShadCN Input with 300ms debounce
+  - `src/frontend/components/stats-bar.tsx` -- subtle bar: "X articles processed * Y headlines improved"
+  - `src/frontend/components/article-feed.tsx` -- renders list of ArticleCards, "Load More" button for pagination, loading skeletons
+  - **Dependencies**: Step 10
 
-- [ ] **Step 11: Pages**
-  - `src/frontend/app/layout.tsx` — root layout, Inter font, metadata
-  - `src/frontend/app/page.tsx` — home page: header + filters bar + article feed
-  - `src/frontend/app/globals.css` — Tailwind base
+- [ ] **Step 12: Home page**
+  - `src/frontend/app/layout.tsx` -- root layout with Inter font, HTML metadata (title, description), theme provider wrapper
+  - `src/frontend/app/page.tsx` -- composes: Header, filters bar (GoodNewsToggle + SourceFilter + SearchBar), StatsBar, ArticleFeed. Manages filter state, passes to API client.
+  - `src/frontend/app/globals.css` -- Tailwind base styles, any custom CSS variables for theming
+  - **Dependencies**: Step 11
 
-- [ ] **Step 12: Dark mode**
-  - `src/frontend/components/theme-provider.tsx` — next-themes provider
-  - `src/frontend/components/theme-toggle.tsx` — sun/moon toggle in header
+- [ ] **Step 13: Article detail page**
+  - `src/frontend/app/article/[id]/page.tsx` -- full article detail view **(resolves spec gap #6)**:
+    - Fetch single article via `GET /api/articles/{id}`
+    - Display: rewritten title (large), original title (if rewritten, shown with "Original:" label), TLDR section, source name, author, published date, sentiment badge (positive/neutral/negative with color), article image (if available), "Read Full Article" link to original URL
+    - Back navigation to home
+    - Loading skeleton while fetching
+    - 404 handling if article not found
+  - **Dependencies**: Steps 10-11
+  - **Note**: This page was in FRONTEND.md's project structure but missing from the original plan
 
-## Phase 3: Integration + Polish
+- [ ] **Step 14: Dark mode**
+  - `src/frontend/components/theme-provider.tsx` -- `next-themes` ThemeProvider wrapping the app
+  - `src/frontend/components/theme-toggle.tsx` -- sun/moon icon toggle button, placed in Header
+  - Update `layout.tsx` to wrap children with ThemeProvider
+  - Verify all components respect dark mode (ShadCN handles most of this automatically)
+  - **Dependencies**: Step 12
 
-- [ ] **Step 13: End-to-end testing**
-  - Start both backend and frontend
-  - POST /api/refresh to load articles
-  - Verify articles render with rewritten headlines + TLDR
-  - Test Good News toggle filters correctly
-  - Test source filter and search
+---
 
-- [ ] **Step 14: Developer experience**
-  - Root `Makefile` with: `dev`, `backend`, `frontend`, `refresh` targets
-  - Update `CLAUDE.md` with v2.0 commands
-  - Update `AGENTS.md` with new build/run/validate
+## Phase 3: Integration and Polish
 
-- [ ] **Step 15: Cleanup**
-  - Move legacy v1 files to `legacy/` directory
-  - Update `README.md` for v2.0
-  - Update `.gitignore`
+- [ ] **Step 15: End-to-end integration testing**
+  - Start both backend (`uvicorn`) and frontend (`npm run dev`) simultaneously
+  - `POST /api/refresh` to trigger article processing
+  - Verify articles render in the frontend with rewritten headlines and TLDR summaries
+  - Test Good News toggle filters to only `is_good_news` articles
+  - Test source filter dropdown populates and filters correctly
+  - Test search bar filters by headline text with debounce
+  - Test article detail page navigation and rendering
+  - Test dark mode toggle
+  - Test "Load More" pagination
+  - Test empty states (no articles, no search results)
+  - Fix any issues discovered
+  - **Dependencies**: Phases 1 and 2 complete
+
+- [ ] **Step 16: Developer experience**
+  - Root `Makefile` with targets:
+    - `dev` -- start both backend and frontend concurrently
+    - `backend` -- start backend only
+    - `frontend` -- start frontend only
+    - `refresh` -- `curl -X POST http://localhost:8000/api/refresh`
+    - `install` -- install both Python and Node dependencies
+  - Update `CLAUDE.md` with v2.0 commands (replace v1 commands)
+  - Update `AGENTS.md` with new build/run/validate instructions (keep it brief and operational)
+  - **Dependencies**: Step 15
+
+- [ ] **Step 17: Legacy cleanup**
+  - Move legacy v1 files to `legacy/` directory: `run.py`, `batch_processor.py`, `azure_ai_language.py`, `azure_document_intelligence.py`, `web_app.py`, `search.py`, `logger_config.py`, `loop.sh`
+  - Move `rewrites.png` to `legacy/`
+  - Update `README.md` for v2.0 (new architecture, new setup instructions, new screenshots)
+  - Final `.gitignore` review
+  - **Dependencies**: Step 16
+
+---
+
+## Implementation Order Summary
+
+| Priority | Step | Description | Blocked By |
+|----------|------|-------------|------------|
+| 1 | Step 1 | Project scaffolding + config | -- |
+| 2 | Step 2 | AI service | Step 1 |
+| 3 | Step 3 | News fetcher | Step 1 |
+| 4 | Step 4 | Article processor | Steps 1-3 |
+| 5 | Step 5 | Pydantic schemas | Step 1 |
+| 6 | Step 6 | API routers | Steps 4-5 |
+| 7 | Step 7 | FastAPI app assembly | Step 6 |
+| 8 | Step 8 | Backend verification | Step 7 |
+| 9 | Step 9 | Next.js + ShadCN scaffolding | -- |
+| 10 | Step 10 | Types + API client + utilities | Step 9 |
+| 11 | Step 11 | Core UI components | Step 10 |
+| 12 | Step 12 | Home page | Step 11 |
+| 13 | Step 13 | Article detail page | Steps 10-11 |
+| 14 | Step 14 | Dark mode | Step 12 |
+| 15 | Step 15 | End-to-end integration testing | Steps 8, 14 |
+| 16 | Step 16 | Developer experience | Step 15 |
+| 17 | Step 17 | Legacy cleanup | Step 16 |
+
+**Parallelism note**: Steps 2 and 3 can be built in parallel (both depend only on Step 1). Step 5 can be built in parallel with Steps 2-4. Step 9 (frontend scaffolding) can begin at any time, even alongside Phase 1. Steps 12 and 13 can be built in parallel.
