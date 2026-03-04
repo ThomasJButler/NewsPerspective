@@ -1,6 +1,6 @@
 # Implementation Plan -- NewsPerspective v2.0
 
-> **Status**: Phase 2 (Frontend) in progress. Steps 1-9 done. Step 10 next.
+> **Status**: Phase 2 (Frontend) in progress. Steps 1-10 done. Step 11 (Core UI components) next.
 
 ---
 
@@ -115,7 +115,7 @@ All frontend work lives in `src/frontend/`. The backend must be functional (Phas
   - Configure `next.config.js` (or `next.config.ts`) with rewrites: `/api/:path*` -> `http://localhost:8000/api/:path*`
   - **Dependencies**: None (can run in parallel with backend, but verify separately)
 
-- [ ] **Step 10: TypeScript types + API client + utilities + hooks**
+- [x] **Step 10: TypeScript types + API client + utilities + hooks**
   - `src/frontend/types/article.ts` -- `Article`, `ArticleListResponse`, `Source`, `SourcesResponse`, `Stats`, `StatsResponse` interfaces matching backend schemas
   - `src/frontend/hooks/use-api-key.ts` -- custom hook backed by `localStorage`: `{ apiKey, setApiKey, clearApiKey, hasApiKey }`. Uses `useState` + `useEffect` to sync with localStorage. Key stored under `"newsperspective-api-key"`.
   - `src/frontend/hooks/use-debounce.ts` -- generic debounce hook for search input (300ms default)
