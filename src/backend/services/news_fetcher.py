@@ -3,7 +3,6 @@ import logging
 
 import requests
 
-from ..config import settings
 from ..utils.logger import setup_logger
 
 logger = setup_logger("NewsFetcher")
@@ -15,8 +14,8 @@ REQUEST_WARNING_THRESHOLD = 80
 
 
 class NewsFetcher:
-    def __init__(self):
-        self.api_key = settings.NEWS_API_KEY
+    def __init__(self, api_key: str):
+        self.api_key = api_key
         self.request_count = 0
 
     def fetch_top_headlines(self, country: str = "gb", category: str | None = None) -> list[dict]:

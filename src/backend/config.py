@@ -2,7 +2,6 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    NEWS_API_KEY: str = ""
     AZURE_OPENAI_KEY: str = ""
     AZURE_OPENAI_ENDPOINT: str = ""
     AZURE_OPENAI_DEPLOYMENT: str = "gpt-4o"

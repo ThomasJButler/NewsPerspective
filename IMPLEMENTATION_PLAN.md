@@ -1,6 +1,6 @@
 # Implementation Plan -- NewsPerspective v2.0
 
-> **Status**: All items unchecked. `src/` is empty. No implementation has started.
+> **Status**: Phase 1 (Backend Foundation) complete. Steps 1-8 done. Phase 2 (Frontend) next.
 
 ---
 
@@ -19,6 +19,7 @@ These gaps exist in the current specs. They do not block starting work, but must
 9. **Image handling when image_url is null** -- not specified. Resolve: hide the image area entirely (no placeholder) when null.
 10. **NewsAPI free tier rate limiting** -- 100 req/day limit not addressed. Resolve: track request count in the news_fetcher, log warnings at 80+ requests, refuse to fetch at 100. Consider caching/dedup to minimize calls.
 11. **No authentication on API** -- acceptable for v2.0 MVP (local/demo use). Document as a future concern.
+12. **User-provided News API key** -- users enter their own NewsAPI key in the frontend (stored in localStorage). The backend accepts this key via `X-News-Api-Key` header on `POST /api/refresh`. This eliminates the need for a server-side `NEWS_API_KEY` and avoids shared rate limits. Read-only endpoints (articles, sources, stats) work without a key — they serve cached data from the database.
 
 ---
 
@@ -26,10 +27,10 @@ These gaps exist in the current specs. They do not block starting work, but must
 
 All backend work lives in `src/backend/`. Each step must be fully functional before moving on -- no stubs or placeholders.
 
-- [ ] **Step 1: Project scaffolding + configuration**
+- [x] **Step 1: Project scaffolding + configuration**
   - Create directory structure: `src/backend/`, `src/backend/routers/`, `src/backend/services/`, `src/backend/utils/`
   - Create `__init__.py` in each package directory
-  - `src/backend/config.py` -- pydantic-settings `Settings` class loading from `.env`: `NEWS_API_KEY`, `AZURE_OPENAI_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT` (default `gpt-4o`), `DATABASE_URL` (default `sqlite:///./newsperspective.db`)
+  - `src/backend/config.py` -- pydantic-settings `Settings` class loading from `.env`: `AZURE_OPENAI_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT` (default `gpt-4o`), `DATABASE_URL` (default `sqlite:///./newsperspective.db`). Note: `NEWS_API_KEY` is no longer a server-side setting — users provide their own via the frontend.
   - `src/backend/database.py` -- SQLAlchemy engine, `SessionLocal` factory, declarative `Base`, `get_db()` dependency
   - `src/backend/models.py` -- `Article` ORM model with all 18 columns per BACKEND.md schema (id UUID PK, url UNIQUE, processing_status, sentiment fields, etc.)
   - `src/backend/utils/logger.py` -- simplified rotating logger reusing patterns from root `logger_config.py`
@@ -37,7 +38,7 @@ All backend work lives in `src/backend/`. Each step must be fully functional bef
   - Verify `.gitignore` already covers node_modules/, .next/, *.db, __pycache__/ (it does -- confirmed)
   - **Dependencies**: none (first step)
 
-- [ ] **Step 2: AI service**
+- [x] **Step 2: AI service**
   - `src/backend/services/__init__.py`
   - `src/backend/services/ai_service.py` -- `AIService` class wrapping Azure OpenAI chat completions
   - Single method `analyse_article(title: str, source: str, description: str) -> dict` that returns: `sentiment`, `sentiment_score`, `needs_rewrite`, `rewritten_title`, `rewrite_reason`, `tldr`, `is_good_news`
@@ -46,17 +47,18 @@ All backend work lives in `src/backend/`. Each step must be fully functional bef
   - Uses `openai` Python SDK with Azure configuration (chat completions, not legacy completions)
   - **Dependencies**: Step 1 (config for API keys)
 
-- [ ] **Step 3: News fetcher**
+- [x] **Step 3: News fetcher**
   - `src/backend/services/news_fetcher.py` -- `NewsFetcher` class
+  - Constructor accepts `api_key: str` parameter (user-provided, not from server config) **(resolves spec gap #12)**
   - `fetch_top_headlines(country="gb", category=None)` -- UK top headlines via NewsAPI `/v2/top-headlines`
   - `fetch_everything(query="UK", sort_by="publishedAt")` -- broader search via `/v2/everything`
   - Returns normalized list of article dicts with consistent field names matching the DB schema
   - Filter out removed/empty articles (NewsAPI returns `[Removed]` placeholders)
   - Rate limit handling: catch HTTP 429, log warning, implement basic retry with backoff
   - **(Spec gap #10)**: Log warnings approaching daily request limit
-  - **Dependencies**: Step 1 (config for NEWS_API_KEY)
+  - **Dependencies**: Step 1 (config)
 
-- [ ] **Step 4: Article processor**
+- [x] **Step 4: Article processor**
   - `src/backend/services/article_processor.py` -- `ArticleProcessor` class (or module-level functions)
   - `process_new_articles(db: Session)` -- full orchestration: fetch articles -> dedup by URL against DB -> AI analysis for each new article -> save to DB
   - Dedup: query DB for existing URLs, skip matches
@@ -65,7 +67,7 @@ All backend work lives in `src/backend/`. Each step must be fully functional bef
   - Must be compatible with `FastAPI BackgroundTasks` (accepts a db session or creates its own)
   - **Dependencies**: Steps 1-3
 
-- [ ] **Step 5: Pydantic schemas**
+- [x] **Step 5: Pydantic schemas**
   - `src/backend/schemas.py` -- response models:
     - `ArticleResponse` -- all article fields serialized for JSON (id as str, datetimes as ISO strings)
     - `ArticleListResponse` -- `{ articles: list[ArticleResponse], total: int, page: int, per_page: int, has_more: bool }`
@@ -74,7 +76,7 @@ All backend work lives in `src/backend/`. Each step must be fully functional bef
     - `RefreshResponse` -- `{ status: str, message: str }` **(resolves spec gap #4)**
   - **Dependencies**: Step 1 (models for field reference)
 
-- [ ] **Step 6: API routers**
+- [x] **Step 6: API routers**
   - `src/backend/routers/__init__.py`
   - `src/backend/routers/articles.py`:
     - `GET /api/articles` -- paginated, filterable by `good_news_only`, `source`, `category`, `search` (title substring match). Returns `ArticleListResponse`.
@@ -82,14 +84,14 @@ All backend work lives in `src/backend/`. Each step must be fully functional bef
   - `src/backend/routers/sources.py`:
     - `GET /api/sources` -- distinct sources with article counts. Returns `SourceResponse`.
     - `GET /api/stats` -- aggregate counts. Returns `StatsResponse`.
-    - `POST /api/refresh` -- triggers `process_new_articles` via `BackgroundTasks`. Returns `RefreshResponse` immediately. **(Resolves spec gap #4)**
+    - `POST /api/refresh` -- requires `X-News-Api-Key` header (user's NewsAPI key). Returns 401 if missing/invalid. Validates key with a lightweight NewsAPI call, then triggers `process_new_articles` via `BackgroundTasks` passing the user's key. Returns `RefreshResponse` immediately. **(Resolves spec gaps #4 and #12)**
   - **Dependencies**: Steps 4-5
 
-- [ ] **Step 7: FastAPI app assembly**
+- [x] **Step 7: FastAPI app assembly**
   - `src/backend/main.py` -- create FastAPI app, add CORS middleware (allow `http://localhost:3000`), include both routers, lifespan event to call `Base.metadata.create_all()` on startup
   - **Dependencies**: Step 6
 
-- [ ] **Step 8: Backend verification**
+- [x] **Step 8: Backend verification**
   - Start server: `cd src/backend && uvicorn main:app --reload --port 8000`
   - Verify `GET /api/articles` returns `{ "articles": [], "total": 0, ... }`
   - Verify `GET /api/sources` returns `{ "sources": [] }`
@@ -113,27 +115,31 @@ All frontend work lives in `src/frontend/`. The backend must be functional (Phas
   - Configure `next.config.js` (or `next.config.ts`) with rewrites: `/api/:path*` -> `http://localhost:8000/api/:path*`
   - **Dependencies**: None (can run in parallel with backend, but verify separately)
 
-- [ ] **Step 10: TypeScript types + API client + utilities**
+- [ ] **Step 10: TypeScript types + API client + utilities + hooks**
   - `src/frontend/types/article.ts` -- `Article`, `ArticleListResponse`, `Source`, `SourcesResponse`, `Stats`, `StatsResponse` interfaces matching backend schemas
-  - `src/frontend/lib/api.ts` -- `fetchArticles(params)`, `fetchArticle(id)`, `fetchSources()`, `fetchStats()`, `refreshArticles()` functions using `fetch()` against `/api/...` (proxied)
+  - `src/frontend/hooks/use-api-key.ts` -- custom hook backed by `localStorage`: `{ apiKey, setApiKey, clearApiKey, hasApiKey }`. Uses `useState` + `useEffect` to sync with localStorage. Key stored under `"newsperspective-api-key"`.
+  - `src/frontend/hooks/use-debounce.ts` -- generic debounce hook for search input (300ms default)
+  - `src/frontend/lib/api.ts` -- `fetchArticles(params)`, `fetchArticle(id)`, `fetchSources()`, `fetchStats()`, `refreshArticles(apiKey)` functions using `fetch()` against `/api/...` (proxied). The `refreshArticles` function includes `X-News-Api-Key` header. Read-only functions do not need the key.
   - `src/frontend/lib/utils.ts` -- `formatDate()` (relative time like "2 hours ago"), `truncateText()`, ShadCN `cn()` utility (may already exist from init)
   - **Dependencies**: Step 9
 
 - [ ] **Step 11: Core UI components**
-  - `src/frontend/components/header.tsx` -- site name, tagline, theme toggle slot, optional refresh button **(resolves spec gap #7)**
-  - `src/frontend/components/article-card.tsx` -- source+time, rewritten headline (large), TLDR section, original headline (muted, collapsible via state toggle), "Read Full Article" external link. If not rewritten, show headline normally without original comparison. Handle null `image_url` by omitting image area **(resolves spec gap #9)**.
+  - `src/frontend/components/api-key-setup.tsx` -- Onboarding screen shown when no API key is stored. Clean, centred layout: app name, tagline, brief explanation, ShadCN Input for key, "Get Started" button, link to newsapi.org/register, privacy note ("Your key stays in your browser"). Uses `useApiKey` hook.
+  - `src/frontend/components/settings-dialog.tsx` -- ShadCN Dialog triggered from header settings icon. Shows current key (masked), option to change or remove it. Accessible: proper focus trap, ESC to close, ARIA labels.
+  - `src/frontend/components/header.tsx` -- site name, tagline, search bar, settings icon button (gear), theme toggle, refresh button. All icon buttons have `aria-label`. Responsive: stacks on mobile. **(resolves spec gap #7)**
+  - `src/frontend/components/article-card.tsx` -- source+time, rewritten headline (large, `<h2>`), TLDR section, original headline (muted, collapsible via `<details>`/`<summary>` for native accessibility), "Read Full Article" external link with `rel="noopener noreferrer"`. If not rewritten, show headline normally without original comparison. Handle null `image_url` by omitting image area. **(resolves spec gap #9)**
   - `src/frontend/components/tldr-section.tsx` -- styled blockquote/card with "TLDR" label **(resolves spec gap #8)**
-  - `src/frontend/components/good-news-toggle.tsx` -- ShadCN Switch with label "Good News Only"
-  - `src/frontend/components/source-filter.tsx` -- ShadCN Select dropdown populated from `/api/sources`
-  - `src/frontend/components/search-bar.tsx` -- ShadCN Input with 300ms debounce
-  - `src/frontend/components/stats-bar.tsx` -- subtle bar: "X articles processed * Y headlines improved"
-  - `src/frontend/components/article-feed.tsx` -- renders list of ArticleCards, "Load More" button for pagination, loading skeletons
+  - `src/frontend/components/good-news-toggle.tsx` -- ShadCN Switch with associated `<label>` "Good News Only"
+  - `src/frontend/components/source-filter.tsx` -- ShadCN Select dropdown populated from `/api/sources`, with "All Sources" default option
+  - `src/frontend/components/search-bar.tsx` -- ShadCN Input with `aria-label="Search articles"`, uses `useDebounce` hook (300ms)
+  - `src/frontend/components/stats-bar.tsx` -- subtle bar: "X articles processed · Y headlines improved"
+  - `src/frontend/components/article-feed.tsx` -- renders list of ArticleCards, "Load More" button for pagination, ShadCN Skeleton loading states, empty state message when no articles found
   - **Dependencies**: Step 10
 
 - [ ] **Step 12: Home page**
-  - `src/frontend/app/layout.tsx` -- root layout with Inter font, HTML metadata (title, description), theme provider wrapper
-  - `src/frontend/app/page.tsx` -- composes: Header, filters bar (GoodNewsToggle + SourceFilter + SearchBar), StatsBar, ArticleFeed. Manages filter state, passes to API client.
-  - `src/frontend/app/globals.css` -- Tailwind base styles, any custom CSS variables for theming
+  - `src/frontend/app/layout.tsx` -- root layout with metadata (title, description, viewport for mobile), theme provider wrapper. Use a clean, readable system font stack or a distinctive serif/sans pairing — NOT Inter (see design principles).
+  - `src/frontend/app/page.tsx` -- checks `useApiKey().hasApiKey`: if false, renders `ApiKeySetup`; if true, renders the news feed layout. Composes: Header, filters bar (GoodNewsToggle + SourceFilter), StatsBar, ArticleFeed. Manages filter state via URL search params (shareable). Auto-triggers refresh on first load if no articles exist.
+  - `src/frontend/app/globals.css` -- Tailwind base styles, ShadCN CSS variables, `@media (prefers-reduced-motion: reduce)` rules
   - **Dependencies**: Step 11
 
 - [ ] **Step 13: Article detail page**
@@ -204,7 +210,7 @@ All frontend work lives in `src/frontend/`. The backend must be functional (Phas
 | 7 | Step 7 | FastAPI app assembly | Step 6 |
 | 8 | Step 8 | Backend verification | Step 7 |
 | 9 | Step 9 | Next.js + ShadCN scaffolding | -- |
-| 10 | Step 10 | Types + API client + utilities | Step 9 |
+| 10 | Step 10 | Types + API client + utilities + hooks | Step 9 |
 | 11 | Step 11 | Core UI components | Step 10 |
 | 12 | Step 12 | Home page | Step 11 |
 | 13 | Step 13 | Article detail page | Steps 10-11 |
