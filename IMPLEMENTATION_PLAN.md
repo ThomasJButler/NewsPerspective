@@ -1,6 +1,6 @@
 # Implementation Plan -- NewsPerspective v2.0
 
-> **Status**: Phase 2 (Frontend) in progress. Steps 1-10 done. Step 11 (Core UI components) next.
+> **Status**: Phase 2 (Frontend) in progress. Steps 1-11 done. Steps 12-13 (Home page + Article detail) next.
 
 ---
 
@@ -123,7 +123,7 @@ All frontend work lives in `src/frontend/`. The backend must be functional (Phas
   - `src/frontend/lib/utils.ts` -- `formatDate()` (relative time like "2 hours ago"), `truncateText()`, ShadCN `cn()` utility (may already exist from init)
   - **Dependencies**: Step 9
 
-- [ ] **Step 11: Core UI components**
+- [x] **Step 11: Core UI components**
   - `src/frontend/components/api-key-setup.tsx` -- Onboarding screen shown when no API key is stored. Clean, centred layout: app name, tagline, brief explanation, ShadCN Input for key, "Get Started" button, link to newsapi.org/register, privacy note ("Your key stays in your browser"). Uses `useApiKey` hook.
   - `src/frontend/components/settings-dialog.tsx` -- ShadCN Dialog triggered from header settings icon. Shows current key (masked), option to change or remove it. Accessible: proper focus trap, ESC to close, ARIA labels.
   - `src/frontend/components/header.tsx` -- site name, tagline, search bar, settings icon button (gear), theme toggle, refresh button. All icon buttons have `aria-label`. Responsive: stacks on mobile. **(resolves spec gap #7)**
