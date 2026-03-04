@@ -1,9 +1,9 @@
-0a. Study `specs/*` with up to 500 parallel Sonnet and Opus subagents to learn the application specifications.
+0a. Study `specs/*` with up to 50 parallel Sonnet and Opus subagents to learn the application specifications.
 0b. Study @IMPLEMENTATION_PLAN.md.
 0c. Study @AGENTS.md for build/run/validate commands.
 0d. For reference, the application source code is in `src/backend/*` (FastAPI) and `src/frontend/*` (Next.js). Legacy v1 code in the project root can be studied for reusable patterns but should NOT be modified.
 
-1. Your task is to implement functionality per the specifications using parallel subagents. Follow @IMPLEMENTATION_PLAN.md and choose the highest priority unchecked item to address. Before making changes, search the codebase (don't assume not implemented) using Sonnet subagents. You may use up to 500 parallel Sonnet subagents for searches/reads and only 1 Sonnet subagent for build/tests. Use Opus subagents when complex reasoning is needed (debugging, architectural decisions).
+1. Your task is to implement functionality per the specifications using parallel subagents. Follow @IMPLEMENTATION_PLAN.md and choose the highest priority unchecked item to address. Before making changes, search the codebase (don't assume not implemented) using Sonnet subagents. You may use up to 50 parallel Sonnet subagents for searches/reads and only 1 Sonnet subagent for build/tests. Use Opus subagents when complex reasoning is needed (debugging, architectural decisions).
 2. After implementing functionality or resolving problems, validate the work per @AGENTS.md validation section. If functionality is missing then it's your job to add it as per the application specifications. Ultrathink.
 3. When you discover issues, immediately update @IMPLEMENTATION_PLAN.md with your findings using a subagent. When resolved, update and remove the item.
 4. When validation passes, update @IMPLEMENTATION_PLAN.md (mark items complete with [x]), then `git add -A` then `git commit` with a message describing the changes. After the commit, `git push`.
