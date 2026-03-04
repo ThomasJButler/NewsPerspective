@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/search-bar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface HeaderProps {
   searchValue: string;
@@ -53,6 +54,7 @@ export function Header({
                 <path d="M21 3v5h-5" />
               </svg>
             </Button>
+            <ThemeToggle />
             <Button
               variant="outline"
               size="icon"

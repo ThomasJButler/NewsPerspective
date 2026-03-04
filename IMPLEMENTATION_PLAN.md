@@ -1,6 +1,6 @@
 # Implementation Plan -- NewsPerspective v2.0
 
-> **Status**: Phase 2 (Frontend) in progress. Steps 1-11 done. Steps 12-13 (Home page + Article detail) next.
+> **Status**: Phase 2 (Frontend) complete. Steps 1-14 done. Phase 3 (Integration and Polish) next.
 
 ---
 
@@ -136,13 +136,13 @@ All frontend work lives in `src/frontend/`. The backend must be functional (Phas
   - `src/frontend/components/article-feed.tsx` -- renders list of ArticleCards, "Load More" button for pagination, ShadCN Skeleton loading states, empty state message when no articles found
   - **Dependencies**: Step 10
 
-- [ ] **Step 12: Home page**
+- [x] **Step 12: Home page**
   - `src/frontend/app/layout.tsx` -- root layout with metadata (title, description, viewport for mobile), theme provider wrapper. Use a clean, readable system font stack or a distinctive serif/sans pairing — NOT Inter (see design principles).
   - `src/frontend/app/page.tsx` -- checks `useApiKey().hasApiKey`: if false, renders `ApiKeySetup`; if true, renders the news feed layout. Composes: Header, filters bar (GoodNewsToggle + SourceFilter), StatsBar, ArticleFeed. Manages filter state via URL search params (shareable). Auto-triggers refresh on first load if no articles exist.
   - `src/frontend/app/globals.css` -- Tailwind base styles, ShadCN CSS variables, `@media (prefers-reduced-motion: reduce)` rules
   - **Dependencies**: Step 11
 
-- [ ] **Step 13: Article detail page**
+- [x] **Step 13: Article detail page**
   - `src/frontend/app/article/[id]/page.tsx` -- full article detail view **(resolves spec gap #6)**:
     - Fetch single article via `GET /api/articles/{id}`
     - Display: rewritten title (large), original title (if rewritten, shown with "Original:" label), TLDR section, source name, author, published date, sentiment badge (positive/neutral/negative with color), article image (if available), "Read Full Article" link to original URL
@@ -152,7 +152,7 @@ All frontend work lives in `src/frontend/`. The backend must be functional (Phas
   - **Dependencies**: Steps 10-11
   - **Note**: This page was in FRONTEND.md's project structure but missing from the original plan
 
-- [ ] **Step 14: Dark mode**
+- [x] **Step 14: Dark mode**
   - `src/frontend/components/theme-provider.tsx` -- `next-themes` ThemeProvider wrapping the app
   - `src/frontend/components/theme-toggle.tsx` -- sun/moon icon toggle button, placed in Header
   - Update `layout.tsx` to wrap children with ThemeProvider
