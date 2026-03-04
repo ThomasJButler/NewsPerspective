@@ -1,6 +1,6 @@
 # Implementation Plan -- NewsPerspective v2.0
 
-> **Status**: Phase 1 (Backend Foundation) complete. Steps 1-8 done. Phase 2 (Frontend) next.
+> **Status**: Phase 2 (Frontend) in progress. Steps 1-9 done. Step 10 next.
 
 ---
 
@@ -108,7 +108,7 @@ All backend work lives in `src/backend/`. Each step must be fully functional bef
 
 All frontend work lives in `src/frontend/`. The backend must be functional (Phase 1 complete) before integration testing, but frontend scaffolding and components can be built referencing the known API shapes.
 
-- [ ] **Step 9: Next.js + ShadCN scaffolding**
+- [x] **Step 9: Next.js + ShadCN scaffolding**
   - `npx create-next-app@latest src/frontend` -- TypeScript, Tailwind CSS, App Router, no src/ subfolder within frontend
   - `cd src/frontend && npx shadcn@latest init`
   - Add ShadCN components: Button, Card, Switch, Select, Input, Badge, Skeleton, Separator
