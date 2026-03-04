@@ -88,6 +88,8 @@ Single article with full detail.
 ### POST /api/refresh
 Trigger fetching and processing new articles. Returns immediately, processing happens in background.
 
+**Requires `X-News-Api-Key` header** — the user's own NewsAPI key. Returns 401 if missing. The backend validates the key by making a lightweight NewsAPI call before starting the background job. If the key is invalid, returns 401 with an error message.
+
 ### GET /api/sources
 List available news sources with article counts.
 
@@ -131,12 +133,13 @@ Orchestrates the pipeline:
 ## Environment Variables
 
 ```
-NEWS_API_KEY=your_newsapi_key
 AZURE_OPENAI_KEY=your_key
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_DEPLOYMENT=gpt-4o
 DATABASE_URL=sqlite:///./newsperspective.db
 ```
+
+Note: `NEWS_API_KEY` is no longer a server-side environment variable. Users provide their own NewsAPI key via the frontend, which passes it to the backend as an `X-News-Api-Key` request header on `/api/refresh`.
 
 ## Error Handling
 

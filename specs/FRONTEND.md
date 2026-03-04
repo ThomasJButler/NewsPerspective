@@ -7,6 +7,27 @@
 - **Styling**: Tailwind CSS
 - **No ads, no tracking, no bloat**
 
+## Design Philosophy
+
+**Minimalistic, accessible, effortless.** The frontend is a reading tool — it should disappear and let the content breathe. Every element earns its place. No decoration for decoration's sake.
+
+- **ShadCN defaults** — lean into the component library's clean aesthetic, don't fight it
+- **Accessibility first** — proper ARIA labels, keyboard navigation, focus rings, screen reader support, sufficient contrast ratios (WCAG AA minimum)
+- **Mobile-first responsive** — designed for phones, scales up beautifully to desktop
+- **User-provided News API key** — no server-side news key needed; each user enters their own free NewsAPI key to fetch headlines
+
+## User-Provided API Key Flow
+
+Users bring their own [NewsAPI key](https://newsapi.org/register) (free tier: 100 requests/day).
+
+1. **First visit**: Clean onboarding screen — brief explanation of what the app does, input for News API key, link to get a free key
+2. **Key stored in `localStorage`** — never sent to any third party, only passed to our backend as a request header (`X-News-Api-Key`)
+3. **Key validation**: Backend validates the key with a lightweight NewsAPI call before proceeding
+4. **Key management**: Small settings icon in header to view/change/remove the stored key
+5. **No key = no news fetching** — but previously fetched articles remain viewable from the backend database
+
+The backend's Azure OpenAI key remains server-side (deployment operator's cost). Only the news source key is user-provided.
+
 ## Project Structure
 
 ```
@@ -33,9 +54,14 @@ src/
 │   │   ├── search-bar.tsx       # Search articles
 │   │   ├── header.tsx           # Site header
 │   │   ├── stats-bar.tsx        # Processing stats display
-│   │   └── tldr-section.tsx     # TLDR summary component
+│   │   ├── tldr-section.tsx     # TLDR summary component
+│   │   ├── api-key-setup.tsx    # API key onboarding + input
+│   │   └── settings-dialog.tsx  # Key management dialog
+│   ├── hooks/
+│   │   ├── use-api-key.ts       # localStorage-backed API key hook
+│   │   └── use-debounce.ts      # Debounce hook for search
 │   ├── lib/
-│   │   ├── api.ts               # API client for backend
+│   │   ├── api.ts               # API client (attaches X-News-Api-Key header)
 │   │   └── utils.ts             # Utility functions
 │   └── types/
 │       └── article.ts           # TypeScript types
@@ -43,13 +69,37 @@ src/
 
 ## Pages
 
-### Home (/)
-The main news feed. Clean, minimal, scannable.
+### First Visit (no API key stored)
+Clean onboarding. No clutter. Gets the user started in 30 seconds.
 
-Layout:
 ```
 ┌─────────────────────────────────────────────┐
-│  NewsPerspective              [Search]       │
+│                                              │
+│            NewsPerspective                   │
+│       See the news. Not the spin.            │
+│                                              │
+│  News headlines are designed to grab your    │
+│  attention, not inform you. We fix that.     │
+│                                              │
+│  ┌─────────────────────────────────────────┐ │
+│  │  Enter your News API key               │ │
+│  │  [________________________] [Get Started]│ │
+│  │                                         │ │
+│  │  Free key → newsapi.org/register        │ │
+│  └─────────────────────────────────────────┘ │
+│                                              │
+│  Your key stays in your browser.             │
+│  We never store or share it.                 │
+│                                              │
+└─────────────────────────────────────────────┘
+```
+
+### Home (/) — with API key
+The main news feed. Clean, minimal, scannable.
+
+```
+┌─────────────────────────────────────────────┐
+│  NewsPerspective        [Search] [⚙️] [🌙]  │
 │  See the news. Not the spin.                 │
 ├─────────────────────────────────────────────┤
 │                                              │
@@ -115,9 +165,21 @@ Small bar showing "147 articles processed today • 89 headlines improved"
 1. **Clean white/light background** — easy on the eyes
 2. **Excellent typography** — headlines are the product, they must be beautifully typeset
 3. **Generous whitespace** — not cramped, not overwhelming
-4. **Mobile-first** — most news is consumed on phones
+4. **Mobile-first** — most news is consumed on phones; touch-friendly tap targets (min 44px)
 5. **No visual noise** — no ads, no pop-ups, no cookie banners, no newsletter prompts
-6. **Dark mode support** — via ShadCN's built-in theme system
+6. **Dark mode support** — via ShadCN's built-in theme system (next-themes)
+7. **Accessible** — WCAG AA contrast, semantic HTML, keyboard navigable, screen reader friendly
+8. **Simple** — if a feature doesn't directly serve the user reading news, it doesn't exist
+
+## Accessibility Requirements
+
+- All interactive elements keyboard-accessible with visible focus indicators
+- ARIA labels on icon-only buttons (settings, theme toggle, refresh)
+- Semantic heading hierarchy (h1 for page title, h2 for article headlines)
+- `prefers-reduced-motion` respected — disable animations for users who request it
+- Sufficient color contrast in both light and dark themes
+- Form inputs have associated labels (API key input, search bar)
+- External links marked with `rel="noopener noreferrer"` and visually indicated
 
 ## API Integration
 
@@ -125,5 +187,7 @@ The frontend calls the FastAPI backend. In development:
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`
 - Next.js `rewrites` in `next.config.js` to proxy `/api/*` to backend
+
+**API key header**: All requests that trigger news fetching (refresh) include `X-News-Api-Key` header with the user's stored key. Read-only endpoints (articles, sources, stats) work without a key — they serve cached data from the backend database.
 
 In production, both can be served from the same domain or via reverse proxy.
