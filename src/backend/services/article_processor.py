@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from ..models import Article
@@ -6,6 +8,17 @@ from .ai_service import AIService
 from .news_fetcher import NewsFetcher
 
 logger = setup_logger(__name__)
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    """Parse an ISO 8601 datetime string, returning None on failure."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        logger.warning("Could not parse datetime: %s", value)
+        return None
 
 
 class ArticleProcessor:
@@ -26,6 +39,7 @@ class ArticleProcessor:
             len(existing_urls),
         )
 
+        ai_service = AIService()
         new_count = 0
         for raw in articles:
             url = raw.get("url")
@@ -41,7 +55,7 @@ class ArticleProcessor:
                 source_id=raw.get("source_id", ""),
                 author=raw.get("author"),
                 image_url=raw.get("image_url"),
-                published_at=raw.get("published_at"),
+                published_at=_parse_datetime(raw.get("published_at")),
                 category=raw.get("category", "general"),
                 processing_status="pending",
             )
@@ -52,7 +66,7 @@ class ArticleProcessor:
             new_count += 1
 
             try:
-                result = AIService().analyse_article(
+                result = ai_service.analyse_article(
                     title=article.original_title,
                     source=article.source_name,
                     description=article.original_description,

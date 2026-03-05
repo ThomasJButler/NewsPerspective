@@ -18,6 +18,7 @@ import { SourceFilter } from "@/components/source-filter";
 import { StatsBar } from "@/components/stats-bar";
 import { ArticleFeed } from "@/components/article-feed";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { toast } from "@/hooks/use-toast";
 
 function HomeContent() {
   const { apiKey, setApiKey, clearApiKey, hasApiKey, isLoaded } = useApiKey();
@@ -69,8 +70,12 @@ function HomeContent() {
         );
         setHasMore(data.has_more);
         setPage(data.page);
-      } catch {
-        // articles stay as-is
+      } catch (err) {
+        toast({
+          title: "Failed to load articles",
+          description: err instanceof Error ? err.message : "Please try again later.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
@@ -88,7 +93,9 @@ function HomeContent() {
     if (!isLoaded) return;
     fetchSources()
       .then((d) => setSources(d.sources))
-      .catch(() => {});
+      .catch(() => {
+        // Sources/stats are non-critical — silently degrade
+      });
     fetchStats()
       .then((d) => setStats(d))
       .catch(() => {});
@@ -109,8 +116,16 @@ function HomeContent() {
           .catch(() => {});
         setRefreshing(false);
       }, 3000);
-    } catch {
+    } catch (err) {
       setRefreshing(false);
+      const message = err instanceof Error ? err.message : "Refresh failed";
+      toast({
+        title: "Refresh failed",
+        description: message.includes("401")
+          ? "Invalid API key. Check your key in Settings."
+          : message,
+        variant: "destructive",
+      });
     }
   };
 

@@ -1,6 +1,6 @@
 # Implementation Plan -- NewsPerspective v2.0
 
-> **Status**: Phases 1-2 functionally complete (Steps 1-14). Quality defects found in code audit. Phase 2.5 (Quality Fixes) added before Phase 3 (Integration and Polish).
+> **Status**: Phases 1-2.5 complete (Steps 1-14, QF-1 through QF-7). Phase 3 (Integration and Polish) is next.
 
 ---
 
@@ -38,50 +38,28 @@ All frontend work lives in `src/frontend/`. All steps functional.
 
 ---
 
-## Phase 2.5: Quality Fixes (Pre-Integration)
+## Phase 2.5: Quality Fixes (Pre-Integration) — COMPLETE
 
-Code audit of completed Steps 1-14 revealed defects that should be fixed before integration testing. Ordered by priority.
+- [x] **Step QF-1: Typography — fix broken font configuration**
+  - Added system font stacks as fallbacks in `globals.css` for `--font-sans` and `--font-mono`. Uses `system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` (NOT Inter). When network is available, fonts can be upgraded to Google Fonts (Plus Jakarta Sans / JetBrains Mono) via `next/font/google` in `layout.tsx`.
 
-- [ ] **Step QF-1: Typography — fix broken font configuration** *(HIGH — visible to every user)*
-  - **Problem**: `globals.css` references `var(--font-geist-sans)` and `var(--font-geist-mono)` but `layout.tsx` does not import Geist fonts. CSS variables are unset, so text falls back to browser default sans-serif. The spec explicitly says "NOT Inter" and wants "distinctive but clean font pairing" — headlines are the product.
-  - **Fix**: Choose a font strategy:
-    - Option A: Import Geist Sans + Geist Mono via `next/font/google` (or local) in `layout.tsx`, apply CSS variables to `<body>`.
-    - Option B: Replace with a different pairing per the spec's "distinctive" requirement (e.g., a serif for headlines + clean sans for body).
-  - **Files**: `src/frontend/app/layout.tsx`, `src/frontend/app/globals.css`
+- [x] **Step QF-2: Settings dialog — replace custom modal with ShadCN Dialog**
+  - Created `src/frontend/components/ui/dialog.tsx` using Radix Dialog from the unified `radix-ui` package. Rewrote `settings-dialog.tsx` to use the ShadCN Dialog component — now has proper focus trap, scroll lock, portal rendering, and accessible close button.
 
-- [ ] **Step QF-2: Settings dialog — replace custom modal with ShadCN Dialog** *(HIGH — accessibility violation)*
-  - **Problem**: `settings-dialog.tsx` is a hand-rolled modal using a fixed backdrop div. It has `role="dialog"`, `aria-modal`, and ESC-to-close, but **lacks focus trap** — keyboard users can tab outside the open dialog. The implementation plan (Step 11) specifies "ShadCN Dialog... proper focus trap, ESC to close, ARIA labels."
-  - **Fix**: Replace the custom implementation with ShadCN's Dialog component (which wraps Radix Dialog and provides focus trap, scroll lock, and portal automatically). Note: `@radix-ui/react-dialog` is already in `package-lock.json` as a transitive dependency.
-  - **Files**: `src/frontend/components/settings-dialog.tsx`
-  - Add ShadCN Dialog component: `npx shadcn@latest add dialog`
+- [x] **Step QF-3: Error handling UI — surface API errors to users**
+  - Created a lightweight toast notification system: `hooks/use-toast.ts` (pub/sub pattern) + `components/toaster.tsx` (renders toast list). Added `<Toaster />` to `layout.tsx`. Updated `page.tsx` to show destructive toasts on article fetch failures, refresh failures (with special 401/invalid API key messaging), and `article/[id]/page.tsx` for article detail fetch errors.
 
-- [ ] **Step QF-3: Error handling UI — surface API errors to users** *(HIGH — silent failures)*
-  - **Problem**: All `catch` blocks in `page.tsx` are empty (`catch(() => {})`). When the backend is unreachable, the API key is invalid (401), or the refresh fails, the user sees nothing — no toast, no alert, no error state. The refresh button just stops spinning silently.
-  - **Fix**: Add a minimal error feedback mechanism. Options:
-    - Option A: ShadCN Toast/Sonner for transient errors (recommended — lightweight)
-    - Option B: Inline error banners above the article feed
-  - At minimum, surface: refresh failures (especially 401 "invalid API key"), network errors on article fetch, and article-not-found on detail page.
-  - **Files**: `src/frontend/app/page.tsx`, `src/frontend/app/article/[id]/page.tsx`, possibly new toast component
+- [x] **Step QF-4: Fix `.env.template` — remove stale `NEWS_API_KEY`**
+  - Removed `NEWS_API_KEY` line. Added comment explaining user-provided key model.
 
-- [ ] **Step QF-4: Fix `.env.template` — remove stale `NEWS_API_KEY`** *(MEDIUM — confusing for new developers)*
-  - **Problem**: `.env.template` still lists `NEWS_API_KEY=your_newsapi_key_here` as the first entry. In v2, the News API key is user-provided via the frontend — there is no server-side `NEWS_API_KEY`. This misleads developers into thinking they need to set it.
-  - **Fix**: Remove the `NEWS_API_KEY` line from `.env.template`. Add a comment explaining the user-provided key model.
-  - **Files**: `.env.template`
+- [x] **Step QF-5: Backend — instantiate AIService once per batch**
+  - Moved `AIService()` instantiation before the article loop in `article_processor.py`. Single client reused for all articles in a batch.
 
-- [ ] **Step QF-5: Backend — instantiate AIService once per batch** *(MEDIUM — performance)*
-  - **Problem**: In `article_processor.py`, `AIService()` is instantiated inside the per-article loop (line ~55). This creates a new `AzureOpenAI` client object for every single article. While functional, it is wasteful — the client should be reused.
-  - **Fix**: Move `AIService()` instantiation to `ArticleProcessor.__init__()` or to the top of `process_new_articles()`, before the article loop.
-  - **Files**: `src/backend/services/article_processor.py`
+- [x] **Step QF-6: Backend — parse `published_at` datetime explicitly**
+  - Added `_parse_datetime()` helper using `datetime.fromisoformat()` with `Z` → `+00:00` conversion and try/except fallback to `None`.
 
-- [ ] **Step QF-6: Backend — parse `published_at` datetime explicitly** *(LOW — fragile coercion)*
-  - **Problem**: In `article_processor.py`, `raw.get("published_at")` returns an ISO 8601 string from NewsAPI. This string is assigned directly to a SQLAlchemy `DateTime` column. SQLAlchemy's implicit coercion handles it, but this is fragile and will break with unexpected date formats.
-  - **Fix**: Add explicit `datetime.fromisoformat()` parsing (with a try/except fallback to `None`) when setting `published_at` on the Article model.
-  - **Files**: `src/backend/services/article_processor.py`
-
-- [ ] **Step QF-7: Remove dead code** *(LOW — cleanup)*
-  - `NewsFetcher.fetch_everything()` in `src/backend/services/news_fetcher.py` — method exists but is never called anywhere in the codebase.
-  - `truncateText()` in `src/frontend/lib/utils.ts` — function exists but is never called.
-  - **Fix**: Remove both. (If `fetch_everything` is wanted for future use, it can be re-added then.)
+- [x] **Step QF-7: Remove dead code**
+  - Removed `NewsFetcher.fetch_everything()` from `news_fetcher.py`. Removed `truncateText()` from `utils.ts`.
 
 ---
 
@@ -130,15 +108,15 @@ Code audit of completed Steps 1-14 revealed defects that should be fixed before 
 |----------|------|-------------|--------|
 | 1-8 | Steps 1-8 | Backend Foundation | DONE |
 | 9-14 | Steps 9-14 | Frontend | DONE |
-| **15** | **QF-1** | **Fix broken font configuration** | TODO |
-| **16** | **QF-2** | **Settings dialog → ShadCN Dialog (focus trap)** | TODO |
-| **17** | **QF-3** | **Error handling UI (surface API errors)** | TODO |
-| **18** | **QF-4** | **Fix .env.template (remove NEWS_API_KEY)** | TODO |
-| **19** | **QF-5** | **AIService instantiation (once per batch)** | TODO |
-| **20** | **QF-6** | **Parse published_at datetime explicitly** | TODO |
-| **21** | **QF-7** | **Remove dead code** | TODO |
+| 15 | QF-1 | Fix broken font configuration | DONE |
+| 16 | QF-2 | Settings dialog → ShadCN Dialog (focus trap) | DONE |
+| 17 | QF-3 | Error handling UI (surface API errors) | DONE |
+| 18 | QF-4 | Fix .env.template (remove NEWS_API_KEY) | DONE |
+| 19 | QF-5 | AIService instantiation (once per batch) | DONE |
+| 20 | QF-6 | Parse published_at datetime explicitly | DONE |
+| 21 | QF-7 | Remove dead code | DONE |
 | 22 | Step 15 | End-to-end integration testing | TODO |
 | 23 | Step 16 | Developer experience | TODO |
 | 24 | Step 17 | Legacy cleanup | TODO |
 
-**Parallelism note**: QF-1 through QF-7 are all independent and can be implemented in parallel. Steps 15-17 must be sequential.
+**Next**: Step 15 — end-to-end integration testing.

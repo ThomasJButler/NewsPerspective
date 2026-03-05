@@ -25,17 +25,6 @@ class NewsFetcher:
             params["category"] = category
         return self._fetch(f"{NEWSAPI_BASE}/top-headlines", params)
 
-    def fetch_everything(self, query: str = "UK", sort_by: str = "publishedAt") -> list[dict]:
-        """Fetch broader search results via /v2/everything."""
-        params = {
-            "q": query,
-            "sortBy": sort_by,
-            "language": "en",
-            "apiKey": self.api_key,
-            "pageSize": 100,
-        }
-        return self._fetch(f"{NEWSAPI_BASE}/everything", params)
-
     def fetch_all_categories(self, country: str = "gb") -> list[dict]:
         """Fetch headlines across all categories with deduplication by URL."""
         all_articles = []

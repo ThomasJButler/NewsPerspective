@@ -35,7 +35,3 @@ export function formatDate(dateString: string | null): string {
   });
 }
 
-export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength).trimEnd() + "…";
-}

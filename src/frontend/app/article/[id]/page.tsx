@@ -8,6 +8,7 @@ import { TldrSection } from "@/components/tldr-section";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import type { Article } from "@/types/article";
 
 function sentimentVariant(
@@ -27,7 +28,14 @@ export default function ArticleDetailPage() {
   useEffect(() => {
     fetchArticle(id)
       .then(setArticle)
-      .catch(() => setNotFound(true))
+      .catch((err) => {
+        setNotFound(true);
+        toast({
+          title: "Failed to load article",
+          description: err instanceof Error ? err.message : "Article could not be loaded.",
+          variant: "destructive",
+        });
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
