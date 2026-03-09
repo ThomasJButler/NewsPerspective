@@ -4,7 +4,7 @@
 
 - **Framework**: FastAPI (Python)
 - **Database**: SQLite via SQLAlchemy (simple, zero-config, portable)
-- **AI**: Azure OpenAI GPT-4o (chat completions endpoint)
+- **AI**: OpenAI chat completions API
 - **News Source**: NewsAPI (https://newsapi.org)
 - **Task runner**: Background task processing via FastAPI BackgroundTasks
 
@@ -27,7 +27,7 @@ src/
 │   │   ├── __init__.py
 │   │   ├── news_fetcher.py   # NewsAPI integration
 │   │   ├── article_processor.py  # Orchestrates analysis + rewrite + TLDR
-│   │   └── ai_service.py     # Azure OpenAI wrapper (sentiment, rewrite, TLDR)
+│   │   └── ai_service.py     # OpenAI wrapper (sentiment, rewrite, TLDR)
 │   └── utils/
 │       ├── __init__.py
 │       └── logger.py         # Logging config
@@ -105,7 +105,7 @@ Processing statistics (total articles, rewrites, good news count, etc.)
 - Categories: general, sports, technology, science, health, business, entertainment
 
 ### ai_service.py
-Single Azure OpenAI service that handles all AI tasks via chat completions:
+Single OpenAI service that handles all AI tasks via chat completions:
 
 1. **Analyse & Rewrite** — Single prompt that:
    - Assesses sentiment (positive/neutral/negative with score)
@@ -132,17 +132,18 @@ Orchestrates the pipeline:
 
 ## Environment Variables
 
-```
-AZURE_OPENAI_KEY=your_key
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
+```env
+OPENAI_API_KEY=your_key
+OPENAI_MODEL=gpt-4o-mini
 DATABASE_URL=sqlite:///./newsperspective.db
 ```
 
 Note: `NEWS_API_KEY` is no longer a server-side environment variable. Users provide their own NewsAPI key via the frontend, which passes it to the backend as an `X-News-Api-Key` request header on `/api/refresh`.
 
+If `OPENAI_API_KEY` is not configured, fetched articles are still stored, but AI-derived fields fall back to neutral defaults.
+
 ## Error Handling
 
 - NewsAPI failures: log and retry with backoff
-- OpenAI failures: log, mark article as `processing_status=failed`, continue
+- OpenAI failures: log and fall back to neutral analysis defaults without crashing ingestion
 - All services return clean error responses, never crash the server

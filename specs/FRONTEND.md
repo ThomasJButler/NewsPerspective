@@ -26,7 +26,7 @@ Users bring their own [NewsAPI key](https://newsapi.org/register) (free tier: 10
 4. **Key management**: Small settings icon in header to view/change/remove the stored key
 5. **No key = no news fetching** — but previously fetched articles remain viewable from the backend database
 
-The backend's Azure OpenAI key remains server-side (deployment operator's cost). Only the news source key is user-provided.
+The backend's OpenAI key remains server-side (deployment operator's cost). Only the news source key is user-provided.
 
 ## Project Structure
 

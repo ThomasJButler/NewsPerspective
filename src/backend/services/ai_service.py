@@ -1,7 +1,7 @@
 import json
 import logging
 
-from openai import AzureOpenAI
+from openai import OpenAI
 
 from ..config import settings
 from ..utils.logger import setup_logger
@@ -56,12 +56,8 @@ NEUTRAL_DEFAULTS = {
 
 class AIService:
     def __init__(self):
-        self.client = AzureOpenAI(
-            api_key=settings.AZURE_OPENAI_KEY,
-            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
-            api_version="2024-12-01-preview",
-        )
-        self.deployment = settings.AZURE_OPENAI_DEPLOYMENT
+        self.model = settings.OPENAI_MODEL
+        self.client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 
     def analyse_article(self, title: str, source: str, description: str) -> dict:
         """Analyse a single article: sentiment, rewrite decision, TLDR, good-news flag.
@@ -76,9 +72,13 @@ class AIService:
             description=description or "No description available",
         )
 
+        if self.client is None:
+            logger.warning("OPENAI_API_KEY is not configured; using neutral defaults for article analysis")
+            return dict(NEUTRAL_DEFAULTS)
+
         try:
             response = self.client.chat.completions.create(
-                model=self.deployment,
+                model=self.model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},

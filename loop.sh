@@ -1,70 +1,87 @@
-#!/bin/bash
-# Usage: ./loop.sh [plan] [max_iterations]
-# Examples:
-#   ./loop.sh              # Build mode, unlimited iterations
-#   ./loop.sh 20           # Build mode, max 20 iterations
-#   ./loop.sh plan         # Plan mode, unlimited iterations
-#   ./loop.sh plan 5       # Plan mode, max 5 iterations
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Parse arguments
-if [ "$1" = "plan" ]; then
-    # Plan mode
-    MODE="plan"
+# Ralph loop wrapper for Codex
+# Usage:
+#   ./loop.sh plan
+#   ./loop.sh plan 1
+#   ./loop.sh build
+#   ./loop.sh build 2
+
+MODE="${1:-build}"
+MAX_ITERATIONS="${2:-0}"
+
+case "$MODE" in
+  plan)
     PROMPT_FILE="PROMPT_plan.md"
-    MAX_ITERATIONS=${2:-0}
-elif [[ "$1" =~ ^[0-9]+$ ]]; then
-    # Build mode with max iterations
-    MODE="build"
+    ;;
+  build)
     PROMPT_FILE="PROMPT_build.md"
-    MAX_ITERATIONS=$1
-else
-    # Build mode, unlimited (no arguments or invalid input)
-    MODE="build"
-    PROMPT_FILE="PROMPT_build.md"
-    MAX_ITERATIONS=0
+    ;;
+  *)
+    if [[ "$MODE" =~ ^[0-9]+$ ]]; then
+      PROMPT_FILE="PROMPT_build.md"
+      MAX_ITERATIONS="$MODE"
+      MODE="build"
+    else
+      echo "Usage: ./loop.sh [plan|build] [max_iterations]"
+      exit 1
+    fi
+    ;;
+esac
+
+if [[ ! -f "$PROMPT_FILE" ]]; then
+  echo "Missing prompt file: $PROMPT_FILE"
+  exit 1
 fi
+
+if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "This loop expects to run inside a git repository."
+  exit 1
+fi
+
+RUN_DIR=".codex-run"
+mkdir -p "$RUN_DIR"
 
 ITERATION=0
-CURRENT_BRANCH=$(git branch --show-current)
+BRANCH="$(git branch --show-current 2>/dev/null || echo detached-head)"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Ralph loop (Codex)"
 echo "Mode:   $MODE"
 echo "Prompt: $PROMPT_FILE"
-echo "Branch: $CURRENT_BRANCH"
-[ $MAX_ITERATIONS -gt 0 ] && echo "Max:    $MAX_ITERATIONS iterations"
+echo "Branch: $BRANCH"
+[[ "$MAX_ITERATIONS" != "0" ]] && echo "Max:    $MAX_ITERATIONS"
+echo "Logs:   $RUN_DIR"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Verify prompt file exists
-if [ ! -f "$PROMPT_FILE" ]; then
-    echo "Error: $PROMPT_FILE not found"
-    exit 1
-fi
-
 while true; do
-    if [ $MAX_ITERATIONS -gt 0 ] && [ $ITERATION -ge $MAX_ITERATIONS ]; then
-        echo "Reached max iterations: $MAX_ITERATIONS"
-        break
-    fi
+  if [[ "$MAX_ITERATIONS" != "0" && "$ITERATION" -ge "$MAX_ITERATIONS" ]]; then
+    echo "Reached max iterations: $MAX_ITERATIONS"
+    break
+  fi
 
-    # Run Ralph iteration with selected prompt
-    # -p: Headless mode (non-interactive, reads from stdin)
-    # --dangerously-skip-permissions: Auto-approve all tool calls (YOLO mode)
-    # --output-format=stream-json: Structured output for logging/monitoring
-    # --model opus: Primary agent uses Opus for complex reasoning (task selection, prioritization)
-    #               Can use 'sonnet' in build mode for speed if plan is clear and tasks well-defined
-    # --verbose: Detailed execution logging
-    cat "$PROMPT_FILE" | claude -p \
-        --dangerously-skip-permissions \
-        --output-format=stream-json \
-        --model opus \
-        --verbose
+  TS="$(date +%Y%m%d-%H%M%S)"
+  JSONL_PATH="$RUN_DIR/${MODE}-${TS}.jsonl"
+  FINAL_PATH="$RUN_DIR/${MODE}-${TS}.final.md"
 
-    # Push changes after each iteration
-    git push origin "$CURRENT_BRANCH" || {
-        echo "Failed to push. Creating remote branch..."
-        git push -u origin "$CURRENT_BRANCH"
-    }
+  echo
+  echo "==> Iteration $((ITERATION + 1))"
 
-    ITERATION=$((ITERATION + 1))
-    echo -e "\n\n======================== LOOP $ITERATION ========================\n"
+  codex exec --full-auto --json \
+    --output-last-message "$FINAL_PATH" \
+    "$(cat "$PROMPT_FILE")" \
+    | tee "$JSONL_PATH"
+
+  echo "Saved final message to: $FINAL_PATH"
+  echo "Saved JSONL log to:     $JSONL_PATH"
+
+  ITERATION=$((ITERATION + 1))
+
+  if [[ "$MAX_ITERATIONS" == "0" ]]; then
+    echo
+    echo "Run again for another fresh-context iteration:"
+    echo "  ./loop.sh $MODE 1"
+    break
+  fi
 done
