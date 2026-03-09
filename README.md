@@ -40,4 +40,6 @@ Then authenticate Codex locally and trust this project so project-scoped `.codex
 - Project config belongs in `.codex/config.toml`.
 - Keep loop prompts repo-local and explicit; do not rely on implicit memory.
 - For backend work, create the local Python environment at `src/backend/.venv`, then install `src/backend/requirements.txt`.
-- Backend config now uses `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL` in the repo-root `.env`.
+- Copy `.env.template` to `.env` for backend setup.
+- Backend config uses `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL` from the repo-root `.env`.
+- `NEWS_API_KEY` is request-scoped, not a backend env var; send it in the `X-News-Api-Key` header on `POST /api/refresh`.

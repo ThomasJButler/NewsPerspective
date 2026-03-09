@@ -24,8 +24,7 @@ to-do.md
 ai-search-azure-portal.png
 config.json
 /.claude
-.env.template
 /.codex
+.codex-run/
 CLAUDE.md
 RALPH_CODEX_MIGRATION_NOTES.md
-src/backend/config.py
