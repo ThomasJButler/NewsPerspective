@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image, { type ImageLoaderProps } from "next/image";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { fetchArticle } from "@/lib/api";
@@ -17,6 +18,10 @@ function sentimentVariant(
   if (sentiment === "positive") return "default";
   if (sentiment === "negative") return "destructive";
   return "secondary";
+}
+
+function articleImageLoader({ src }: ImageLoaderProps) {
+  return src;
 }
 
 export default function ArticleDetailPage() {
@@ -61,8 +66,9 @@ export default function ArticleDetailPage() {
   }
 
   const headline = article.was_rewritten
-    ? article.rewritten_title
+    ? article.rewritten_title ?? article.original_title
     : article.original_title;
+  const imageUrl = article.image_url;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -99,12 +105,18 @@ export default function ArticleDetailPage() {
           )}
         </div>
 
-        {article.image_url && (
-          <img
-            src={article.image_url}
-            alt=""
-            className="w-full rounded-lg object-cover max-h-96"
-          />
+        {imageUrl && (
+          <div className="relative aspect-[16/9] max-h-96 w-full overflow-hidden rounded-lg">
+            <Image
+              src={imageUrl}
+              alt={headline}
+              fill
+              loader={articleImageLoader}
+              unoptimized
+              sizes="(min-width: 768px) 768px, 100vw"
+              className="object-cover"
+            />
+          </div>
         )}
 
         {article.tldr && <TldrSection tldr={article.tldr} />}
