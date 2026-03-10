@@ -8,6 +8,7 @@ from ..utils.logger import setup_logger
 logger = setup_logger("NewsFetcher")
 
 NEWSAPI_BASE = "https://newsapi.org/v2"
+DEFAULT_NEWSAPI_COUNTRY = "us"
 CATEGORIES = ["general", "sports", "technology", "science", "health", "business", "entertainment"]
 DAILY_REQUEST_LIMIT = 100
 REQUEST_WARNING_THRESHOLD = 80
@@ -18,14 +19,18 @@ class NewsFetcher:
         self.api_key = api_key
         self.request_count = 0
 
-    def fetch_top_headlines(self, country: str = "gb", category: str | None = None) -> list[dict]:
-        """Fetch UK top headlines, optionally filtered by category."""
+    def fetch_top_headlines(
+        self,
+        country: str = DEFAULT_NEWSAPI_COUNTRY,
+        category: str | None = None,
+    ) -> list[dict]:
+        """Fetch top headlines for the configured country, optionally filtered by category."""
         params = {"country": country, "apiKey": self.api_key, "pageSize": 100}
         if category:
             params["category"] = category
         return self._fetch(f"{NEWSAPI_BASE}/top-headlines", params)
 
-    def fetch_all_categories(self, country: str = "gb") -> list[dict]:
+    def fetch_all_categories(self, country: str = DEFAULT_NEWSAPI_COUNTRY) -> list[dict]:
         """Fetch headlines across all categories with deduplication by URL."""
         all_articles = []
         seen_urls: set[str] = set()

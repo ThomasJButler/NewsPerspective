@@ -16,6 +16,7 @@ from ..schemas import (
     StatsResponse,
 )
 from ..services.article_processor import process_new_articles_background
+from ..services.news_fetcher import DEFAULT_NEWSAPI_COUNTRY
 from ..services.refresh_tracker import refresh_tracker
 from ..utils.source_normalization import source_id_expression, source_label_expression
 
@@ -136,7 +137,11 @@ def refresh_articles(
     try:
         response = http_requests.get(
             "https://newsapi.org/v2/top-headlines",
-            params={"country": "gb", "pageSize": 1, "apiKey": x_news_api_key},
+            params={
+                "country": DEFAULT_NEWSAPI_COUNTRY,
+                "pageSize": 1,
+                "apiKey": x_news_api_key,
+            },
             timeout=NEWSAPI_VALIDATION_TIMEOUT_SECONDS,
         )
     except http_requests.Timeout:

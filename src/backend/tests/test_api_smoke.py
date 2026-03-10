@@ -269,7 +269,11 @@ class BackendApiSmokeTest(unittest.TestCase):
         )
         mock_get.assert_called_once_with(
             "https://newsapi.org/v2/top-headlines",
-            params={"country": "gb", "pageSize": 1, "apiKey": "invalid-key"},
+            params={
+                "country": sources_router.DEFAULT_NEWSAPI_COUNTRY,
+                "pageSize": 1,
+                "apiKey": "invalid-key",
+            },
             timeout=sources_router.NEWSAPI_VALIDATION_TIMEOUT_SECONDS,
         )
 
