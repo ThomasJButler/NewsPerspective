@@ -1,64 +1,69 @@
-# NewsPerspective v2.0 — Overview
+# NewsPerspective v2.0 - Overview
 
 ## Mission
 
-News headlines are designed to grab attention, not inform. Sensationalism, negativity bias, and misleading framing create a "chinese whispers" effect — even when the original story is factual, the headline distorts perception, and that distortion ripples outward with real consequences.
+NewsPerspective helps readers compare sensational framing against a calmer, factual presentation of the same story. The product focuses on three outcomes:
 
-NewsPerspective gives power back to the reader by:
-
-1. **Rewriting headlines** to be factual and unbiased — stripping sensationalism while preserving truth
-2. **Generating accurate TLDR summaries** so readers get the real story in seconds
-3. **Surfacing good news** that exists but gets buried by the attention economy
+1. Rewrite loaded headlines only when the original framing is misleading, sensational, or needlessly emotional.
+2. Generate short TLDR summaries from the article description so the story can be understood quickly.
+3. Surface genuinely positive stories with a dedicated good-news filter.
 
 ## Core Principles
 
-- **Simple** — No bloat, no ads, no tracking. A clean tool that does one thing well.
-- **Accurate** — Never fabricate, always preserve facts. The rewrite must be MORE truthful, not less.
-- **Transparent** — Always show the original headline alongside the rewrite so users can compare.
-- **Fast** — Users should see today's news immediately, not wait for batch processing.
+- Simple: cached browse should work without a saved NewsAPI key.
+- Accurate: rewrites must preserve facts and never invent context.
+- Transparent: the original headline remains visible beside any rewritten version.
+- Practical: one refresh request should fetch, analyse, and persist articles with minimal operator setup.
 
-## Architecture
+## Current Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  Frontend (Next.js + ShadCN)     │
-│  - News feed with rewritten headlines            │
-│  - TLDR summaries per article                    │
-│  - "Good News" toggle                            │
-│  - Source/category filtering                     │
-│  - Original vs rewritten comparison              │
-└──────────────────────┬──────────────────────────┘
-                       │ REST API
-┌──────────────────────▼──────────────────────────┐
-│                  Backend (FastAPI)                │
-│  - /api/articles — paginated article feed        │
-│  - /api/articles/:id — single article detail     │
-│  - /api/refresh — trigger article processing     │
-│  - /api/sources — available news sources         │
-│  - /api/stats — processing statistics            │
-└──────────┬───────────┬──────────────────────────┘
-           │           │
-    ┌──────▼──┐  ┌─────▼──────┐
-    │ NewsAPI │  │ Azure      │
-    │         │  │ OpenAI     │
-    └─────────┘  │ (GPT-4o)  │
-                 └────────────┘
-           │
-    ┌──────▼──────┐
-    │  SQLite DB  │
-    │  (articles) │
-    └─────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ Frontend (Next.js 16 + React 19 + ShadCN UI)            │
+│ - Cached article browsing                               │
+│ - Search, source, category, and good-news filters       │
+│ - Inline onboarding and refresh UI                      │
+│ - Polling for refresh status                            │
+└──────────────────────────┬───────────────────────────────┘
+                           │ /api/*
+┌──────────────────────────▼───────────────────────────────┐
+│ Backend (FastAPI)                                        │
+│ - GET /api/articles and GET /api/articles/{id}           │
+│ - GET /api/sources and GET /api/stats                    │
+│ - POST /api/refresh and GET /api/refresh/status          │
+│ - Background refresh processing                          │
+│ - In-memory per-process refresh tracking                 │
+└───────────────┬───────────────────────┬──────────────────┘
+                │                       │
+        ┌───────▼────────┐      ┌───────▼─────────────────┐
+        │ NewsAPI        │      │ OpenAI chat completions │
+        │ /v2/top-headlines      │ Single analysis call    │
+        │ country=us             │ per article             │
+        └────────┬───────┘      └────────┬─────────────────┘
+                 │                        │
+                 └──────────────┬─────────┘
+                                ▼
+                         SQLite via SQLAlchemy
 ```
 
-## Key Simplifications from v1
+## Runtime Rules
 
-- **Drop Azure AI Language** — GPT-4o handles sentiment analysis better inline
-- **Drop Azure Document Intelligence** — Not needed; NewsAPI provides article descriptions, and GPT-4o can work with those
-- **Drop Azure Search** — SQLite is simpler, free, and sufficient for this use case
-- **Replace Streamlit** with a proper Next.js + ShadCN frontend
-- **Replace completions endpoint** with chat completions (GPT-4o or equivalent)
-- **Single processing pipeline** instead of duplicated logic in run.py and batch_processor.py
+- The backend does not own a server-side `NEWS_API_KEY`.
+- Refresh requests must include the user's key in the `X-News-Api-Key` header.
+- Read-only endpoints continue to serve cached processed articles without a NewsAPI key.
+- Each article is analysed in a single OpenAI call that returns sentiment, rewrite decision/output, TLDR, and the good-news flag.
+- SQLite is the active persistence layer for v2.
 
-## Data Source
+## What Changed From v1
 
-NewsAPI (https://newsapi.org) — free tier provides 100 requests/day, which is plenty for pulling latest headlines. Only requires `NEWS_API_KEY`.
+- Azure-era runtime assumptions were removed from the active app.
+- Direct OpenAI API usage replaced Azure OpenAI wiring in the v2 backend.
+- SQLite replaced Azure Search and other hosted indexing dependencies.
+- The frontend moved to Next.js plus ShadCN UI instead of the older root-level runtime approach.
+- Legacy root scripts remain in the repo for reference only and are not the supported execution path.
+
+## External Dependencies
+
+- NewsAPI provides the source headlines used during refresh.
+- OpenAI provides the per-article analysis and rewrite output.
+- SQLite stores the cached article corpus used by the read-only browse experience.
