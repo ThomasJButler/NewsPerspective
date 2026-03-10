@@ -3,17 +3,14 @@
 ## PLEASE DO NOT DELETE THIS FILE. Thanks.
 
 ## Active status
-- Updated on 2026-03-10 after reviewing `AGENTS.md`, the current plan, `specs/`, and recent git history.
+- Updated on 2026-03-10 after completing the cached-browse frontend regression slice and re-running focused frontend validation.
 - Fully completed work was moved to `specs/completedarchive/2026-03-10-implementation-completed-archive.md`.
-- Active phase: Phase 3D. The remaining work is frontend correctness, trusted-machine evidence, browser coverage, and docs/spec alignment.
+- Active phase: Phase 3D. The remaining work is trusted-machine evidence, refresh-path browser coverage, docs/spec alignment, header branding, and the remaining backend policy/test decisions.
 
 ## Open findings
 - [P1] Trusted-machine manual integration evidence is still missing for the current v2 refresh flow.
 - [P1] Top-level docs and specs still drift from the running app, especially `README.md`, `READMEOLD.md`, `AGENTS.md`, `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`.
-- [P2] Browser back/forward can still desynchronise the home-page URL from search and filter state.
-- [P2] The article detail page still turns every fetch failure into `Article not found`.
-- [P2] Refresh-path browser coverage is still missing beyond the seeded cached-browse spec.
-- [P3] `src/frontend/components/article-card.tsx` can still render a blank headline when `was_rewritten` is true but `rewritten_title` is empty.
+- [P2] Refresh-path browser coverage is still missing beyond the cached-browse seeded/spec-stub paths.
 - [P3] `GET /api/articles/{id}` is still more permissive than the processed-only list, source, and stats endpoints.
 - [P3] The backend refresh pipeline is still lightly tested for retry and multi-category partial-failure behavior.
 - [P3] `src/backend/services/refresh_tracker.py` is still in-memory and per-process.
@@ -21,12 +18,12 @@
 ## Remaining work by area
 
 ### Frontend changes
-- Replace the empty header slot visible on mobile and desktop with intentional branding actions, including links to `https://github.com/ThomasJButler` and `https://buymeacoffee.com/ojrwoqkgmv`.
-- Make sure the GitHub and Buy Me a Coffee links work cleanly across desktop and mobile layouts and do not crowd the existing refresh, theme, settings, or search controls.
-- Re-sync the home-page search, source, and good-news controls from URL changes so browser back/forward keeps controls and results aligned.
-- Make the article detail page distinguish `404` from transient fetch or network failures instead of always rendering the not-found state.
-- Add a safe visible-title fallback in `src/frontend/components/article-card.tsx` when a rewritten headline is missing or empty.
-- Add the smallest meaningful coverage for the URL-sync, detail-error, and headline-fallback paths if current tests do not already prove them.
+- [ ] Replace the empty header slot visible on mobile and desktop with intentional branding actions, including links to `https://github.com/ThomasJButler` and `https://buymeacoffee.com/ojrwoqkgmv`.
+- [ ] Make sure the GitHub and Buy Me a Coffee links work cleanly across desktop and mobile layouts and do not crowd the existing refresh, theme, settings, or search controls.
+- [x] Re-sync the home-page search, source, and good-news controls from URL changes so browser back/forward keeps controls and results aligned.
+- [x] Make the article detail page distinguish `404` from transient fetch or network failures instead of always rendering the not-found state.
+- [x] Add a safe visible-title fallback in `src/frontend/components/article-card.tsx` when a rewritten headline is missing or empty.
+- [x] Add the smallest meaningful coverage for the URL-sync, detail-error, and headline-fallback paths.
 
 ### Backend changes
 - Decide whether `GET /api/articles/{id}` should remain more permissive than the processed-only list, source, and stats endpoints, or be tightened.
@@ -56,10 +53,11 @@
 - Keep the per-process nature of `src/backend/services/refresh_tracker.py` documented until it is intentionally changed.
 
 ## Validation notes
-- Last confirmed on 2026-03-10: `python -m unittest src.backend.tests.test_api_smoke -v`, `python -m unittest src.backend.tests.test_refresh_processing -v`, `cd src/frontend && npm run lint`, and `cd src/frontend && npm run typecheck` all passed.
+- Last confirmed on 2026-03-10: `python -m unittest src.backend.tests.test_api_smoke -v`, `python -m unittest src.backend.tests.test_refresh_processing -v`, `cd src/frontend && npm run lint`, `cd src/frontend && npm run typecheck`, and `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts` all passed.
 - Do not rely on `python -m unittest src.backend.tests.test_refresh_processing src.backend.tests.test_api_smoke -v` as a combined command in this repo. Both modules set `DATABASE_URL` at import time for different temp databases.
 - `cd src/frontend && npm run build` was previously blocked in the sandbox because Turbopack tried to bind a worker port. `cd src/frontend && npx next build --webpack` passed in the earlier 2026-03-10 validation pass.
 - Managed Playwright startup was previously blocked because local processes were already listening on `127.0.0.1:8000` and `127.0.0.1:3000`. Treat that as environment behavior until it is rechecked.
+- In this Codex environment, Playwright also required a one-time `cd src/frontend && npx playwright install chromium` before the cached-browse spec could launch Chromium.
 
 ## Next recommended build slice
-- Step 17.6: fix the remaining frontend state and error presentation regressions, then add the smallest meaningful coverage for those paths before returning to manual evidence and docs/spec alignment.
+- Step 18.1: on a trusted local machine, gather the missing Phase 3 refresh evidence with a real NewsAPI key and record the exact observed outcomes in this plan before starting the docs/spec alignment slice.

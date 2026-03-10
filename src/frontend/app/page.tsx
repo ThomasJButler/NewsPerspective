@@ -34,6 +34,7 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const onboardingRef = useRef<HTMLDivElement>(null);
+  const currentQueryRef = useRef(searchParams.toString());
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -66,15 +67,49 @@ function HomeContent() {
       : "all";
 
   useEffect(() => {
+    currentQueryRef.current = searchParams.toString();
+
+    const nextSearchValue = searchParams.get("search") || "";
+    const nextGoodNewsOnly = searchParams.get("good_news") === "true";
+    const nextSourceFilter = searchParams.get("source") || "all";
+
+    setSearchValue((currentValue) =>
+      currentValue === nextSearchValue ? currentValue : nextSearchValue
+    );
+    setGoodNewsOnly((currentValue) =>
+      currentValue === nextGoodNewsOnly ? currentValue : nextGoodNewsOnly
+    );
+    setSourceFilter((currentValue) =>
+      currentValue === nextSourceFilter ? currentValue : nextSourceFilter
+    );
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (searchValue !== debouncedSearch) {
+      return;
+    }
+
     const params = new URLSearchParams();
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (goodNewsOnly) params.set("good_news", "true");
     if (effectiveSourceFilter !== "all") {
       params.set("source", effectiveSourceFilter);
     }
-    const qs = params.toString();
-    router.replace(qs ? `?${qs}` : "/", { scroll: false });
-  }, [debouncedSearch, effectiveSourceFilter, goodNewsOnly, router]);
+    const nextQuery = params.toString();
+
+    if (nextQuery === currentQueryRef.current) {
+      return;
+    }
+
+    currentQueryRef.current = nextQuery;
+    router.push(nextQuery ? `?${nextQuery}` : "/", { scroll: false });
+  }, [
+    debouncedSearch,
+    effectiveSourceFilter,
+    goodNewsOnly,
+    router,
+    searchValue,
+  ]);
 
   const loadArticles = useCallback(
     async (pageNum: number, append = false) => {

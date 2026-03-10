@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import Image, { type ImageLoaderProps } from "next/image";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { fetchArticle } from "@/lib/api";
+import { ApiRequestError, fetchArticle } from "@/lib/api";
 import { TldrSection } from "@/components/tldr-section";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getVisibleHeadline } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import type { Article } from "@/types/article";
 
@@ -27,14 +28,35 @@ function articleImageLoader({ src }: ImageLoaderProps) {
 export default function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [article, setArticle] = useState<Article | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const [errorState, setErrorState] = useState<{
+    kind: "not_found" | "transient";
+    message: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requestVersion, setRequestVersion] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
+    setErrorState(null);
+    setArticle(null);
+
     fetchArticle(id)
       .then(setArticle)
       .catch((err) => {
-        setNotFound(true);
+        if (err instanceof ApiRequestError && err.status === 404) {
+          setErrorState({
+            kind: "not_found",
+            message: "This article is no longer available in the cache.",
+          });
+        } else {
+          setErrorState({
+            kind: "transient",
+            message:
+              err instanceof Error
+                ? err.message
+                : "The article could not be loaded right now.",
+          });
+        }
         toast({
           title: "Failed to load article",
           description: err instanceof Error ? err.message : "Article could not be loaded.",
@@ -42,7 +64,7 @@ export default function ArticleDetailPage() {
         });
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, requestVersion]);
 
   if (loading) {
     return (
@@ -54,10 +76,11 @@ export default function ArticleDetailPage() {
     );
   }
 
-  if (notFound || !article) {
+  if (errorState?.kind === "not_found") {
     return (
       <div className="container mx-auto px-4 py-8 max-w-3xl text-center">
         <h1 className="text-2xl font-bold mb-4">Article not found</h1>
+        <p className="mb-4 text-muted-foreground">{errorState.message}</p>
         <Link href="/" className="text-primary hover:underline">
           ← Back to news feed
         </Link>
@@ -65,10 +88,34 @@ export default function ArticleDetailPage() {
     );
   }
 
-  const headline = article.was_rewritten
-    ? article.rewritten_title ?? article.original_title
-    : article.original_title;
+  if (errorState?.kind === "transient") {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-3xl text-center space-y-4">
+        <h1 className="text-2xl font-bold">Unable to load article</h1>
+        <p className="text-muted-foreground">{errorState.message}</p>
+        <div className="flex items-center justify-center gap-3">
+          <Button onClick={() => setRequestVersion((version) => version + 1)}>
+            Retry
+          </Button>
+          <Link href="/" className="text-primary hover:underline">
+            ← Back to news feed
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!article) {
+    return null;
+  }
+
+  const headline = getVisibleHeadline({
+    wasRewritten: article.was_rewritten,
+    rewrittenTitle: article.rewritten_title,
+    originalTitle: article.original_title,
+  });
   const imageUrl = article.image_url;
+  const showOriginalHeadline = article.was_rewritten && headline !== article.original_title;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
@@ -83,7 +130,7 @@ export default function ArticleDetailPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold leading-tight">{headline}</h1>
 
-          {article.was_rewritten && (
+          {showOriginalHeadline && (
             <p className="text-sm text-muted-foreground italic">
               Original: {article.original_title}
             </p>

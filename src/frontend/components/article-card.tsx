@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { TldrSection } from "@/components/tldr-section";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getVisibleHeadline } from "@/lib/utils";
 import type { Article } from "@/types/article";
 
 interface ArticleCardProps {
@@ -11,9 +11,12 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article }: ArticleCardProps) {
-  const headline = article.was_rewritten
-    ? article.rewritten_title
-    : article.original_title;
+  const headline = getVisibleHeadline({
+    wasRewritten: article.was_rewritten,
+    rewrittenTitle: article.rewritten_title,
+    originalTitle: article.original_title,
+  });
+  const showOriginalHeadline = article.was_rewritten && headline !== article.original_title;
 
   return (
     <Card>
@@ -38,7 +41,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
 
         {article.tldr && <TldrSection tldr={article.tldr} />}
 
-        {article.was_rewritten && (
+        {showOriginalHeadline && (
           <details className="text-sm">
             <summary className="text-muted-foreground cursor-pointer hover:text-foreground">
               Original headline

@@ -38,6 +38,16 @@ export class RefreshRequestError extends Error {
   }
 }
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor({ status, message }: { status: number; message: string }) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
+
 function isRefreshErrorResponse(value: unknown): value is RefreshErrorResponse {
   if (!value || typeof value !== "object" || !("detail" in value)) {
     return false;
@@ -88,7 +98,12 @@ export async function fetchArticles(
 
 export async function fetchArticle(id: string): Promise<Article> {
   const res = await fetch(`/api/articles/${id}`);
-  if (!res.ok) throw new Error(`Failed to fetch article: ${res.status}`);
+  if (!res.ok) {
+    throw new ApiRequestError({
+      status: res.status,
+      message: `Failed to fetch article: ${res.status}`,
+    });
+  }
   return res.json();
 }
 
