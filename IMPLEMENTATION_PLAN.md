@@ -3,13 +3,13 @@
 ## PLEASE DO NOT DELETE THIS FILE. Thanks.
 
 ## Active status
-- Updated on 2026-03-10 after completing the cached-browse frontend regression slice and re-running focused frontend validation.
+- Updated on 2026-03-10 after rewriting `README.md` for the current v2 runtime, local flow, Docker flow, and Ralph loop ordering.
 - Fully completed work was moved to `specs/completedarchive/2026-03-10-implementation-completed-archive.md`.
 - Active phase: Phase 3D. The remaining work is trusted-machine evidence, refresh-path browser coverage, docs/spec alignment, header branding, and the remaining backend policy/test decisions.
 
 ## Open findings
 - [P1] Trusted-machine manual integration evidence is still missing for the current v2 refresh flow.
-- [P1] Top-level docs and specs still drift from the running app, especially `README.md`, `READMEOLD.md`, `AGENTS.md`, `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`.
+- [P1] Top-level docs and specs still drift from the running app, especially `READMEOLD.md`, `AGENTS.md`, `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`.
 - [P2] Refresh-path browser coverage is still missing beyond the cached-browse seeded/spec-stub paths.
 - [P3] `GET /api/articles/{id}` is still more permissive than the processed-only list, source, and stats endpoints.
 - [P3] The backend refresh pipeline is still lightly tested for retry and multi-category partial-failure behavior.
@@ -41,7 +41,7 @@
 - Decide in that browser-coverage slice whether a repo-owned Playwright npm script should exist.
 
 ### Docs and specs
-- Rewrite `README.md` so the v2 app runtime and setup come first, the Ralph loop comes second, and the supported local and Docker flows are explicit.
+- [x] Rewrite `README.md` so the v2 app runtime and setup come first, the Ralph loop comes second, and the supported local and Docker flows are explicit.
 - Remove live v2 setup guidance from `READMEOLD.md` so it is clearly legacy-only.
 - Update `specs/OVERVIEW.md` for request-scoped NewsAPI keys, direct OpenAI API usage, SQLite persistence, and the removal of Azure-era runtime assumptions.
 - Update `specs/BACKEND.md` for `/v2/top-headlines`, `country=us`, typed refresh errors, the 5-second validation timeout, `/api/refresh/status`, duplicate-refresh behavior, in-memory refresh tracking limits, and current source normalization.
@@ -53,11 +53,13 @@
 - Keep the per-process nature of `src/backend/services/refresh_tracker.py` documented until it is intentionally changed.
 
 ## Validation notes
+- Last confirmed on 2026-03-10 for the `README.md` rewrite: repo paths, commands, and Docker references were cross-checked against `.env.template`, `.nvmrc`, `src/backend/main.py`, `src/backend/config.py`, `src/backend/routers/sources.py`, `src/frontend/package.json`, `src/frontend/next.config.ts`, `src/frontend/compose.yaml`, and `src/frontend/scripts/docker-start-app.sh`.
 - Last confirmed on 2026-03-10: `python -m unittest src.backend.tests.test_api_smoke -v`, `python -m unittest src.backend.tests.test_refresh_processing -v`, `cd src/frontend && npm run lint`, `cd src/frontend && npm run typecheck`, and `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts` all passed.
 - Do not rely on `python -m unittest src.backend.tests.test_refresh_processing src.backend.tests.test_api_smoke -v` as a combined command in this repo. Both modules set `DATABASE_URL` at import time for different temp databases.
 - `cd src/frontend && npm run build` was previously blocked in the sandbox because Turbopack tried to bind a worker port. `cd src/frontend && npx next build --webpack` passed in the earlier 2026-03-10 validation pass.
 - Managed Playwright startup was previously blocked because local processes were already listening on `127.0.0.1:8000` and `127.0.0.1:3000`. Treat that as environment behavior until it is rechecked.
 - In this Codex environment, Playwright also required a one-time `cd src/frontend && npx playwright install chromium` before the cached-browse spec could launch Chromium.
+- This Codex environment does not currently expose `NEWS_API_KEY`, so the real-key portion of Step 18.1 remains a trusted-machine/manual slice rather than a Codex-run validation step.
 
 ## Next recommended build slice
-- Step 18.1: on a trusted local machine, gather the missing Phase 3 refresh evidence with a real NewsAPI key and record the exact observed outcomes in this plan before starting the docs/spec alignment slice.
+- Step 18.1: on a trusted local machine, gather the missing Phase 3 refresh evidence with a real NewsAPI key and record the exact observed outcomes in this plan. After that, continue the remaining docs/spec alignment work with `READMEOLD.md` and `specs/OVERVIEW.md`.

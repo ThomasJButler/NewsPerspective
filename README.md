@@ -1,83 +1,166 @@
-# NewsPerspective — Ralph loop for Codex
+# NewsPerspective v2
 
-This repo is being operated with a Codex-ready Ralph Wiggum loop.
+NewsPerspective v2 is a two-part app:
 
-## Ralph files
-- `AGENTS.md` — stable repo operating rules
-- `PROMPT_plan.md` — planning loop prompt
-- `PROMPT_build.md` — build loop prompt
-- `IMPLEMENTATION_PLAN.md` — persistent execution state
-- `loop.sh` — convenience wrapper around `codex exec`
+- FastAPI backend in `src/backend/`
+- Next.js frontend in `src/frontend/`
 
-## What changed from the old Claude loop
-- Prompts are rewritten for Codex, not Claude.
-- The loop uses `codex exec` for non-interactive runs.
-- Automatic push and tagging have been removed.
-- `AGENTS.md` is the active instruction surface for Codex.
-- `CLAUDE.md` may remain in the repo as historical context, but it should not drive the Codex loop.
+The active product flow is: browse cached processed articles without a NewsAPI key, then trigger refreshes by sending a user-supplied key in the `X-News-Api-Key` header. Root-level v1 scripts remain in the repo only as legacy reference.
 
-## Suggested repo workflow
-1. Run a planning pass when the plan is stale:
-   ```bash
-   ./loop.sh plan 1
-   ```
-2. Review `IMPLEMENTATION_PLAN.md`.
-3. Run one build slice:
-   ```bash
-   ./loop.sh build 1
-   ```
-4. Repeat with fresh context.
+## Runtime overview
 
-Build runs should now commit each completed, validated slice as they go. Planning runs should still commit only planning/doc changes when you explicitly want those persisted.
+- Backend entrypoint: `uvicorn src.backend.main:app --reload --port 8000`
+- Frontend entrypoint: `cd src/frontend && npm run dev`
+- Frontend proxy: `src/frontend/next.config.ts` rewrites `/api/*` to `BACKEND_ORIGIN` and defaults to `http://localhost:8000`
+- Database: SQLite via `DATABASE_URL`
+- OpenAI config: `OPENAI_API_KEY` and optional `OPENAI_MODEL`
+- NewsAPI key: request-scoped only, never stored as a backend env var
 
-## Loop output
-- `./loop.sh` now shows a readable live stream by default: agent messages, command starts, command pass/fail, and condensed failure excerpts.
-- Raw Codex event logs are still written unchanged to `.codex-run/*.jsonl`.
-- A rendered plain-text companion log is also written as `.codex-run/*.pretty.log` in pretty mode.
-- The last assistant response is still written to `.codex-run/*.final.md`.
-- To force the old raw JSONL terminal stream, run `RALPH_OUTPUT_MODE=json ./loop.sh build 1` or `RALPH_OUTPUT_MODE=json ./loop.sh plan 1`.
+## Local setup
 
-## Explain modes
-- `coach` mode explains the reasoning trail in a senior-engineer style: what it is checking, what it learned, what it validated, and what comes next.
-- `homer` mode explains the same work in simpler language, with short foundation-level `Simple` blocks for tired or learning-first runs.
-- Build mode benefits most from these, but the same toggles also work for planning runs.
-- Examples:
-  ```bash
-  ./loop.sh build coach
-  ./loop.sh build 1 coach
-  ./loop.sh build homer
-  ./loop.sh build 1 homer
-  ./loop.sh plan 1 coach
-  ./loop.sh plan 1 homer
-  RALPH_COACH_MODE=1 ./loop.sh build 1
-  RALPH_HOMER_MODE=1 ./loop.sh build 1
-  RALPH_EXPLAIN_MODE=homer ./loop.sh build 1
-  ```
+Node is pinned via `.nvmrc` to `22.17.0`.
 
-## Sandbox and git commits
-- The default loop runs in Codex's normal sandboxed automatic mode.
-- In some environments, that sandbox allows worktree edits but blocks writes inside `.git`, which prevents staging and committing from inside the loop.
-- If you are on a trusted local machine and want the loop to be able to write to `.git`, you can opt in to full access:
-  ```bash
-  RALPH_ALLOW_UNSAFE_SANDBOX=1 ./loop.sh build 1
-  ```
-- This uses Codex's dangerous full-access mode. It is intentionally not the default.
+Create the backend environment from the repo root:
 
-## Install Codex CLI
 ```bash
-npm install -g @openai/codex
+python3 -m venv src/backend/.venv
+source src/backend/.venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r src/backend/requirements.txt
 ```
 
-Then authenticate Codex locally and trust this project so project-scoped `.codex/config.toml` is loaded.
+Create a repo-root `.env` from `.env.template`:
 
-## Notes
-- `codex exec` is the non-interactive entrypoint.
-- Project config belongs in `.codex/config.toml`.
-- Keep loop prompts repo-local and explicit; do not rely on implicit memory.
-- Build-mode commits are intended to be small, scoped, and validation-backed. Incomplete or failing slices should update the plan and stop without committing.
-- If build-mode commits fail with `.git/index.lock` permission errors, the likely cause is the sandbox blocking `.git` writes. Use `RALPH_ALLOW_UNSAFE_SANDBOX=1` only on a trusted local machine if you want the loop to stage/commit directly.
-- Frontend validation is currently pinned to Node `22.17.0` via the repo-root `.nvmrc`; in `src/frontend`, run `npm run lint`, `npm run typecheck`, and `npm run build`.
-- For backend work, create the local Python environment at `src/backend/.venv`, then install `src/backend/requirements.txt`.
-- Copy `.env.template` to `.env` for backend setup.
-- Backend config uses `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL` from the repo-root `.env`.
-- `NEWS_API_KEY` is request-scoped, not a backend env var; send it in the `X-News-Api-Key` header on `POST /api/refresh`.
+```env
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+DATABASE_URL=sqlite:///./newsperspective.db
+```
+
+`NEWS_API_KEY` is intentionally absent from backend env config. Refresh requests must send the user's key in the `X-News-Api-Key` header.
+
+## Run locally
+
+Start the backend from the repo root:
+
+```bash
+source src/backend/.venv/bin/activate
+uvicorn src.backend.main:app --reload --port 8000
+```
+
+In a second shell, start the frontend:
+
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+
+Then open `http://localhost:3000`.
+
+Useful manual checks:
+
+```bash
+curl http://localhost:8000/api/articles
+
+curl -X POST http://localhost:8000/api/refresh \
+  -H "X-News-Api-Key: $NEWS_API_KEY"
+
+curl http://localhost:8000/api/refresh/status
+```
+
+If cached browse is empty, seed deterministic local data first:
+
+```bash
+source src/backend/.venv/bin/activate
+python -m src.backend.scripts.seed_manual_integration_data
+```
+
+## Docker app flow
+
+The supported container workflow lives under `src/frontend/compose.yaml`. It starts a seeded backend and the frontend dev server together.
+
+Start the app stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml up --build app
+```
+
+Run the seeded Playwright cached-browse spec against that stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml run --rm playwright
+```
+
+Stop the stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml down
+```
+
+If dependencies changed and you need a clean container `node_modules` volume:
+
+```bash
+docker compose -f src/frontend/compose.yaml down -v
+```
+
+## Validation commands
+
+Backend:
+
+```bash
+source src/backend/.venv/bin/activate
+python -m unittest src.backend.tests.test_api_smoke -v
+python -m unittest src.backend.tests.test_refresh_processing -v
+python -m unittest src.backend.tests.test_manual_integration_evidence -v
+```
+
+Frontend:
+
+```bash
+cd src/frontend
+npm run lint
+npm run typecheck
+npx playwright test tests/e2e/cached-browse.spec.ts
+```
+
+If `next build` is needed in this repo, prefer:
+
+```bash
+cd src/frontend
+npx next build --webpack
+```
+
+## Ralph loop
+
+Repo-local loop files:
+
+- `AGENTS.md`
+- `PROMPT_plan.md`
+- `PROMPT_build.md`
+- `IMPLEMENTATION_PLAN.md`
+- `loop.sh`
+
+Suggested workflow:
+
+```bash
+./loop.sh plan 1
+./loop.sh build 1
+```
+
+Add `coach` or `homer` to enable the corresponding explanation mode:
+
+```bash
+./loop.sh build 1 coach
+./loop.sh build 1 homer
+```
+
+On a trusted local machine, if Codex needs permission to write `.git` during build-mode commits:
+
+```bash
+RALPH_ALLOW_UNSAFE_SANDBOX=1 ./loop.sh build 1
+```
+
+## Legacy boundary
+
+`READMEOLD.md` is legacy reference material. Root-level files such as `batch_processor.py`, `run.py`, `search.py`, and `web_app.py` are not part of the active v2 runtime.
