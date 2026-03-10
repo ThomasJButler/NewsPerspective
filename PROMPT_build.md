@@ -28,8 +28,8 @@ Your job is to execute one scoped implementation slice from `IMPLEMENTATION_PLAN
 ## After coding
 - Update `IMPLEMENTATION_PLAN.md`:
   - mark finished work with `[x]`
-  - add follow-up tasks discovered during implementation
   - keep the next recommended slice explicit
+  - add follow-up tasks discovered during implementation
 - Summarize:
   - what changed
   - what was validated
@@ -38,7 +38,11 @@ Your job is to execute one scoped implementation slice from `IMPLEMENTATION_PLAN
 ## Git rules
 Do not push automatically.
 Do not create tags automatically.
-Commit only if the user explicitly asked for commit-ready loop behavior or the repo workflow already requires it.
+For every completed build slice, after validation passes, stage and commit only the files for that slice before stopping.
+Do not include unrelated pre-existing worktree changes.
+If validation is incomplete or failing, do not commit; record the blocker in `IMPLEMENTATION_PLAN.md` instead.
+Use a concise commit message that describes the completed slice.
+Do not amend existing commits.
 
 ## Stop condition
 Stop after one completed slice with validation and plan updates.

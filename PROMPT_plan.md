@@ -6,11 +6,14 @@ Your job is to refresh `IMPLEMENTATION_PLAN.md` so the next build loop can execu
 Plan only.
 Do not edit application code.
 Do not implement fixes.
-Do not stage, commit, push, tag, or release anything.
+Do not push, tag, or release anything.
+Do not commit in plan mode unless the user explicitly wants to persist planning/doc updates from that run.
+If you do commit planning/doc updates, stage and commit only those files and do not include unrelated pre-existing worktree changes.
+Do not amend existing commits.
 
 ## Read first
 1. Read `AGENTS.md`.
-2. Read `IMPLEMENTATION_PLAN.md`.
+2. Read `IMPLEMENTATION_PLAN.md` and current issues and recent code reviews.
 3. Read all relevant specs in `specs/`.
 4. Read enough source in `src/backend/` and `src/frontend/` to verify actual implementation status.
 5. Read `README.md` only as context; treat specs and code as more authoritative than stale top-level docs.
@@ -27,7 +30,7 @@ Do not stage, commit, push, tag, or release anything.
 
 ## Required output in `IMPLEMENTATION_PLAN.md`
 Keep or rewrite the file into this shape:
-1. Current status summary
+1. Current status summary and code review
 2. Active phase
 3. Ordered checklist with `[ ]` and `[x]`
 4. Notes / discoveries that matter for the next loop
