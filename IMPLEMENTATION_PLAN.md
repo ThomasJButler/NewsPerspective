@@ -3,7 +3,6 @@
 ## PLEASE DO NOT DELETE THIS FILE. Thanks.
 
 ## Current status summary and code review
-- Recent landed slices in git history confirm the current direction: frontend DX guardrails (`49274c6`), seeded Playwright cached-browse coverage (`efa45d2`), manual integration evidence helper (`0c65e40`), source normalization (`0b8a268`), and the US NewsAPI default (`cc8a629`).
 - Re-checked on 2026-03-10 in plan mode. Read `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `README.md`, `READMEOLD.md`, `src/frontend/README.md`, all files in `specs/`, recent git history, and the backend/frontend source that defines the live v2 contract.
 - Searched the repo for repo-local issue tracker files and written review notes. None were found. This file remains the active review record for the next Ralph loop.
 - The previous plan had gone stale about Step 17.5 local state. Current worktree state before this planning edit was:
@@ -44,8 +43,6 @@
 - `cd src/frontend && npx next build --webpack` passed in that earlier pass.
 - Managed Playwright startup was blocked in that earlier pass because local processes were already listening on `127.0.0.1:8000` and `127.0.0.1:3000`. That was environment behavior, not fresh app evidence.
 - Current code review findings, highest risk first:
-- [P1] Step 17.5 is still not fully landed. The remaining frontend duplicate-refresh UX fix is only in the dirty worktree, and `src/backend/tests/test_refresh_processing.py` is still untracked.
-- [P1] The untracked refresh regression file is stronger than the stale plan recorded, but it still does not drive the concrete `NewsFetcher` failure branch that motivated `NewsFetchError`; one test patches `NewsFetcher.fetch_all_categories`, and the other patches `ArticleProcessor.process_new_articles`.
 - [P1] Trusted-machine Phase 3 manual integration evidence is still missing. The helper script and helper tests exist, but there is still no recorded run against real local servers with a real NewsAPI key.
 - [P1] Top-level docs and specs still drift from the running v2 app:
 - `README.md` is still Ralph-loop-first instead of app-first.
@@ -60,33 +57,34 @@
 - [P2] Refresh-path browser coverage is still missing. The only repo-owned Playwright spec still proves the seeded cached-browse path.
 - [P3] `src/frontend/components/article-card.tsx` can still render a blank headline if `was_rewritten` is true while `rewritten_title` is null or empty.
 - [P3] `GET /api/articles/{id}` is still more permissive than the processed-only list/source/stats endpoints.
+- [P3] The backend refresh pipeline is still lightly tested. We now cover `NewsFetchError` propagation, background-task failure handling, and request-error key redaction, but the main refresh success test still stubs `process_new_articles_background()`, so retry behavior and multi-category partial-failure behavior remain lightly covered.
 - [P3] `src/backend/services/refresh_tracker.py` is still in-memory and per-process.
 
 ## Active phase
-Phase 3D: finish the remaining refresh-correctness landing slice, then gather trusted-machine integration evidence before broader frontend cleanup and docs/spec alignment. The backend refresh-failure behavior is already present in tracked source; the next build loop should keep scope narrow and finish the remaining local UX/proof work before moving on.
+Phase 3D: finish the remaining frontend correctness and evidence slices before docs/spec alignment. Step 17.5 refresh correctness is now closed. The next build loop should move to Step 17.6 frontend regressions, then trusted-machine integration evidence, then refresh-path browser coverage.
 
 ## Ordered checklist
 - [x] Re-read repo rules, current plan, README context, all specs, recent git history, and the live backend/frontend source on 2026-03-10.
 - [x] Search the repo for repo-local issue tracker files and written code-review notes. None were found.
 - [x] Re-check the worktree and recent commits so the plan reflects current local state instead of the stale prior Step 17.5 notes.
 - [x] Re-run the smallest current validation: backend smoke tests, backend refresh-processing tests, frontend lint, and frontend typecheck.
-- [ ] Step 17.5. Finish and validate the remaining refresh-correctness slice from the current dirty worktree.
-- [ ] Review and finalize the local edit in `src/frontend/app/page.tsx` so duplicate-refresh responses do not create accepted-key feedback or misleading success messaging.
-- [ ] Decide whether duplicate-refresh UI proof belongs in this slice now or must explicitly wait for Step 16.8 Playwright coverage, and record that decision when the slice lands.
-- [ ] Convert `src/backend/tests/test_refresh_processing.py` from local-only coverage into repo-owned proof.
-- [ ] Extend the regression proof so it reaches the concrete fetcher failure path that motivated `NewsFetchError`, not only a mocked `process_new_articles()` raise or a mocked `fetch_all_categories()` raise.
-- [ ] Re-run `python -m unittest src.backend.tests.test_refresh_processing -v`, `python -m unittest src.backend.tests.test_api_smoke -v`, `cd src/frontend && npm run lint`, and `cd src/frontend && npm run typecheck` after Step 17.5 is finalized.
+- [x] Step 17.5. Finish and validate the refresh-correctness slice.
+- [x] Finalize `src/frontend/app/page.tsx` so duplicate-refresh responses do not create accepted-key feedback or misleading success messaging.
+- [x] Decide that duplicate-refresh UI browser proof waits for Step 16.8 Playwright coverage. This slice keeps backend contract coverage plus frontend lint/typecheck, and leaves browser-level UX proof to the dedicated refresh-flow browser-coverage slice.
+- [x] Keep `src/backend/tests/test_refresh_processing.py` as repo-owned regression proof for the false-success path.
+- [x] Extend the regression proof so it reaches the fetcher failure boundary and now also proves request-error key redaction before failure messages reach logs or `/api/refresh/status`.
+- [x] Re-run `python -m unittest src.backend.tests.test_refresh_processing -v`, `python -m unittest src.backend.tests.test_api_smoke -v`, `cd src/frontend && npm run lint`, and `cd src/frontend && npm run typecheck` after Step 17.5 was finalized.
+- [ ] Step 17.6. Fix the remaining frontend state and error regressions.
+- [ ] Re-sync home-page search/filter/toggle state from URL changes so browser back/forward keeps controls and results in sync.
+- [ ] Make the article detail page distinguish `404` from transient fetch failures instead of always showing the not-found screen.
+- [ ] Add a safe headline fallback in `src/frontend/components/article-card.tsx` when `was_rewritten` is true but `rewritten_title` is empty.
+- [ ] Add the smallest meaningful coverage for the URL-sync, detail-error, and headline-fallback cases if existing tests do not already prove them.
 - [ ] Step 16.7. On a trusted local machine, gather manual Phase 3 integration evidence with a real NewsAPI key.
 - [ ] Start backend and frontend outside Codex, or use the Docker app stack if that is the intended supported local path.
 - [ ] If cached browse is empty, seed deterministic data first with `python -m src.backend.scripts.seed_manual_integration_data`.
 - [ ] Run `python -m src.backend.scripts.capture_manual_integration_evidence --api-key "$NEWS_API_KEY" --output <report-path>` and keep the generated Markdown report.
 - [ ] Complete the report's frontend follow-up section from `http://localhost:3000`, covering cached browse without a saved key, refresh with a real key, invalid-key handling, duplicate-refresh behavior if observable, refresh-status polling, and the final terminal state.
 - [ ] Update this plan with exact observed outcomes and classify each one as `code behavior`, `environment behavior`, `documentation mismatch`, or `still unproven`.
-- [ ] Step 17.6. Fix the remaining frontend state and error regressions.
-- [ ] Re-sync home-page search/filter/toggle state from URL changes so browser back/forward keeps controls and results in sync.
-- [ ] Make the article detail page distinguish `404` from transient fetch failures instead of always showing the not-found screen.
-- [ ] Add a safe headline fallback in `src/frontend/components/article-card.tsx` when `was_rewritten` is true but `rewritten_title` is empty.
-- [ ] Add the smallest meaningful coverage for the URL-sync, detail-error, and headline-fallback cases if existing tests do not already prove them.
 - [ ] Step 16.8. Finish repo-owned browser coverage for the highest-value refresh flows.
 - [ ] Keep `src/frontend/tests/e2e/cached-browse.spec.ts` green against the supported local test path.
 - [ ] Add deterministic browser coverage for accepted refresh, invalid-key UX, refresh-status polling UX, and duplicate-refresh messaging.
@@ -105,15 +103,14 @@ Phase 3D: finish the remaining refresh-correctness landing slice, then gather tr
 - [ ] Make `READMEOLD.md`, `README.md`, and `AGENTS.md` match that legacy decision.
 
 ## Notes / discoveries that matter for the next loop
-- The previous plan was stale about Step 17.5 local state. `src/backend/services/news_fetcher.py` and `src/backend/services/article_processor.py` are no longer dirty; the refresh-failure handling is already present in tracked source via recent commits.
-- Current local Step 17.5 files are only:
-- `src/frontend/app/page.tsx`
-- `src/backend/tests/test_refresh_processing.py` (still untracked)
-- `src/backend/tests/test_refresh_processing.py` now contains two passing tests:
-- One proves `ArticleProcessor.process_new_articles()` propagates `NewsFetchError` thrown by the fetcher boundary.
-- One proves `process_new_articles_background()` marks refresh status as failed when `NewsFetchError` escapes.
-- That file still does not hit the concrete `NewsFetcher` failure branch inside the fetcher implementation itself. The plan should continue to treat that as the remaining backend proof gap until a build slice closes it or explicitly defers it with rationale.
+- Step 17.5 is now closed:
+- `src/frontend/app/page.tsx` no longer treats the duplicate-refresh short-circuit as proof that the current saved key was accepted
+- `src/backend/tests/test_refresh_processing.py` now contains three passing tests
+- one proves `ArticleProcessor.process_new_articles()` propagates `NewsFetchError` thrown by the fetcher boundary
+- one proves `process_new_articles_background()` marks refresh status as failed when `NewsFetchError` escapes
+- one proves `NewsFetcher` redacts the NewsAPI key from request/HTTP error strings before raising `NewsFetchError`
 - `src/backend/tests/test_api_smoke.py` already proves the duplicate-refresh API contract and the structured refresh validation errors. The open frontend gap is UI handling and browser-level proof.
+- Run `src.backend.tests.test_refresh_processing` and `src.backend.tests.test_api_smoke` as separate `python -m unittest` commands. Running both modules in one interpreter is unstable because they each set `DATABASE_URL` at import time for different temp databases.
 - `src/frontend/lib/api.ts` still throws a generic error for `fetchArticle()`. That is why the detail page cannot distinguish `404` from `5xx` or network failure without a small API-client or page-state change.
 - `src/frontend/components/article-card.tsx` still uses `article.was_rewritten ? article.rewritten_title : article.original_title`, so a missing `rewritten_title` can still blank the visible headline.
 - `src/backend/services/refresh_tracker.py` is in-memory only. Refresh state is per process and resets on restart.
@@ -124,6 +121,4 @@ Phase 3D: finish the remaining refresh-correctness landing slice, then gather tr
 - `npm run lint` and `npm run typecheck` exited 0 in this pass, but the shell printed `nvm` usage text before command output. Treat that as shell-init noise unless it starts affecting exit codes or CI.
 
 ## Next recommended build slice
-Step 17.5: continue from the current local edits in `src/frontend/app/page.tsx` and `src/backend/tests/test_refresh_processing.py`. Keep the slice narrow. Land the duplicate-refresh UX fix, turn the untracked backend regression file into repo-owned coverage, and strengthen that proof so it exercises a real fetcher failure branch rather than only mocked higher-level raises. Then re-run `python -m unittest src.backend.tests.test_refresh_processing -v`, `python -m unittest src.backend.tests.test_api_smoke -v`, `cd src/frontend && npm run lint`, and `cd src/frontend && npm run typecheck`. Do not mix in Step 17.6, manual integration, or docs work.
-
-- FIX THIS AS A MATTER OF URGENCY.[P1] Sanitize request errors before exposing refresh failure status — /Users/tombutler/Repos/NewsPerspective/src/backend/services/news_fetcher.py:96-97 requests includes the full request URL in many RequestException/HTTPError messages, and this request sends the NewsAPI key as an apiKey query parameter. With this change, those raw exception strings are wrapped in NewsFetchError and then surfaced verbatim via refresh_tracker.mark_failed(str(exc)), so any 4xx/5xx during category fetch can leak the user's NewsAPI key through the unauthenticated /api/refresh/ status response (and logs).
+Step 17.6: fix the remaining frontend state and error presentation regressions. Re-sync the home-page controls from URL changes, make the article detail page distinguish `404` from transient fetch failures, add the safe headline fallback in `src/frontend/components/article-card.tsx`, and add the smallest meaningful coverage for those three cases without mixing in docs or Phase 3 evidence work.
