@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..models import Article
 from ..utils.logger import setup_logger
 from .ai_service import AIService
-from .news_fetcher import NewsFetcher
+from .news_fetcher import NewsFetchError, NewsFetcher
 
 logger = setup_logger(__name__)
 
@@ -120,6 +120,10 @@ def process_new_articles_background(api_key: str):
         processor = ArticleProcessor()
         summary = processor.process_new_articles(db, api_key)
         refresh_tracker.mark_completed(**summary)
+    except NewsFetchError as exc:
+        logger.error("Background refresh fetch failed: %s", exc, exc_info=True)
+        refresh_tracker.mark_failed(str(exc))
+        raise
     except Exception as exc:
         logger.error("Background refresh failed: %s", exc, exc_info=True)
         refresh_tracker.mark_failed("Refresh failed while processing articles.")
