@@ -76,6 +76,7 @@ Then authenticate Codex locally and trust this project so project-scoped `.codex
 - Keep loop prompts repo-local and explicit; do not rely on implicit memory.
 - Build-mode commits are intended to be small, scoped, and validation-backed. Incomplete or failing slices should update the plan and stop without committing.
 - If build-mode commits fail with `.git/index.lock` permission errors, the likely cause is the sandbox blocking `.git` writes. Use `RALPH_ALLOW_UNSAFE_SANDBOX=1` only on a trusted local machine if you want the loop to stage/commit directly.
+- Frontend validation is currently pinned to Node `22.17.0` via the repo-root `.nvmrc`; in `src/frontend`, run `npm run lint`, `npm run typecheck`, and `npm run build`.
 - For backend work, create the local Python environment at `src/backend/.venv`, then install `src/backend/requirements.txt`.
 - Copy `.env.template` to `.env` for backend setup.
 - Backend config uses `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL` from the repo-root `.env`.
