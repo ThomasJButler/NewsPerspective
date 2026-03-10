@@ -1,5 +1,5 @@
 import time
-import logging
+import re
 
 import requests
 
@@ -16,6 +16,12 @@ REQUEST_WARNING_THRESHOLD = 80
 
 class NewsFetchError(RuntimeError):
     """Raised when NewsAPI fetching fails and the refresh should be marked failed."""
+
+
+def _redact_api_key(value: str, api_key: str) -> str:
+    """Strip the NewsAPI key from request/HTTP error strings before logging or surfacing them."""
+    redacted = value.replace(api_key, "[redacted]")
+    return re.sub(r"(apiKey=)[^&\\s]+", r"\1[redacted]", redacted)
 
 
 class NewsFetcher:
@@ -94,9 +100,15 @@ class NewsFetcher:
                 return self._filter_articles(articles)
 
             except requests.RequestException as e:
-                last_error_message = f"Failed to fetch articles from NewsAPI: {e}"
+                safe_error = _redact_api_key(str(e), self.api_key)
+                last_error_message = f"Failed to fetch articles from NewsAPI: {safe_error}"
                 wait = 2 ** attempt
-                logger.error(f"Request failed (attempt {attempt + 1}/{retries}): {e}")
+                logger.error(
+                    "Request failed (attempt %d/%d): %s",
+                    attempt + 1,
+                    retries,
+                    safe_error,
+                )
                 if attempt < retries - 1:
                     time.sleep(wait)
 

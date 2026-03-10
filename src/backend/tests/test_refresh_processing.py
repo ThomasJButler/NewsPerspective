@@ -40,6 +40,26 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
     def setUp(self) -> None:
         refresh_tracker_module.refresh_tracker.reset()
 
+    def test_fetcher_redacts_api_key_from_request_errors(self) -> None:
+        api_key = "secret-news-api-key"
+        fetcher = news_fetcher.NewsFetcher(api_key=api_key)
+        request_error = news_fetcher.requests.HTTPError(
+            "401 Client Error: Unauthorized for url: "
+            f"https://newsapi.org/v2/top-headlines?country=us&apiKey={api_key}&pageSize=100"
+        )
+
+        with patch.object(news_fetcher.requests, "get", side_effect=request_error):
+            with self.assertRaises(news_fetcher.NewsFetchError) as raised:
+                fetcher._fetch(
+                    "https://newsapi.org/v2/top-headlines",
+                    {"country": "us", "apiKey": api_key, "pageSize": 100},
+                    retries=1,
+                )
+
+        message = str(raised.exception)
+        self.assertNotIn(api_key, message)
+        self.assertIn("apiKey=[redacted]", message)
+
     def test_process_new_articles_propagates_news_fetch_errors(self) -> None:
         expected_error = news_fetcher.NewsFetchError(
             "NewsAPI returned an error: post-validation quota exceeded"
