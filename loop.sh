@@ -35,7 +35,6 @@ set -euo pipefail
 #     Trusted-local full-access run with coach narration
 #   RALPH_ALLOW_UNSAFE_SANDBOX=1 ./loop.sh build 1 homer
 #     Trusted-local full-access run with simple foundations narration
-#   RALPH_ALLOW_UNSAFE_SANDBOX=1 ./loop.sh build 1 (ONLY WHEN NEED TO COMMIT)
 
 MODE="${1:-build}"
 MAX_ITERATIONS="${2:-0}"
