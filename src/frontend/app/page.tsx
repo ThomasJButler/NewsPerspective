@@ -27,6 +27,7 @@ import { toast } from "@/hooks/use-toast";
 
 const REFRESH_STATUS_POLL_INTERVAL_MS = 1000;
 const REFRESH_STATUS_TIMEOUT_MS = 120000;
+const DUPLICATE_REFRESH_MESSAGE = "Refresh already in progress.";
 
 function HomeContent() {
   const { apiKey, setApiKey, clearApiKey, hasApiKey, isLoaded } = useApiKey();
@@ -177,7 +178,18 @@ function HomeContent() {
     setRefreshing(true);
     setApiKeyFeedback(null);
     try {
-      await refreshArticles(apiKey);
+      const refreshResponse = await refreshArticles(apiKey);
+      const currentRequestValidatedKey =
+        refreshResponse.message !== DUPLICATE_REFRESH_MESSAGE;
+
+      if (!currentRequestValidatedKey) {
+        toast({
+          title: "Refresh already running",
+          description:
+            "Another refresh request is already in progress. Waiting for its final status now.",
+        });
+      }
+
       const refreshStatus = await waitForRefreshCompletion();
 
       if (refreshStatus === null) {
@@ -195,18 +207,24 @@ function HomeContent() {
 
       await Promise.all([loadArticles(1), loadMetadata()]);
 
-      setApiKeyFeedback({
-        status: "accepted",
-        message:
-          "Your saved NewsAPI key was accepted during the last refresh.",
-      });
+      if (currentRequestValidatedKey) {
+        setApiKeyFeedback({
+          status: "accepted",
+          message:
+            "Your saved NewsAPI key was accepted during the last refresh.",
+        });
+      }
 
       toast({
-        title: "Refresh complete",
+        title: currentRequestValidatedKey
+          ? "Refresh complete"
+          : "Refresh finished",
         description:
           refreshStatus.new_articles > 0
             ? `Processed ${refreshStatus.processed_articles} new article${refreshStatus.processed_articles === 1 ? "" : "s"}.`
-            : "No new articles were added this time.",
+            : currentRequestValidatedKey
+              ? "No new articles were added this time."
+              : "The in-progress refresh finished without adding new articles.",
       });
     } catch (err) {
       if (err instanceof RefreshRequestError) {
