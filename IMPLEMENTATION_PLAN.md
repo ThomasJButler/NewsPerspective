@@ -19,12 +19,12 @@
   - `src/frontend/package.json`
   - `src/frontend/package-lock.json`
   - `src/frontend/next.config.ts`
-  - `src/backend/scripts/capture_manual_integration_evidence.py`
-  - `src/backend/tests/test_manual_integration_evidence.py`
   - The backend normalized-source plus refresh-smoke slice is no longer part of the dirty worktree boundary once this loop's narrow commit is created.
   - The frontend files remain a separate Step 17.1 DX slice: repo-owned Node pinning, a `typecheck` script, and an explicit Turbopack repo root.
 - Fresh validation on 2026-03-10:
   - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke -v` passed all 14 tests.
+  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_manual_integration_evidence -v` passed all 5 tests.
+  - `source src/backend/.venv/bin/activate && python -m src.backend.scripts.capture_manual_integration_evidence --output /tmp/phase3_manual_integration_report.md` completed successfully and wrote a Markdown report that classified the no-server run as environment behavior/still unproven, which matches the helper contract.
   - `touch .git/codex-write-test && rm .git/codex-write-test` succeeded in this environment, so the earlier `.git` write blocker did not apply to this loop.
   - Narrow staging and commit of the backend slice succeeded after the smoke pass.
   - `npm run lint` passed in `src/frontend/`.
@@ -42,7 +42,7 @@
   - The home page still keeps cached browsing available without a saved key and shows the inline `ApiKeySetup` card instead of fullscreen onboarding.
   - The frontend still polls `/api/refresh/status` for up to 120 seconds and treats that timeout as "still running" rather than a hard failure.
 - Current code review findings, highest risk first:
-  - [P1] Phase 3 manual integration evidence is still missing and cannot be gathered inside this Codex sandbox because it requires local servers, outbound NewsAPI access, and a real user key.
+  - [P1] Phase 3 manual integration evidence is still missing from a trusted local run and cannot be fully gathered inside this Codex sandbox because it requires local servers, outbound NewsAPI access, and a real user key.
   - [P2] There is still no repo-owned Playwright config, npm script, or end-to-end suite.
   - [P2] Docs and specs still drift from the running v2 app:
     - `README.md` is still Ralph-loop-first instead of app-first.
@@ -76,6 +76,11 @@ Phase 3D. The backend normalized-source and refresh-smoke slice is now landed. C
 - [x] Re-check whether the earlier `.git` write blocker still applies in the current environment before attempting the landing commit.
 - [x] Stage/commit only `src/backend/routers/articles.py`, `src/backend/routers/sources.py`, `src/backend/tests/test_api_smoke.py`, `src/backend/utils/source_normalization.py`, and this plan update for the slice boundary.
 - [x] Resolve the current landing blocker for this loop so the backend slice is committed without mixing in unrelated worktree changes.
+- [x] Review the existing Step 16.7 helper/test files against the current refresh contract before deciding whether to land them.
+- [x] Step 16.7a. Land the backend-side manual integration evidence helper and unit coverage.
+- [x] Add a CLI helper that captures backend-side manual integration observations into a Markdown report with frontend follow-up placeholders.
+- [x] Add backend unit coverage for the helper's classification/report formatting behavior.
+- [x] Run targeted validation for the helper slice with both `python -m unittest src.backend.tests.test_manual_integration_evidence -v` and a no-server CLI smoke invocation.
 - [ ] Step 16.7. Gather the missing Phase 3 manual integration evidence on a trusted local machine that can run both local servers and use a real NewsAPI key.
 - [ ] Seed cached data first with `python -m src.backend.scripts.seed_manual_integration_data` if browse screens need data before a real refresh.
 - [ ] Record exact results for cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state.
@@ -109,9 +114,10 @@ Phase 3D. The backend normalized-source and refresh-smoke slice is now landed. C
 - `src/backend/services/refresh_tracker.py` is still in-memory and per-process. That is acceptable for one local dev server but not durable across reloads, restarts, or multiple workers.
 - `GET /api/articles` still returns only rows where `processing_status == "processed"`. Manual browse checks need seeded data or a successful refresh first.
 - `src/backend/scripts/seed_manual_integration_data.py` provides deterministic processed rows for local manual integration checks.
+- `src/backend/scripts/capture_manual_integration_evidence.py` now provides a repeatable Step 16.7 helper that probes the backend HTTP contract, classifies each scenario, and writes a Markdown report with explicit frontend manual follow-up placeholders.
 - `src/frontend/next.config.ts` still rewrites `/api/:path*` to `http://localhost:8000/api/:path*`, so real frontend integration still depends on a separate backend listener on port `8000`.
 - The earlier `.git` write blocker did not reproduce in this loop; direct `.git` writes succeeded and the backend slice was landed with a narrow commit.
-- `src/backend/scripts/capture_manual_integration_evidence.py` and `src/backend/tests/test_manual_integration_evidence.py` are present in the worktree but were not part of this slice. Treat them as separate follow-up work until they are reviewed against Step 16.7.
+- `src/backend/tests/test_manual_integration_evidence.py` covers the helper's empty-cache, invalid-key, duplicate-refresh, refresh-status, and report-template behavior.
 - The repo now has a root `.nvmrc`, frontend `engines.node`, and `npm run typecheck`.
 - There is still no repo-owned Playwright config, test file, or npm script.
 - `npm run build` currently fails only on the Turbopack path in this sandbox with `Operation not permitted` while creating a CSS worker process. After setting `turbopack.root`, the misleading parent-lockfile workspace warning no longer appears before that panic.
@@ -127,4 +133,4 @@ Phase 3D. The backend normalized-source and refresh-smoke slice is now landed. C
 ## Next recommended build slice
 Step 16.7 on a trusted local machine with a real NewsAPI key.
 
-Run the manual integration evidence slice next: seed cached data if needed, verify cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state, then classify each result as code behavior, environment behavior, documentation mismatch, or still unproven.
+Run the manual integration evidence slice next with `python -m src.backend.scripts.capture_manual_integration_evidence` on a trusted local machine: seed cached data if needed, verify cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state, then fill in the frontend follow-up notes and classify each result as code behavior, environment behavior, documentation mismatch, or still unproven.
