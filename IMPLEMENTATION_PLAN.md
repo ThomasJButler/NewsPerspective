@@ -1,66 +1,95 @@
 # IMPLEMENTATION_PLAN.md
 
-## Current status summary
-- Re-verified on 2026-03-09 that the active v2 runtime is `src/backend/` plus `src/frontend/`; `src/` does not import the root-level legacy v1 Python files.
-- Re-ran the backend smoke baseline with `fastapi.testclient.TestClient`: `GET /api/articles`, `GET /api/sources`, and `GET /api/stats` return `200`; `GET /api/articles/not-a-real-id` returns `404`; `POST /api/refresh` returns `401` when `X-News-Api-Key` is missing.
-- Resolved the backend dependency-install contract on 2026-03-09 by adding `src/backend/requirements.txt` as a thin wrapper around the root `requirements.txt`; the documented install command `source src/backend/.venv/bin/activate && python -m pip install -r src/backend/requirements.txt` now succeeds.
-- Resolved the v2 environment-file contract on 2026-03-09 by adding a root `.env.template` for `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL`, documenting that `NEWS_API_KEY` is request-scoped via `X-News-Api-Key`, and removing the stale `.gitignore` rule that would have hidden the template from the repo.
-- Resolved the Step 15.3 repo-hygiene slice on 2026-03-09 by ignoring `.codex-run/`, removing the stale `.gitignore` entry for the tracked runtime file `src/backend/config.py`, and setting `turbopack.root` in `src/frontend/next.config.ts` to pin the frontend workspace root explicitly.
-- The local SQLite state is still empty (`total_articles: 0`), so success-path ingestion, populated detail views, and invalid-key versus valid-key refresh behavior still need a live integration pass with network access and a real NewsAPI key.
-- Re-ran the frontend build during Step 15.3: the prior Next.js workspace-root inference warning no longer appears after setting `turbopack.root`, but `npm run build` still fails under the sandbox with the same Turbopack panic (`Failed to write app endpoint /page` caused by `creating new process` -> `binding to a port` -> `Operation not permitted`).
-- Phase 3 integration remains gated by setup/docs drift, the frontend no-key browse regression, the source-filter contract mismatch, stale v2 docs, unresolved legacy-file handling, and the lack of automated tests.
+## Current status summary and code review
+- Re-checked on 2026-03-10. The active v2 app is still the FastAPI backend in `src/backend/` and the Next.js frontend in `src/frontend/`.
+- Read again for this planning pass: `AGENTS.md`, `README.md`, `READMEOLD.md`, `.env.template`, all files in `specs/`, and the main backend/frontend source that drives refresh, browsing, source filters, and settings.
+- Searched for repo-local issue or review notes. None were found beyond the loop prompts and the current plan. Recent repo history is still:
+  - `c865189` Add env template, relocate backend reqs, update docs
+  - `a030bfa` Update docs and backend setup
+  - `eb72797` Complete Phase 2.5: Quality fixes QF-1 through QF-7
+- Fresh validation on 2026-03-10:
+  - `python3 -m unittest src.backend.tests.test_api_smoke -v` passed all 12 tests after the Step 16.2 backend contract change.
+  - `npm run lint` passed in `src/frontend/`.
+  - `npx tsc --noEmit` passed in `src/frontend/`.
+  - `npm run build` still fails in this sandbox with the known Turbopack port-bind panic: `Failed to write app endpoint /page` -> `creating new process` -> `binding to a port` -> `Operation not permitted (os error 1)`.
+- Current code review findings, highest risk first:
+  - [P1] The backend now returns structured refresh errors, but the frontend in `src/frontend/app/page.tsx` and `src/frontend/lib/api.ts` still assumes the older plain-string contract.
+  - [P1] The frontend still treats a long-running refresh as a failure after 120 seconds in `src/frontend/app/page.tsx`, even when the backend is still processing.
+  - [P2] `GET /api/stats` still counts distinct raw `Article.source_name` values, not the normalized source label contract already used by `/api/articles` and `/api/sources`.
+  - [P2] Backend smoke coverage now proves structured refresh errors and timeout handling, but it still does not prove successful refresh completion.
+  - [P2] Real Phase 3 integration evidence is still missing because this sandbox cannot host the app on localhost or make the full outbound validation path reliable.
+  - [P3] DX and docs still drift from the running app: no frontend `typecheck` script, no repo-owned Node version pin, stock `src/frontend/README.md`, loop-first root `README.md`, and `READMEOLD.md` still contains live v2 setup steps.
+  - [P3] Spec drift is still real:
+  - `specs/OVERVIEW.md` still says Azure OpenAI and says the app only needs `NEWS_API_KEY`.
+  - `specs/BACKEND.md` still mentions `/v2/everything`, misses `/api/refresh/status`, and does not describe refresh tracking or source normalization.
+  - `specs/FRONTEND.md` still describes a first-visit full-screen onboarding flow as the main path and still names older config files instead of the current Next.js 16 + `next.config.ts` + Tailwind v4 setup.
+- The current product behavior still matches these v2 rules:
+  - Refresh requires the user key in `X-News-Api-Key`.
+  - Read endpoints work without a key and show cached data only.
+  - AI still runs once per article and returns sentiment, rewrite decision/output, TLDR, and good-news data.
+  - `OPENAI_API_KEY` is optional at runtime and falls back to neutral defaults.
 
 ## Active phase
-Phase 3A - integration preflight, developer-experience cleanup, v2 documentation alignment, and legacy-boundary prep
+Phase 3B. Finish the refresh contract first. Then get real integration evidence. After that, clean up DX, docs, and the legacy boundary.
 
 ## Ordered checklist
-- [x] Step 14.1 - Verify the active v2 runtime lives in `src/backend/` and `src/frontend/`.
-- [x] Step 14.2 - Verify the v2 code in `src/` does not import the root-level legacy v1 runtime files.
-- [x] Step 14.3 - Smoke-test the backend read-only API locally with `TestClient`.
-- [x] Step 14.4 - Capture the frontend validation baseline with `npm run lint` and `npm run build`.
-- [x] Step 15.1 - Resolve the backend dependency-install contract for a fresh clone: either add `src/backend/requirements.txt` that matches the actual runtime dependencies or realign every v2 doc/loop instruction to the root `requirements.txt`, then verify the documented backend install command references a file that exists.
-- [x] Step 15.2 - Resolve the v2 environment-file contract: either add a root `.env.template` that documents `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL`, or stop implying that template/file exists; make sure docs state that `NEWS_API_KEY` is request-scoped via `X-News-Api-Key`, not a backend env var.
-- [x] Step 15.3 - Clean repo hygiene for repeatable Ralph runs: ignore `.codex-run/`, remove or document stale `.gitignore` entries such as `src/backend/config.py` that hide real runtime files from repo discovery, and decide whether `src/frontend/next.config.ts` should set an explicit `turbopack.root` to silence workspace-root inference noise.
-- [ ] Step 15.4 - Fix the frontend lint blockers in `src/frontend/components/theme-toggle.tsx` and `src/frontend/hooks/use-api-key.ts`, then re-run `npm run lint` and either fix or explicitly defer the remaining `no-img-element` warning in `src/frontend/app/article/[id]/page.tsx`.
-- [ ] Step 15.5 - Fix the no-key browsing flow so cached articles, sources, and stats remain visible without a stored NewsAPI key, while refresh still requires `X-News-Api-Key`; keep a visible path to add/update/remove the key and make the refresh button behavior explicit when no key is stored.
-- [ ] Step 15.6 - Fix the source-filter contract end-to-end: the frontend currently sends `source_id`, the backend filters by `source_name`, and NewsAPI records with missing `source.id` values normalize to `""`, which makes current Select values and React keys unstable.
-- [ ] Step 15.7 - Re-run local validation after Steps 15.1-15.6: backend smoke tests, `npm run lint`, and `npm run build`; if Next.js build still fails only in the sandbox, capture the exact remaining blocker and whether it reproduces outside the sandbox.
-- [ ] Step 15.8 - Run manual API integration checks against a live backend for `/api/articles`, `/api/articles/{id}`, `/api/sources`, `/api/stats`, and `/api/refresh` with missing, invalid, and valid `X-News-Api-Key` values.
-- [ ] Step 15.9 - Re-test the core frontend flow against the local backend: cached feed load without a key, API-key onboarding, refresh messaging, rewritten headline display, TLDR display, detail navigation, search, source filter, good-news toggle, pagination, and empty states.
-- [ ] Step 15.10 - Verify degraded states and accessibility: backend unavailable, empty database, invalid-key messaging, slow background refresh completion, keyboard navigation, and icon-button labeling.
-- [ ] Step 16.1 - Rewrite the root `README.md` so it documents the actual v2 app architecture, backend/frontend setup, env vars, refresh flow, validation commands, and the legacy-file boundary instead of only the Ralph loop.
-- [ ] Step 16.2 - Replace or trim stale sub-docs that conflict with v2, starting with `src/frontend/README.md`; keep `READMEOLD.md` explicitly legacy-only.
-- [ ] Step 16.3 - Reconcile remaining spec/doc drift explicitly after the code path is settled: Azure OpenAI wording in `specs/OVERVIEW.md`, Next.js 15 vs 16.1.6, `/v2/top-headlines` plus `/v2/everything` vs the current categorized `top-headlines` fetcher, and `specs/OVERVIEW.md` wording that implies only `NEWS_API_KEY` is required.
-- [ ] Step 16.4 - Add a small root `Makefile` only if setup is still error-prone after Steps 15.1-16.3.
-- [ ] Step 17.1 - Inventory the root-level legacy v1 files and decide which stay in place as reference versus move into a dedicated `legacy/` directory.
-- [ ] Step 17.2 - Move or archive legacy v1 files only after the integration checklist and doc rewrite are complete.
-- [ ] Step 17.3 - Revisit `.gitignore` after any legacy move so ignored tracked files, loop artifacts, and v2 setup files are not masking required repo state.
+- [x] Re-read the repo rules, current plan, README context, specs, and the backend/frontend files that drive v2 behavior.
+- [x] Search for repo-local issues and recent code review notes, and re-check recent commits for planning context.
+- [x] Re-run the smallest useful validations: backend smoke tests, frontend lint, frontend TypeScript, and frontend build.
+- [x] Confirm the current v2 behavior in code: request-scoped NewsAPI key, cached browse without a key, inline onboarding, normalized sources, and refresh status polling.
+- [x] Step 16.1. Make duplicate refresh claiming atomic in `src/backend/services/refresh_tracker.py` and `src/backend/routers/sources.py`, and cover the regression in `src/backend/tests/test_api_smoke.py`.
+- [x] Step 16.2. Tighten the backend refresh error contract in `src/backend/routers/sources.py` and `src/backend/schemas.py`.
+- [x] Add an explicit timeout to the NewsAPI key validation call.
+- [x] Return machine-readable refresh errors instead of plain string `detail` values.
+- [x] Distinguish at least these cases: missing key, invalid key, upstream timeout, and upstream transport failure.
+- [x] Keep this slice backend-only. Do not change frontend handling yet.
+- [ ] Step 16.3. Update the frontend refresh flow in `src/frontend/lib/api.ts`, `src/frontend/types/article.ts`, `src/frontend/app/page.tsx`, and the existing key UI components.
+- [ ] Consume the structured backend contract instead of regex parsing.
+- [ ] Preserve cached browsing and the current inline no-key onboarding flow.
+- [ ] Stop showing an in-progress refresh as a generic failure when polling reaches 120 seconds.
+- [ ] Step 16.4. Align `GET /api/stats` so `sources_count` uses the same normalized source label contract as `/api/articles` and `/api/sources`.
+- [ ] Step 16.5. Extend the smallest useful regression coverage for Steps 16.2 to 16.4.
+- [x] Add backend assertions for structured refresh errors and timeout handling.
+- [ ] Add or update frontend checks only if the structured contract reaches the client in this phase.
+- [ ] Re-run `python3 -m unittest src.backend.tests.test_api_smoke -v`, `npm run lint`, and `npx tsc --noEmit`.
+- [ ] Step 16.6. Run the remaining manual Phase 3 integration checks on a machine that allows localhost listeners and outbound network access.
+- [ ] Seed data first with `python -m src.backend.scripts.seed_manual_integration_data` if cached browse needs data.
+- [ ] Record results for: cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state.
+- [ ] Step 17.1. Turn the current smoke-first testing habit into a real v2 test plan and first implementation pass.
+- [ ] Name the backend, frontend, and integration surfaces that still need coverage.
+- [ ] Add the highest-value missing tests first and record what still remains.
+- [ ] Step 17.2. Add a repo-owned frontend type-check command such as `npm run typecheck`.
+- [ ] Step 17.3. Pin or clearly document the supported Node runtime in a repo-owned file such as `.nvmrc`, `.node-version`, `.tool-versions`, or `package.json` `engines`.
+- [ ] Step 17.4. Rewrite the root `README.md` so it explains the v2 product/runtime first and the Ralph loop second. Replace the stock `src/frontend/README.md` with real frontend setup notes.
+- [ ] Step 17.5. Reconcile spec drift in `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`.
+- [ ] Document request-scoped `X-News-Api-Key`, optional `OPENAI_API_KEY`, `/api/refresh/status`, category-based `/v2/top-headlines` fetching, Next.js 16.1.6, `next.config.ts`, Tailwind v4, and the current inline onboarding flow.
+- [ ] Step 17.6. Remove active v2 setup guidance from `READMEOLD.md` so it is clearly legacy-only.
+- [ ] Step 17.7. Decide what to do with the remaining root-level v1 files and the in-progress local deletions. Do not move or restore anything until Steps 16.2 to 17.6 are stable.
+- [ ] Step 17.8. If Step 17.7 changes the legacy layout, update docs and ignore rules so legacy files do not confuse v2 setup.
 
 ## Notes / discoveries that matter for the next loop
-- `src/backend/requirements.txt` now exists and delegates to the root `requirements.txt`, so the repo keeps a single backend dependency source of truth while preserving the documented `pip install -r src/backend/requirements.txt` workflow.
-- The repo now ships a root `.env.template` with `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL`, and the root `README.md` now tells developers to copy it to `.env`.
-- `.gitignore` now ignores `.codex-run/`, so repeated Ralph runs should stop surfacing loop output as untracked repo noise.
-- The stale `.gitignore` entry for `src/backend/config.py` is gone, and `rg --files` from the repo root now includes that tracked runtime file again.
-- The backend already satisfies the product rule that read-only endpoints work without a NewsAPI key. The frontend still violates that rule because `src/frontend/app/page.tsx` returns `ApiKeySetup` whenever no key is stored.
-- The no-key browse fix has a hidden dependency: once the full-page onboarding gate is removed, the app still needs a discoverable way to add/update/remove the key and a defined refresh UX. Right now `Header` and `SettingsDialog` are only reachable inside the gated view, and `handleRefresh()` silently returns when `apiKey` is empty.
-- The source-filter issue is broader than a query-param mismatch: `news_fetcher._normalize()` converts missing NewsAPI `source.id` values to `""`, while `src/frontend/components/source-filter.tsx` uses `source_id` for both the Select value and the React key. Multiple sources can therefore collapse onto the same empty identifier even before the backend filter mismatch is fixed.
-- `npm run lint` currently fails with two errors and one warning:
-  - `src/frontend/components/theme-toggle.tsx`: `react-hooks/set-state-in-effect`
-  - `src/frontend/hooks/use-api-key.ts`: `react-hooks/set-state-in-effect`
-  - `src/frontend/app/article/[id]/page.tsx`: `@next/next/no-img-element` warning
-- `npm run build` is still not a reliable repo validation in this sandbox:
-  - The prior Next.js workspace-root inference warning is resolved by the explicit `turbopack.root` in `src/frontend/next.config.ts`
-  - Turbopack then panics with `Failed to write app endpoint /page`, caused by `creating new process` -> `binding to a port` -> `Operation not permitted`, which still looks sandbox-specific until reproduced elsewhere
-- The current local database contains no processed articles, so successful detail-view integration and refresh-driven ingestion were not verifiable here without external network access and a real NewsAPI key.
-- `POST /api/refresh` correctly rejects a missing `X-News-Api-Key` with `401`. Invalid-key versus valid-key behavior still needs confirmation in a network-enabled environment.
-- There are still no automated tests under `src/`; current validation is smoke-test plus manual checks only.
-- `src/frontend/README.md` is still default `create-next-app` boilerplate and should not be treated as project documentation.
-- Additional explicit spec/code drift still needs resolution:
-  - `specs/OVERVIEW.md` still shows Azure OpenAI in the architecture diagram, while the backend uses the standard OpenAI client with `OPENAI_API_KEY`
-  - `specs/BACKEND.md` says the fetcher uses both `/v2/top-headlines` and `/v2/everything`; `src/backend/services/news_fetcher.py` currently uses categorized `/v2/top-headlines` only
-  - `specs/FRONTEND.md` says Next.js 15, while `src/frontend/package.json` is on Next.js 16.1.6
-  - `specs/OVERVIEW.md` says NewsAPI "only requires `NEWS_API_KEY`", which is incomplete for the deployed system because backend AI processing still depends on `OPENAI_API_KEY` unless neutral fallbacks are acceptable
-- Root-level legacy Python files still present at repo root: `azure_ai_language.py`, `azure_document_intelligence.py`, `batch_processor.py`, `logger_config.py`, `run.py`, `search.py`, and `web_app.py`.
+- The worktree is already dirty. Do not revert unrelated WIP. That includes active backend/frontend work and in-progress root legacy deletions.
+- Root legacy cleanup is already partly in motion in the worktree:
+  - Deleted locally: `azure_ai_language.py`, `azure_document_intelligence.py`, `logger_config.py`, `run.py`, `search.py`, `web_app.py`
+  - Still present at repo root: `batch_processor.py`
+- `src/backend/services/refresh_tracker.py` is in-memory and per-process. It is fine for one local dev server, but it is not durable across reloads, restarts, or multiple workers.
+- `POST /api/refresh` now validates the NewsAPI key with a 5-second timeout and returns structured `detail` payloads with codes for `missing_api_key`, `invalid_api_key`, `upstream_timeout`, and `upstream_transport_failure`.
+- `src/backend/services/article_processor.py` already owns terminal refresh states by calling `mark_completed()` and `mark_failed()`. The next backend slice should stay focused on the request/response contract, not widen into a background-job redesign.
+- `GET /api/articles` still returns only `processing_status == "processed"` rows. Manual browse checks need seeded data or a successful refresh first.
+- `src/frontend/lib/api.ts` and `src/frontend/app/page.tsx` still need Step 16.3 so they consume `detail.code` and `detail.message` instead of relying on older string parsing.
+- `src/frontend/app/page.tsx` renders the inline `ApiKeySetup` card when there is no saved key. The full-screen variant still exists in the component, but it is not the active home-page path.
+- `src/frontend/package.json` still has no `typecheck` script.
+- There is still no `.nvmrc`, `.node-version`, or `.tool-versions` file in the repo.
+- `src/frontend/next.config.ts` still proxies `/api/:path*` to `http://localhost:8000/api/:path*`, so real frontend integration still depends on a separate backend listener on port `8000`.
+- This sandbox still cannot bind localhost ports needed for full app runs, and it also triggers the Turbopack port-bind panic during `next build`.
+
+Simple
+- What: Manual integration is still blocked here, even though the code inspection and smoke checks are useful.
+- Why: This environment can run small unit-style checks, but it cannot host the full app the same way a normal local machine can.
+- CS idea: Unit tests check pieces in isolation. Integration testing checks whether the pieces still work when they talk to each other over real process and network boundaries.
+- Next: Update the frontend refresh flow to consume the new backend error contract, then run the remaining Phase 3 checks on a machine with normal localhost and network access.
 
 ## Next recommended build slice
-Step 15.4 - fix the frontend lint blockers in `src/frontend/components/theme-toggle.tsx` and `src/frontend/hooks/use-api-key.ts`, then re-run `npm run lint` and either fix or explicitly defer the remaining `@next/next/no-img-element` warning in `src/frontend/app/article/[id]/page.tsx`.
+Step 16.3. Update the frontend refresh flow in `src/frontend/lib/api.ts`, `src/frontend/types/article.ts`, `src/frontend/app/page.tsx`, and the existing key UI components.
+
+Consume the structured backend refresh-error contract instead of regex parsing, preserve cached browsing and the inline no-key onboarding flow, and stop treating a still-processing refresh as a generic failure at the 120-second polling limit.

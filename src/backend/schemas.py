@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -55,3 +57,30 @@ class StatsResponse(BaseModel):
 class RefreshResponse(BaseModel):
     status: str
     message: str
+
+
+RefreshErrorCode = Literal[
+    "missing_api_key",
+    "invalid_api_key",
+    "upstream_timeout",
+    "upstream_transport_failure",
+]
+
+
+class RefreshErrorDetail(BaseModel):
+    code: RefreshErrorCode
+    message: str
+
+
+class RefreshErrorResponse(BaseModel):
+    detail: RefreshErrorDetail
+
+
+class RefreshStatusResponse(BaseModel):
+    status: str
+    message: str
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    new_articles: int = 0
+    processed_articles: int = 0
+    failed_articles: int = 0

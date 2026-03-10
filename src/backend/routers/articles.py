@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Article
 from ..schemas import ArticleListResponse, ArticleResponse
+from ..utils.source_normalization import clean_source_value, source_label_expression
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
 
@@ -24,8 +25,9 @@ def get_articles(
     if good_news_only:
         query = query.filter(Article.is_good_news == True)
 
-    if source is not None:
-        query = query.filter(Article.source_name == source)
+    normalized_source = clean_source_value(source)
+    if normalized_source is not None:
+        query = query.filter(source_label_expression(Article) == normalized_source)
 
     if category is not None:
         query = query.filter(Article.category == category)

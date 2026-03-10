@@ -22,14 +22,18 @@ def _parse_datetime(value: str | None) -> datetime | None:
 
 
 class ArticleProcessor:
-    def process_new_articles(self, db: Session, api_key: str):
+    def process_new_articles(self, db: Session, api_key: str) -> dict[str, int]:
         """Fetch, deduplicate, analyse, and persist articles."""
         fetcher = NewsFetcher(api_key=api_key)
         articles = fetcher.fetch_all_categories()
 
         if not articles:
             logger.info("No articles returned from NewsFetcher.")
-            return
+            return {
+                "new_articles": 0,
+                "processed_articles": 0,
+                "failed_articles": 0,
+            }
 
         # Build set of URLs already in the DB to deduplicate
         existing_urls = {url for (url,) in db.query(Article.url).all()}
@@ -41,6 +45,8 @@ class ArticleProcessor:
 
         ai_service = AIService()
         new_count = 0
+        processed_count = 0
+        failed_count = 0
         for raw in articles:
             url = raw.get("url")
             if not url or url in existing_urls:
@@ -81,6 +87,7 @@ class ArticleProcessor:
                 article.processing_status = "processed"
 
                 db.commit()
+                processed_count += 1
                 logger.info("Processed article id=%s url=%s", article.id, url)
 
             except Exception as exc:
@@ -93,17 +100,29 @@ class ArticleProcessor:
                 )
                 article.processing_status = "failed"
                 db.commit()
+                failed_count += 1
 
         logger.info("ArticleProcessor finished. New articles processed: %d", new_count)
+        return {
+            "new_articles": new_count,
+            "processed_articles": processed_count,
+            "failed_articles": failed_count,
+        }
 
 
 def process_new_articles_background(api_key: str):
     """Entry point for BackgroundTasks — creates its own DB session."""
     from ..database import SessionLocal
+    from .refresh_tracker import refresh_tracker
 
     db = SessionLocal()
     try:
         processor = ArticleProcessor()
-        processor.process_new_articles(db, api_key)
+        summary = processor.process_new_articles(db, api_key)
+        refresh_tracker.mark_completed(**summary)
+    except Exception as exc:
+        logger.error("Background refresh failed: %s", exc, exc_info=True)
+        refresh_tracker.mark_failed("Refresh failed while processing articles.")
+        raise
     finally:
         db.close()
