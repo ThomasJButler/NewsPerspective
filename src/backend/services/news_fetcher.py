@@ -14,6 +14,10 @@ DAILY_REQUEST_LIMIT = 100
 REQUEST_WARNING_THRESHOLD = 80
 
 
+class NewsFetchError(RuntimeError):
+    """Raised when NewsAPI fetching fails and the refresh should be marked failed."""
+
+
 class NewsFetcher:
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -54,40 +58,49 @@ class NewsFetcher:
     def _fetch(self, url: str, params: dict, retries: int = 3) -> list[dict]:
         """Make a NewsAPI request with retry/backoff and rate-limit awareness."""
         if self.request_count >= DAILY_REQUEST_LIMIT:
-            logger.warning("Daily request limit reached — refusing to fetch")
-            return []
+            message = "Daily request limit reached before the refresh could finish."
+            logger.error(message)
+            raise NewsFetchError(message)
 
         if self.request_count >= REQUEST_WARNING_THRESHOLD:
             logger.warning(f"Approaching daily limit: {self.request_count}/{DAILY_REQUEST_LIMIT} requests used")
 
+        last_error_message: str | None = None
         for attempt in range(retries):
             try:
                 self.request_count += 1
                 resp = requests.get(url, params=params, timeout=30)
 
                 if resp.status_code == 429:
+                    last_error_message = "NewsAPI rate limited the refresh request."
                     wait = 2 ** attempt
                     logger.warning(f"Rate limited (429), retrying in {wait}s...")
-                    time.sleep(wait)
+                    if attempt < retries - 1:
+                        time.sleep(wait)
                     continue
 
                 resp.raise_for_status()
-                data = resp.json()
+                try:
+                    data = resp.json()
+                except ValueError as exc:
+                    raise NewsFetchError("NewsAPI returned an unreadable response.") from exc
 
                 if data.get("status") != "ok":
-                    logger.error(f"NewsAPI error: {data.get('message', 'unknown')}")
-                    return []
+                    message = data.get("message", "unknown")
+                    logger.error(f"NewsAPI error: {message}")
+                    raise NewsFetchError(f"NewsAPI returned an error: {message}")
 
                 articles = data.get("articles", [])
                 return self._filter_articles(articles)
 
             except requests.RequestException as e:
+                last_error_message = f"Failed to fetch articles from NewsAPI: {e}"
                 wait = 2 ** attempt
                 logger.error(f"Request failed (attempt {attempt + 1}/{retries}): {e}")
                 if attempt < retries - 1:
                     time.sleep(wait)
 
-        return []
+        raise NewsFetchError(last_error_message or "Failed to fetch articles from NewsAPI.")
 
     def _filter_articles(self, articles: list[dict]) -> list[dict]:
         """Remove empty/removed articles that NewsAPI returns as placeholders."""
