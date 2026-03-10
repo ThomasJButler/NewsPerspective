@@ -29,6 +29,7 @@
   - Narrow staging and commit of the backend slice succeeded after the smoke pass.
   - `npm run lint` passed in `src/frontend/`.
   - `npm run typecheck` passed in `src/frontend/`.
+  - `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts --project=chromium` passed 2 browser tests against a seeded local backend/frontend stack.
   - `node -v` in `src/frontend/` reported `v22.17.0`.
   - `npm run build` in `src/frontend/` still failed in this Codex sandbox because Turbopack hit `Operation not permitted` while creating a CSS worker process and binding to a port.
   - After setting `turbopack.root` to the repo root in `src/frontend/next.config.ts`, the old parent-lockfile workspace-root warning did not appear before that same sandbox-specific Turbopack panic.
@@ -43,7 +44,7 @@
   - The frontend still polls `/api/refresh/status` for up to 120 seconds and treats that timeout as "still running" rather than a hard failure.
 - Current code review findings, highest risk first:
   - [P1] Phase 3 manual integration evidence is still missing from a trusted local run and cannot be fully gathered inside this Codex sandbox because it requires local servers, outbound NewsAPI access, and a real user key.
-  - [P2] There is still no repo-owned Playwright config, npm script, or end-to-end suite.
+  - [P2] The repo now has initial Playwright config and seeded cached-browse coverage, but there is still no repo-owned npm script and no refresh-path browser coverage yet.
   - [P2] Docs and specs still drift from the running v2 app:
     - `README.md` is still Ralph-loop-first instead of app-first.
     - `src/frontend/README.md` is still stock Next.js text.
@@ -86,8 +87,13 @@ Phase 3D. The backend normalized-source and refresh-smoke slice is now landed. C
 - [ ] Record exact results for cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state.
 - [ ] Label each recorded result as code behavior, environment behavior, documentation mismatch, or still unproven.
 - [ ] Step 16.8. Add repo-owned Playwright coverage for the highest-value local browser flows.
-- [ ] Add Playwright config, dependencies, npm scripts, and ignore rules for browser artifacts.
-- [ ] Cover seeded cached browse without a key, source filtering, search, and article detail against a real local frontend/backend pair.
+- [x] Step 16.8a. Add initial Playwright config plus seeded cached-browse coverage.
+- [x] Add `src/frontend/playwright.config.mts` with isolated backend seeding, local frontend/backend webServer startup, and artifacts under `output/playwright/`.
+- [x] Add a Chromium e2e spec for cached browse without a key, source filtering, search, and article detail against seeded data.
+- [x] Ignore Playwright artifacts under `output/playwright/`.
+- [x] Validate the browser harness with `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts --project=chromium`.
+- [ ] Add repo-owned npm scripts for Playwright once the already-dirty frontend package-metadata slice is ready to land cleanly.
+- [x] Cover seeded cached browse without a key, source filtering, search, and article detail against a real local frontend/backend pair.
 - [ ] Make refresh-related browser cases opt-in and environment-gated until either real-key manual evidence exists or a supported backend test double is added.
 - [x] Step 17.1. Add repo-owned frontend DX guardrails.
 - [x] Add `npm run typecheck`.
@@ -119,7 +125,9 @@ Phase 3D. The backend normalized-source and refresh-smoke slice is now landed. C
 - The earlier `.git` write blocker did not reproduce in this loop; direct `.git` writes succeeded and the backend slice was landed with a narrow commit.
 - `src/backend/tests/test_manual_integration_evidence.py` covers the helper's empty-cache, invalid-key, duplicate-refresh, refresh-status, and report-template behavior.
 - The repo now has a root `.nvmrc`, frontend `engines.node`, and `npm run typecheck`.
-- There is still no repo-owned Playwright config, test file, or npm script.
+- `src/frontend/playwright.config.mts` now starts an isolated seeded backend plus the Next dev server and writes browser artifacts under `output/playwright/`.
+- `src/frontend/tests/e2e/cached-browse.spec.ts` now covers cached browse without a key, source filtering, search, and article detail against seeded data.
+- There is still no repo-owned Playwright npm script because `src/frontend/package.json` and `src/frontend/package-lock.json` already contain unrelated dirty Step 17.1 changes and were intentionally left out of this slice boundary.
 - `npm run build` currently fails only on the Turbopack path in this sandbox with `Operation not permitted` while creating a CSS worker process. After setting `turbopack.root`, the misleading parent-lockfile workspace warning no longer appears before that panic.
 - The biggest written mismatches are still:
   - `README.md` is loop-first instead of app-first.
@@ -131,6 +139,6 @@ Phase 3D. The backend normalized-source and refresh-smoke slice is now landed. C
 - `batch_processor.py` still imports deleted legacy modules and old Azure services. Treat it as legacy reference only until Step 17.4 decides its fate.
 
 ## Next recommended build slice
-Step 16.7 on a trusted local machine with a real NewsAPI key.
+Step 16.7 on a trusted local machine with a real NewsAPI key remains the highest-priority remaining slice.
 
-Run the manual integration evidence slice next with `python -m src.backend.scripts.capture_manual_integration_evidence` on a trusted local machine: seed cached data if needed, verify cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state, then fill in the frontend follow-up notes and classify each result as code behavior, environment behavior, documentation mismatch, or still unproven.
+Run `python -m src.backend.scripts.capture_manual_integration_evidence` on a trusted local machine, seed cached data if needed, verify cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state, then fill in the frontend follow-up notes and classify each result as code behavior, environment behavior, documentation mismatch, or still unproven. If the next loop stays in this Codex sandbox instead, continue Step 16.8 by wiring repo-owned Playwright npm scripts and then adding environment-gated refresh browser cases.

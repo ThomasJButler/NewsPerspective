@@ -14,6 +14,7 @@ __pycache__/
 node_modules/
 .next/
 out/
+output/playwright/
 
 # Logs
 /logs/
