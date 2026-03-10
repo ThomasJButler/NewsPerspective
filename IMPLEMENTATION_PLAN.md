@@ -1,144 +1,125 @@
 # IMPLEMENTATION_PLAN.md
 
 ## Current status summary and code review
-- Re-checked on 2026-03-10 in plan/build mode. Read `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `README.md`, `READMEOLD.md`, all files in `specs/`, recent commits, and the active backend/frontend/legacy source that drives refresh, browsing, filtering, stats, detail pages, and the v1 boundary.
-- The active v2 runtime is still `src/backend/` plus `src/frontend/`. Root-level files remain legacy/reference-only unless a later cleanup slice explicitly targets them.
-- No repo-local issue tracker entries or written code review notes were found.
-- Recent commits still show the current sequence of app work:
-  - `cc8a629` Use US headlines as the default NewsAPI country
-  - `738bcac` Fix Next.js config.
-  - `77304eb` Add backend seed and test package files
-  - `3bf9a15` Polish frontend local state and tooling
-  - `6940e61` Remove unused legacy root files
-  - `ff36199` Improve Ralph loop guidance and learning modes
-- Current worktree state matters for the next loop:
-  - `README.md`
-  - `loop.sh`
-  - `batch_processor.py` is still deleted locally
-  - `.nvmrc`
-  - `src/frontend/package.json`
-  - `src/frontend/package-lock.json`
-  - `src/frontend/next.config.ts`
-  - The backend normalized-source plus refresh-smoke slice is no longer part of the dirty worktree boundary once this loop's narrow commit is created.
-  - The frontend files remain a separate Step 17.1 DX slice: repo-owned Node pinning, a `typecheck` script, and an explicit Turbopack repo root.
-- Fresh validation on 2026-03-10:
+- Re-checked on 2026-03-10 in plan mode. Read `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `README.md`, `READMEOLD.md`, all files in `specs/`, recent git history, current worktree diffs, and the backend/frontend files that define the live v2 contract.
+- Searched the repo for repo-local issue tracker entries and written code-review notes. None were found. The findings below are the current planning/code-review notes from this verification pass.
+- Recent landed slices in git history confirm the current direction: seeded Playwright cached-browse coverage (`efa45d2`), manual integration evidence helper (`0c65e40`), source normalization (`0b8a268`), and the US NewsAPI default (`cc8a629`).
+- Verified live backend contract from source:
+  - `src/backend/main.py` is the active FastAPI app and mounts only the v2 routers under `src/backend/`.
+  - `POST /api/refresh` requires `X-News-Api-Key`, validates that key against NewsAPI `GET /v2/top-headlines` with `country=us`, `pageSize=1`, and a 5-second timeout, then starts background processing.
+  - `POST /api/refresh` returns typed error codes for missing key, invalid key, upstream timeout, and upstream transport failure.
+  - Duplicate refresh requests short-circuit before NewsAPI validation and return `{ "status": "processing", "message": "Refresh already in progress." }`.
+  - `GET /api/refresh/status` exists and returns the in-memory tracker state from `src/backend/services/refresh_tracker.py`.
+  - `GET /api/articles`, `GET /api/sources`, and `GET /api/stats` serve processed cached rows without requiring a NewsAPI key.
+  - `GET /api/articles/{id}` returns by id without filtering on `processing_status`, unlike the list/source/stats endpoints.
+  - Source labels are normalized consistently across list/detail/source/stats responses by trimming blanks and falling back to `source_id`, then `"Unknown source"`.
+  - `src/backend/services/news_fetcher.py` now fetches category-specific NewsAPI top headlines only; it no longer uses `/v2/everything`.
+  - `src/backend/services/ai_service.py` still performs a single OpenAI chat-completions call per article and falls back to neutral defaults when AI config is unavailable or parsing fails.
+- Verified live frontend contract from source:
+  - `src/frontend/app/page.tsx` keeps cached browsing available without a saved key and shows the inline `ApiKeySetup` card only when no key is stored.
+  - NewsAPI keys are stored in `localStorage` via `src/frontend/hooks/use-api-key.ts`; read-only endpoints do not attach that key, while refresh requests attach `X-News-Api-Key`.
+  - The home page polls `/api/refresh/status` every second for up to 120 seconds after refresh starts.
+  - Missing-key and invalid-key refresh responses reopen settings with targeted feedback.
+  - `src/frontend/next.config.ts` is the live config file and still proxies `/api/:path*` to `http://localhost:8000/api/:path*`; local frontend integration still depends on a separate backend listener on port `8000`.
+  - Repo-owned Playwright coverage exists for seeded cached browse, source filtering, search, and article detail in `src/frontend/tests/e2e/cached-browse.spec.ts`.
+- Validation rerun on 2026-03-10:
   - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke -v` passed all 14 tests.
   - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_manual_integration_evidence -v` passed all 5 tests.
-  - `source src/backend/.venv/bin/activate && python -m src.backend.scripts.capture_manual_integration_evidence --output /tmp/phase3_manual_integration_report.md` completed successfully and wrote a Markdown report that classified the no-server run as environment behavior/still unproven, which matches the helper contract.
-  - `touch .git/codex-write-test && rm .git/codex-write-test` succeeded in this environment, so the earlier `.git` write blocker did not apply to this loop.
-  - Narrow staging and commit of the backend slice succeeded after the smoke pass.
-  - `npm run lint` passed in `src/frontend/`.
-  - `npm run typecheck` passed in `src/frontend/`.
-  - `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts --project=chromium` passed 2 browser tests against a seeded local backend/frontend stack.
-  - `node -v` in `src/frontend/` reported `v22.17.0`.
-  - `npm run build` in `src/frontend/` still failed in this Codex sandbox because Turbopack hit `Operation not permitted` while creating a CSS worker process and binding to a port.
-  - After setting `turbopack.root` to the repo root in `src/frontend/next.config.ts`, the old parent-lockfile workspace-root warning did not appear before that same sandbox-specific Turbopack panic.
-- Verified current code behavior:
-  - `POST /api/refresh` requires `X-News-Api-Key`, validates it against NewsAPI with a 5-second timeout, returns typed error payloads, and only then queues background processing.
-  - `GET /api/refresh/status` exists and exposes in-memory refresh state from `src/backend/services/refresh_tracker.py`.
-  - Duplicate refresh attempts still short-circuit before NewsAPI validation.
-  - Read-only endpoints still work without a NewsAPI key by serving cached processed rows.
-  - NewsAPI fetching now uses `/v2/top-headlines` only and defaults to `country=us`.
-  - The backend read contract now makes `GET /api/articles`, `GET /api/articles/{id}`, `GET /api/sources`, and `GET /api/stats` agree on trimmed/fallback source labels instead of leaking raw blanks.
-  - The home page still keeps cached browsing available without a saved key and shows the inline `ApiKeySetup` card instead of fullscreen onboarding.
-  - The frontend still polls `/api/refresh/status` for up to 120 seconds and treats that timeout as "still running" rather than a hard failure.
+  - `cd src/frontend && node -v` reported `v22.17.0`.
+  - `cd src/frontend && npm run lint` passed.
+  - `cd src/frontend && npm run typecheck` passed.
+  - `cd src/frontend && npx tsc --noEmit --incremental false` passed.
+  - `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts` passed both seeded cached-browse tests.
+  - `cd src/frontend && npm run build` still failed in this Codex sandbox because Turbopack panicked while creating a CSS worker process and binding to a port (`Operation not permitted`).
+  - `cd src/frontend && npx next build --webpack` passed.
 - Current code review findings, highest risk first:
-  - [P1] Phase 3 manual integration evidence is still missing from a trusted local run and cannot be fully gathered inside this Codex sandbox because it requires local servers, outbound NewsAPI access, and a real user key.
-  - [P2] The repo now has initial Playwright config and seeded cached-browse coverage, but there is still no repo-owned npm script and no refresh-path browser coverage yet.
-  - [P2] Docs and specs still drift from the running v2 app:
+  - [P1] This Codex sandbox currently cannot create `.git/index.lock`, so validated slice changes cannot be staged or committed from this session. The latest `git add` attempt failed with `fatal: Unable to create '/Users/tombutler/Repos/NewsPerspective/.git/index.lock': Operation not permitted`.
+  - [P1] Trusted-machine Phase 3 manual integration evidence is still missing. The helper, backend smoke coverage, and seeded browser coverage exist, but there is still no recorded local run with a real NewsAPI key and real local servers.
+  - [P1] Top-level docs and specs still drift materially from the running v2 app:
     - `README.md` is still Ralph-loop-first instead of app-first.
-    - `src/frontend/README.md` is still stock Next.js text.
-    - `READMEOLD.md` still contains live v2 backend setup even though it is labeled legacy.
-    - `specs/OVERVIEW.md` still describes Azure OpenAI and says NewsAPI only requires `NEWS_API_KEY`.
-    - `specs/BACKEND.md` still mentions `/v2/everything` and misses `/api/refresh/status`, typed refresh errors, the 5-second validation timeout, and the normalized-source read contract.
-    - `specs/FRONTEND.md` still says `next.config.js`, describes fullscreen onboarding as the main first-visit flow, and does not match Next.js `16.1.6`.
-  - [P3] Frontend DX cleanup is partly improved but not fully closed. The repo now has a root `.nvmrc`, frontend `engines`, `npm run typecheck`, and an explicit Turbopack root, but `npm run build` still depends on a Turbopack path that fails in this sandbox with a CSS worker port-bind panic.
-  - [P3] `batch_processor.py` is still the remaining root-level legacy runtime-like file. It imports deleted modules such as `logger_config`, `azure_ai_language`, and `azure_document_intelligence`, so it is reference-only until a dedicated legacy cleanup slice decides its fate.
+    - `src/frontend/README.md` is still stock Next.js boilerplate.
+    - `READMEOLD.md` still contains live v2 setup guidance even though it is labeled legacy.
+    - `specs/OVERVIEW.md` still describes Azure-era architecture and stale NewsAPI assumptions.
+    - `specs/BACKEND.md` still describes UK-focused `/v2/everything` behavior and omits `/api/refresh/status`, duplicate-refresh behavior, typed refresh errors, the 5-second validation timeout, and current source normalization behavior.
+    - `specs/FRONTEND.md` still describes fullscreen first-visit onboarding, `next.config.js`, and other older assumptions instead of the current inline cached-browse-first UX on Next.js `16.1.6`.
+  - [P2] Refresh-path browser coverage is still missing. Current Playwright coverage only proves the seeded cached-browse path.
+  - [P2] There is still no repo-owned Playwright npm script. Keep that command-surface decision with Step 16.8 so the refresh-path coverage slice can define the final supported browser-test entrypoint intentionally.
+  - [P2] Legacy-boundary guidance is stale. `AGENTS.md` and `READMEOLD.md` still imply root-level v1 runtime files are present, but the checked-out repo root now contains docs/config files plus local env/db artifacts, not the old runtime scripts.
+  - [P3] `GET /api/articles/{id}` is more permissive than the processed-only read endpoints. The current frontend only links to processed rows, so this is low-visibility, but the detail contract should be documented or tightened later.
+  - [P3] `src/backend/services/refresh_tracker.py` is still in-memory and per-process. That is acceptable for single-process local development but remains non-durable across reloads, restarts, or multiple workers.
 
 ## Active phase
-Phase 3D. The backend normalized-source and refresh-smoke slice is now landed. Continue integration hardening with environment-gated manual evidence, repo-owned browser coverage, DX cleanup, doc/spec alignment, and legacy-boundary cleanup.
+Phase 3D: close the remaining safe pre-sign-off slices in priority order. Step 17.1 frontend DX cleanup is implemented and validated in the worktree, but it is not landed because this Codex sandbox cannot write `.git/index.lock`. After that landing blocker is cleared, the main external blocker remains trusted-local Phase 3 integration evidence with a real NewsAPI key; refresh-path browser coverage stays gated on that evidence or a supported backend test double.
 
 ## Ordered checklist
-- [x] Re-read repo rules, current plan, README context, specs, recent commits, and enough backend/frontend/legacy source to verify the real v2 status.
-- [x] Search for repo-local issues/code-review notes and inspect the current worktree state.
-- [x] Re-run backend smoke validation with `python -m unittest src.backend.tests.test_api_smoke -v`.
-- [x] Re-run frontend lint and TypeScript validation.
-- [x] Re-check frontend build behavior in this environment: `npm run build` fails under sandboxed Turbopack, while `npx next build --webpack` passes.
-- [x] Re-confirm the current refresh contract, refresh-status endpoint, and in-memory tracker behavior in code.
-- [x] Re-confirm the current inline no-key browsing flow and frontend refresh polling/error handling.
-- [x] Re-confirm there is no repo-owned Playwright config, end-to-end suite, or Node version pin file.
-- [x] Re-confirm that `batch_processor.py` is still legacy-only and not part of the v2 runtime.
-- [x] Step 16.4. Normalize source labels across backend read endpoints and stats.
-- [x] Step 16.5. Extend backend smoke coverage for normalized source behavior.
-- [x] Step 16.6. Add refresh success-path smoke coverage.
-- [x] Step 16.6a. Preserve and land the already-implemented backend slice safely.
-- [x] Decide whether the current dirty backend files are the slice to keep; do not start unrelated edits in those files until that decision is explicit.
-- [x] Re-run `python -m unittest src.backend.tests.test_api_smoke -v` for the backend slice before staging it.
-- [x] Re-check whether the earlier `.git` write blocker still applies in the current environment before attempting the landing commit.
-- [x] Stage/commit only `src/backend/routers/articles.py`, `src/backend/routers/sources.py`, `src/backend/tests/test_api_smoke.py`, `src/backend/utils/source_normalization.py`, and this plan update for the slice boundary.
-- [x] Resolve the current landing blocker for this loop so the backend slice is committed without mixing in unrelated worktree changes.
-- [x] Review the existing Step 16.7 helper/test files against the current refresh contract before deciding whether to land them.
-- [x] Step 16.7a. Land the backend-side manual integration evidence helper and unit coverage.
-- [x] Add a CLI helper that captures backend-side manual integration observations into a Markdown report with frontend follow-up placeholders.
-- [x] Add backend unit coverage for the helper's classification/report formatting behavior.
-- [x] Run targeted validation for the helper slice with both `python -m unittest src.backend.tests.test_manual_integration_evidence -v` and a no-server CLI smoke invocation.
-- [ ] Step 16.7. Gather the missing Phase 3 manual integration evidence on a trusted local machine that can run both local servers and use a real NewsAPI key.
-- [ ] Seed cached data first with `python -m src.backend.scripts.seed_manual_integration_data` if browse screens need data before a real refresh.
-- [ ] Record exact results for cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state.
-- [ ] Label each recorded result as code behavior, environment behavior, documentation mismatch, or still unproven.
-- [ ] Step 16.8. Add repo-owned Playwright coverage for the highest-value local browser flows.
-- [x] Step 16.8a. Add initial Playwright config plus seeded cached-browse coverage.
-- [x] Add `src/frontend/playwright.config.mts` with isolated backend seeding, local frontend/backend webServer startup, and artifacts under `output/playwright/`.
-- [x] Add a Chromium e2e spec for cached browse without a key, source filtering, search, and article detail against seeded data.
-- [x] Ignore Playwright artifacts under `output/playwright/`.
-- [x] Validate the browser harness with `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts --project=chromium`.
-- [ ] Add repo-owned npm scripts for Playwright once the already-dirty frontend package-metadata slice is ready to land cleanly.
-- [x] Cover seeded cached browse without a key, source filtering, search, and article detail against a real local frontend/backend pair.
-- [ ] Make refresh-related browser cases opt-in and environment-gated until either real-key manual evidence exists or a supported backend test double is added.
-- [x] Step 17.1. Add repo-owned frontend DX guardrails.
-- [x] Add `npm run typecheck`.
-- [x] Pin or document the supported Node runtime in a repo-owned file or `package.json` `engines`.
-- [x] Resolve the workspace-root warning by setting `turbopack.root` to the repo root; keep the remaining Turbopack sandbox panic tracked separately.
+- [x] Re-read repo rules, current plan, top-level docs, all specs, recent git history, current worktree state, and search the repo for issue/review notes on 2026-03-10.
+- [x] Re-verify the backend refresh contract, refresh-status endpoint, source normalization behavior, manual integration helper, and backend smoke coverage from source.
+- [x] Re-verify the frontend cached-browse-first UX, saved-key handling, refresh polling, Next proxy contract, Playwright harness, and article-detail flow from source.
+- [x] Re-run the current validation set: backend smoke tests, backend manual-helper tests, Node version check, frontend lint, frontend typecheck, non-incremental TypeScript check, cached-browse Playwright spec, Turbopack build check, and webpack build check.
+- [ ] Step 17.1. Land the already-started frontend DX cleanup as the next Codex-safe slice once git metadata writes are allowed.
+- [x] Keep `.nvmrc`, `src/frontend/package.json`, `src/frontend/package-lock.json`, and `src/frontend/next.config.ts` together in that slice; do not stage `README.md`, `loop.sh`, `batch_processor.py`, or spec/doc work with it.
+- [x] Decide whether `@playwright/test` belongs in `dependencies` or `devDependencies`, and whether a repo-owned Playwright npm script belongs in Step 17.1 or the later browser-coverage slice.
+- [x] Re-run `node -v`, `npm run lint`, `npm run typecheck`, `npx tsc --noEmit --incremental false`, `npm run build`, and `npx next build --webpack` in the Codex sandbox; the Turbopack panic still reproduces there while the webpack build still passes.
+- [ ] Stage and commit only `.nvmrc`, `src/frontend/package.json`, `src/frontend/package-lock.json`, `src/frontend/next.config.ts`, and this plan update after the `.git/index.lock` blocker is cleared.
+- [ ] During trusted-local validation, record whether the same Turbopack panic reproduces outside the Codex sandbox.
+- [ ] Step 16.7. On a trusted local machine, gather manual Phase 3 integration evidence with a real NewsAPI key.
+- [ ] Start the backend and frontend outside Codex. If cached browse is empty, run `python -m src.backend.scripts.seed_manual_integration_data` first.
+- [ ] Run `python -m src.backend.scripts.capture_manual_integration_evidence --api-key "$NEWS_API_KEY" --output <report-path>` against the local backend and keep the generated Markdown report.
+- [ ] Complete the report's frontend follow-up section from `http://localhost:3000`, covering cached browse without a saved key, refresh with a real key, invalid-key handling, duplicate refresh behavior if observable, refresh-status polling, and the final terminal state.
+- [ ] Update this plan with exact observed outcomes and classify each one as `code behavior`, `environment behavior`, `documentation mismatch`, or `still unproven`.
+- [ ] Step 16.8. Finish repo-owned browser coverage for the highest-value local flows.
+- [ ] Keep `src/frontend/tests/e2e/cached-browse.spec.ts` green against the seeded local backend/frontend pair.
+- [ ] Add refresh-path browser coverage only after Step 16.7 evidence exists or a supported backend test double is introduced.
+- [ ] Cover the accepted-refresh path, invalid-key UX, and refresh-status polling UX in a deterministic way.
+- [ ] Decide whether refresh-status and invalid-key cases belong in Playwright only, a backend-backed test double, or both.
 - [ ] Step 17.2. Align top-level docs with the running v2 system.
 - [ ] Rewrite the root `README.md` so the v2 app runtime and setup come first and the Ralph loop comes second.
-- [ ] Replace the stock `src/frontend/README.md` with real frontend setup, proxy, and local run notes.
+- [ ] Replace `src/frontend/README.md` with real frontend setup, proxy, Playwright, and local validation notes.
 - [ ] Remove live v2 setup guidance from `READMEOLD.md` so it is clearly legacy-only.
-- [ ] Step 17.3. Reconcile spec drift in `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`.
-- [ ] Document request-scoped `X-News-Api-Key` and optional `OPENAI_API_KEY`.
-- [ ] Document `/api/refresh/status`, typed refresh errors, the 5-second validation timeout, the in-memory limits of the refresh tracker, and the normalized-source read contract.
-- [ ] Document category-based `/v2/top-headlines` fetching only.
-- [ ] Document Next.js `16.1.6`, `next.config.ts`, Tailwind v4, the current inline onboarding flow, and the current build-validation caveat.
-- [ ] Step 17.4. Lock down the legacy v1 boundary safely.
-- [ ] Decide whether `batch_processor.py` stays as archived reference, moves later, or is removed in a dedicated cleanup slice.
-- [ ] Make docs and ignore rules match that decision.
-- [ ] Do not touch root-level legacy code until the runtime, test, and docs slices above are stable.
+- [ ] Step 17.3. Reconcile spec drift.
+- [ ] Update `specs/OVERVIEW.md` for request-scoped NewsAPI keys, direct OpenAI API usage, SQLite persistence, and the removal of Azure-era runtime assumptions.
+- [ ] Update `specs/BACKEND.md` for `/v2/top-headlines`-only fetching, the `country=us` default, typed refresh errors, the 5-second validation timeout, `/api/refresh/status`, duplicate-refresh behavior, the in-memory refresh tracker limits, and normalized source labels across read endpoints.
+- [ ] Update `specs/FRONTEND.md` for Next.js `16.1.6`, `next.config.ts`, the current inline onboarding flow, the refresh UX, the seeded Playwright coverage, and the current Turbopack-in-sandbox validation caveat.
+- [ ] Decide whether `GET /api/articles/{id}` should remain more permissive than the list/source/stats endpoints or be tightened later, and document that decision in the relevant spec/docs slice.
+- [ ] Step 17.4. Resolve the legacy v1 boundary safely.
+- [ ] Decide whether legacy runtime scripts are intentionally absent from the working tree, restored into an explicit archive location, or documented as git-history-only reference.
+- [ ] Make `READMEOLD.md`, `README.md`, and any operational guidance that mentions root-level legacy files match that decision.
+- [ ] If `AGENTS.md` continues to mention root-level legacy files, update that guidance only in the dedicated docs/legacy slice.
 
 ## Notes / discoveries that matter for the next loop
-- `src/backend/routers/articles.py` now serializes normalized `source_name` values through a shared helper before returning article list/detail payloads.
-- `src/backend/routers/sources.py` now counts distinct normalized source labels in `/api/stats`, which matches `/api/sources`.
-- `src/backend/tests/test_api_smoke.py` now covers messy source rows plus the refresh success path, and the suite passes at 14 tests.
-- `src/backend/services/refresh_tracker.py` is still in-memory and per-process. That is acceptable for one local dev server but not durable across reloads, restarts, or multiple workers.
-- `GET /api/articles` still returns only rows where `processing_status == "processed"`. Manual browse checks need seeded data or a successful refresh first.
-- `src/backend/scripts/seed_manual_integration_data.py` provides deterministic processed rows for local manual integration checks.
-- `src/backend/scripts/capture_manual_integration_evidence.py` now provides a repeatable Step 16.7 helper that probes the backend HTTP contract, classifies each scenario, and writes a Markdown report with explicit frontend manual follow-up placeholders.
-- `src/frontend/next.config.ts` still rewrites `/api/:path*` to `http://localhost:8000/api/:path*`, so real frontend integration still depends on a separate backend listener on port `8000`.
-- The earlier `.git` write blocker did not reproduce in this loop; direct `.git` writes succeeded and the backend slice was landed with a narrow commit.
-- `src/backend/tests/test_manual_integration_evidence.py` covers the helper's empty-cache, invalid-key, duplicate-refresh, refresh-status, and report-template behavior.
-- The repo now has a root `.nvmrc`, frontend `engines.node`, and `npm run typecheck`.
-- `src/frontend/playwright.config.mts` now starts an isolated seeded backend plus the Next dev server and writes browser artifacts under `output/playwright/`.
-- `src/frontend/tests/e2e/cached-browse.spec.ts` now covers cached browse without a key, source filtering, search, and article detail against seeded data.
-- There is still no repo-owned Playwright npm script because `src/frontend/package.json` and `src/frontend/package-lock.json` already contain unrelated dirty Step 17.1 changes and were intentionally left out of this slice boundary.
-- `npm run build` currently fails only on the Turbopack path in this sandbox with `Operation not permitted` while creating a CSS worker process. After setting `turbopack.root`, the misleading parent-lockfile workspace warning no longer appears before that panic.
-- The biggest written mismatches are still:
-  - `README.md` is loop-first instead of app-first.
-  - `src/frontend/README.md` is still boilerplate.
-  - `READMEOLD.md` still contains live v2 setup steps.
-  - `specs/OVERVIEW.md` still describes Azure OpenAI and incorrect NewsAPI setup.
-  - `specs/BACKEND.md` still describes old NewsAPI fetching and misses the refresh status/error/source-normalization contract.
-  - `specs/FRONTEND.md` still describes older framework/setup details and the older onboarding story.
-- `batch_processor.py` still imports deleted legacy modules and old Azure services. Treat it as legacy reference only until Step 17.4 decides its fate.
+- Current dirty worktree state:
+  - modified: `IMPLEMENTATION_PLAN.md`
+  - modified: `README.md`
+  - modified: `loop.sh`
+  - modified: `src/frontend/next.config.ts`
+  - modified: `src/frontend/package-lock.json`
+  - modified: `src/frontend/package.json`
+  - deleted: `batch_processor.py`
+  - untracked: `.nvmrc`
+- Step 17.1 is implemented and validated in the worktree: `.nvmrc` pins Node `22.17.0`, `src/frontend/package.json` adds `typecheck` and `engines.node`, `@playwright/test` now lives in `devDependencies`, `src/frontend/package-lock.json` matches that package state, and `src/frontend/next.config.ts` sets `turbopack.root` while preserving the `/api/:path*` proxy to `http://localhost:8000/api/:path*`.
+- The checklist is intentionally ordered by next-action priority. The next Codex-safe task in this environment is still to clear the `.git/index.lock` write blocker and land Step 17.1 cleanly; after that, trusted-local Step 16.7 remains required for Phase 3 sign-off, and Step 16.8 stays gated on real refresh evidence or a supported backend test double.
+- `README.md` already has an uncommitted frontend-validation note. Do not overwrite or stage it accidentally when landing Step 17.1 or later docs work.
+- `loop.sh` also has unrelated uncommitted changes. Ignore it unless a later slice explicitly targets loop behavior.
+- The checked-out repo root no longer contains legacy runtime scripts such as `run.py`, `search.py`, `web_app.py`, or `batch_processor.py`; current root files are loop/docs/config files plus local `.env` and `newsperspective.db`.
+- `git log -- batch_processor.py` points only to legacy-era commits, so its current deletion is not removing active v2 runtime code.
+- `src/frontend/playwright.config.mts` seeds a local SQLite database, starts the backend on `127.0.0.1:8000`, starts Next dev on `127.0.0.1:3000`, and writes artifacts under `output/playwright/`.
+- `src/frontend/tests/e2e/cached-browse.spec.ts` currently passes and covers cached browse without a saved key, source filtering, search, and article detail against seeded local data.
+- Frontend browser coverage currently runs via `npx playwright test tests/e2e/cached-browse.spec.ts`; there is still no repo-owned npm script for Playwright, and that command-surface decision is deferred to Step 16.8.
+- `src/backend/scripts/seed_manual_integration_data.py` provides deterministic processed rows for local manual and browser integration checks.
+- `src/backend/scripts/capture_manual_integration_evidence.py` generates the Markdown report for Step 16.7 and already includes explicit frontend follow-up placeholders plus classification guidance.
+- `GET /api/articles` returns only rows where `processing_status == "processed"`, so manual and browser integration checks need seeded data or a successful refresh first.
+- `GET /api/articles/{id}` does not filter by `processing_status`; the current frontend only reaches detail pages from processed list rows, so this is not user-visible in the normal flow.
+- `npm run build` still fails only in this Codex sandbox because Turbopack tries to create a CSS worker process and bind to a port:
+  - `Failed to write app endpoint /page`
+  - `creating new process`
+  - `binding to a port`
+  - `Operation not permitted (os error 1)`
+- `npx next build --webpack` passed in this plan run.
+- `src/frontend/README.md` is unchanged create-next-app boilerplate and is not usable as current project documentation.
+- `READMEOLD.md` still references root-level legacy files that are not present in the checked-out working tree and tells readers to ignore scripts such as `run.py`, `search.py`, `web_app.py`, and `batch_processor.py` that are no longer checked out.
+- `AGENTS.md` currently says legacy v1 code still exists in the repo root. That is now a documentation mismatch against the checked-out tree, not a trustworthy description of what is on disk.
 
 ## Next recommended build slice
-Step 16.7 on a trusted local machine with a real NewsAPI key remains the highest-priority remaining slice.
+Clear the `.git/index.lock` permission blocker in the working environment, then land Step 17.1 by staging and committing only `.nvmrc`, `src/frontend/package.json`, `src/frontend/package-lock.json`, `src/frontend/next.config.ts`, and this plan update.
 
-Run `python -m src.backend.scripts.capture_manual_integration_evidence` on a trusted local machine, seed cached data if needed, verify cached browse without a key, successful refresh with a real key, invalid-key handling, duplicate refresh behavior, refresh-status polling during a long refresh, and final completion state, then fill in the frontend follow-up notes and classify each result as code behavior, environment behavior, documentation mismatch, or still unproven. If the next loop stays in this Codex sandbox instead, continue Step 16.8 by wiring repo-owned Playwright npm scripts and then adding environment-gated refresh browser cases.
+Trusted-local follow-up outside Codex: run Step 16.7 with a real NewsAPI key and update this plan with the generated report outcomes.
