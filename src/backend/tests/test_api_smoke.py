@@ -80,6 +80,66 @@ class BackendApiSmokeTest(unittest.TestCase):
                         processing_status="processed",
                     ),
                     models.Article(
+                        id="article-4",
+                        original_title="Third processed article",
+                        rewritten_title="Third processed article",
+                        tldr="Summary four.",
+                        original_description="Description four.",
+                        source_name=" Reuters ",
+                        source_id=" reuters ",
+                        author="Reporter Four",
+                        url="https://example.com/article-4",
+                        image_url="https://example.com/article-4.jpg",
+                        published_at=now - timedelta(minutes=30),
+                        fetched_at=now + timedelta(minutes=10),
+                        was_rewritten=False,
+                        original_sentiment="neutral",
+                        sentiment_score=0.0,
+                        is_good_news=False,
+                        category="general",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="article-5",
+                        original_title="Fourth processed article",
+                        rewritten_title="Fourth processed article",
+                        tldr="Summary five.",
+                        original_description="Description five.",
+                        source_name="   ",
+                        source_id=" source-id-only ",
+                        author="Reporter Five",
+                        url="https://example.com/article-5",
+                        image_url="https://example.com/article-5.jpg",
+                        published_at=now - timedelta(minutes=15),
+                        fetched_at=now + timedelta(minutes=20),
+                        was_rewritten=True,
+                        original_sentiment="neutral",
+                        sentiment_score=0.1,
+                        is_good_news=False,
+                        category="science",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="article-6",
+                        original_title="Fifth processed article",
+                        rewritten_title="Fifth processed article",
+                        tldr="Summary six.",
+                        original_description="Description six.",
+                        source_name="   ",
+                        source_id="   ",
+                        author="Reporter Six",
+                        url="https://example.com/article-6",
+                        image_url="https://example.com/article-6.jpg",
+                        published_at=now - timedelta(minutes=5),
+                        fetched_at=now + timedelta(minutes=30),
+                        was_rewritten=False,
+                        original_sentiment="neutral",
+                        sentiment_score=0.0,
+                        is_good_news=True,
+                        category="health",
+                        processing_status="processed",
+                    ),
+                    models.Article(
                         id="article-3",
                         original_title="Pending article",
                         original_description="Description three.",
@@ -115,11 +175,14 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
 
-        self.assertEqual(body["total"], 2)
+        self.assertEqual(body["total"], 5)
         self.assertEqual(body["page"], 1)
         self.assertEqual(body["per_page"], 20)
         self.assertFalse(body["has_more"])
-        self.assertEqual([article["id"] for article in body["articles"]], ["article-2", "article-1"])
+        self.assertEqual(
+            [article["id"] for article in body["articles"]],
+            ["article-6", "article-5", "article-4", "article-2", "article-1"],
+        )
         self.assertTrue(
             all(article["processing_status"] == "processed" for article in body["articles"])
         )
@@ -130,17 +193,27 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
 
-        self.assertEqual(body["total"], 1)
-        self.assertEqual([article["id"] for article in body["articles"]], ["article-2"])
+        self.assertEqual(body["total"], 2)
+        self.assertEqual([article["id"] for article in body["articles"]], ["article-4", "article-2"])
 
-    def test_article_detail_returns_seeded_article(self) -> None:
-        response = self.client.get("/api/articles/article-1")
+    def test_articles_list_returns_normalized_source_labels(self) -> None:
+        response = self.client.get("/api/articles")
+
+        self.assertEqual(response.status_code, 200)
+        by_id = {article["id"]: article["source_name"] for article in response.json()["articles"]}
+
+        self.assertEqual(by_id["article-4"], "Reuters")
+        self.assertEqual(by_id["article-5"], "source-id-only")
+        self.assertEqual(by_id["article-6"], "Unknown source")
+
+    def test_article_detail_returns_normalized_source_label(self) -> None:
+        response = self.client.get("/api/articles/article-5")
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
 
-        self.assertEqual(body["id"], "article-1")
-        self.assertEqual(body["source_name"], "BBC News")
+        self.assertEqual(body["id"], "article-5")
+        self.assertEqual(body["source_name"], "source-id-only")
         self.assertTrue(body["was_rewritten"])
 
     def test_article_detail_returns_404_for_missing_id(self) -> None:
@@ -154,33 +227,41 @@ class BackendApiSmokeTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.json(),
+            {source["source_name"]: source for source in response.json()["sources"]},
             {
-                "sources": [
-                    {
-                        "source_name": "BBC News",
-                        "source_id": "bbc-news",
-                        "article_count": 1,
-                    },
-                    {
-                        "source_name": "Reuters",
-                        "source_id": "reuters",
-                        "article_count": 1,
-                    },
-                ]
+                "BBC News": {
+                    "source_name": "BBC News",
+                    "source_id": "bbc-news",
+                    "article_count": 1,
+                },
+                "Reuters": {
+                    "source_name": "Reuters",
+                    "source_id": "reuters",
+                    "article_count": 2,
+                },
+                "Unknown source": {
+                    "source_name": "Unknown source",
+                    "source_id": "",
+                    "article_count": 1,
+                },
+                "source-id-only": {
+                    "source_name": "source-id-only",
+                    "source_id": "source-id-only",
+                    "article_count": 1,
+                },
             },
         )
 
-    def test_stats_counts_processed_articles_only(self) -> None:
+    def test_stats_counts_processed_articles_and_normalized_sources_only(self) -> None:
         response = self.client.get("/api/stats")
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
 
-        self.assertEqual(body["total_articles"], 2)
-        self.assertEqual(body["rewritten_count"], 1)
-        self.assertEqual(body["good_news_count"], 1)
-        self.assertEqual(body["sources_count"], 2)
+        self.assertEqual(body["total_articles"], 5)
+        self.assertEqual(body["rewritten_count"], 2)
+        self.assertEqual(body["good_news_count"], 2)
+        self.assertEqual(body["sources_count"], 4)
         self.assertIsNotNone(body["latest_fetch"])
 
     def test_refresh_status_starts_idle(self) -> None:
@@ -232,6 +313,66 @@ class BackendApiSmokeTest(unittest.TestCase):
             },
         )
         mock_get.assert_not_called()
+
+    def test_refresh_success_runs_background_task_and_marks_completed(self) -> None:
+        successful_response = Mock()
+        successful_response.status_code = 200
+        successful_response.json.return_value = {"status": "ok"}
+
+        captured_keys: list[str] = []
+
+        def fake_background_task(api_key: str) -> None:
+            captured_keys.append(api_key)
+            refresh_tracker_module.refresh_tracker.mark_completed(
+                new_articles=4,
+                processed_articles=3,
+                failed_articles=1,
+            )
+
+        with patch.object(
+            sources_router.http_requests,
+            "get",
+            return_value=successful_response,
+        ) as mock_get, patch.object(
+            sources_router,
+            "process_new_articles_background",
+            side_effect=fake_background_task,
+        ) as mock_background_task:
+            response = self.client.post(
+                "/api/refresh",
+                headers={"X-News-Api-Key": "valid-key"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "processing",
+                "message": "Fetching and processing articles in the background.",
+            },
+        )
+        mock_get.assert_called_once_with(
+            "https://newsapi.org/v2/top-headlines",
+            params={
+                "country": sources_router.DEFAULT_NEWSAPI_COUNTRY,
+                "pageSize": 1,
+                "apiKey": "valid-key",
+            },
+            timeout=sources_router.NEWSAPI_VALIDATION_TIMEOUT_SECONDS,
+        )
+        mock_background_task.assert_called_once_with("valid-key")
+        self.assertEqual(captured_keys, ["valid-key"])
+
+        status_response = self.client.get("/api/refresh/status")
+        self.assertEqual(status_response.status_code, 200)
+        status_body = status_response.json()
+        self.assertEqual(status_body["status"], "completed")
+        self.assertEqual(status_body["message"], "Refresh completed.")
+        self.assertEqual(status_body["new_articles"], 4)
+        self.assertEqual(status_body["processed_articles"], 3)
+        self.assertEqual(status_body["failed_articles"], 1)
+        self.assertIsNotNone(status_body["started_at"])
+        self.assertIsNotNone(status_body["finished_at"])
 
     def test_refresh_validation_failure_releases_claim_and_restores_prior_status(self) -> None:
         refresh_tracker_module.refresh_tracker.mark_completed(

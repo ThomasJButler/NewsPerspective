@@ -5,9 +5,24 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Article
 from ..schemas import ArticleListResponse, ArticleResponse
-from ..utils.source_normalization import clean_source_value, source_label_expression
+from ..utils.source_normalization import (
+    clean_source_value,
+    normalized_source_label,
+    source_label_expression,
+)
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
+
+
+def _serialize_article(article: Article) -> ArticleResponse:
+    return ArticleResponse.model_validate(article).model_copy(
+        update={
+            "source_name": normalized_source_label(
+                article.source_name,
+                article.source_id,
+            )
+        }
+    )
 
 
 @router.get("", response_model=ArticleListResponse)
@@ -51,7 +66,7 @@ def get_articles(
     has_more = (offset + len(articles)) < total
 
     return ArticleListResponse(
-        articles=[ArticleResponse.model_validate(article) for article in articles],
+        articles=[_serialize_article(article) for article in articles],
         total=total,
         page=page,
         per_page=per_page,
@@ -69,4 +84,4 @@ def get_article(
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")
 
-    return ArticleResponse.model_validate(article)
+    return _serialize_article(article)

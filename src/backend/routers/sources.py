@@ -65,6 +65,8 @@ def get_sources(db: Session = Depends(get_db)):
 
 @router.get("/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db)):
+    source_label = source_label_expression(Article)
+
     total_articles = (
         db.query(func.count(Article.id))
         .filter(Article.processing_status == "processed")
@@ -87,7 +89,7 @@ def get_stats(db: Session = Depends(get_db)):
     )
 
     sources_count = (
-        db.query(func.count(func.distinct(Article.source_name)))
+        db.query(func.count(func.distinct(source_label)))
         .filter(Article.processing_status == "processed")
         .scalar()
         or 0
