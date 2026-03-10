@@ -23,6 +23,7 @@ Do not amend existing commits.
 - Prefer a single ordered checklist in `IMPLEMENTATION_PLAN.md`.
 - Keep completed items concise.
 - Expand the next active phase into concrete, testable steps.
+- Carry forward current code-review findings with explicit priority and convert them into ordered checklist items when they need implementation work.
 - Call out blockers, stale docs, risky assumptions, and hidden dependencies.
 - If code and specs disagree, record the mismatch explicitly.
 - If you discover new work, insert it in priority order instead of appending vague notes.
@@ -38,6 +39,7 @@ Keep or rewrite the file into this shape:
 
 ## Focus for this repo
 Use the current repo state to plan around:
+- high-priority correctness regressions from recent code review
 - Phase 3 integration testing
 - developer-experience cleanup
 - documentation alignment for v2

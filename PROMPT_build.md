@@ -5,11 +5,13 @@ Your job is to execute one scoped implementation slice from `IMPLEMENTATION_PLAN
 ## Read first
 1. Read `AGENTS.md`.
 2. Read `IMPLEMENTATION_PLAN.md`.
-3. Read the relevant specs in `specs/`.
-4. Read only the source files needed for the chosen slice.
+3. Read the current code-review findings in `IMPLEMENTATION_PLAN.md` before choosing a slice.
+4. Read the relevant specs in `specs/`.
+5. Read only the source files needed for the chosen slice.
 
 ## Task selection rules
 - Choose the highest-priority unchecked item from `IMPLEMENTATION_PLAN.md`.
+- Treat open P1 and P2 code-review findings in `IMPLEMENTATION_PLAN.md` as higher priority than documentation polish or tooling cleanup unless the plan explicitly says otherwise.
 - If that item is too large, execute one coherent sub-slice and record the remainder in the plan.
 - Confirm the target behavior is not already implemented before editing.
 - Do not drift into unrelated refactors.
@@ -30,6 +32,7 @@ Your job is to execute one scoped implementation slice from `IMPLEMENTATION_PLAN
   - mark finished work with `[x]`
   - keep the next recommended slice explicit
   - add follow-up tasks discovered during implementation
+  - update the code-review findings section if the slice fixed, reduced, or clarified an existing risk
 - Summarize:
   - what changed
   - what was validated
