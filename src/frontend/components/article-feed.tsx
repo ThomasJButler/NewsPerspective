@@ -8,6 +8,7 @@ import type { Article } from "@/types/article";
 interface ArticleFeedProps {
   articles: Article[];
   hasMore: boolean;
+  hasApiKey: boolean;
   loading: boolean;
   onLoadMore: () => void;
 }
@@ -15,6 +16,7 @@ interface ArticleFeedProps {
 export function ArticleFeed({
   articles,
   hasMore,
+  hasApiKey,
   loading,
   onLoadMore,
 }: ArticleFeedProps) {
@@ -35,8 +37,9 @@ export function ArticleFeed({
   if (articles.length === 0) {
     return (
       <p className="text-center text-muted-foreground py-12">
-        No articles found. Try adjusting your filters or refresh to fetch new
-        articles.
+        {hasApiKey
+          ? "No articles found. Try adjusting your filters or refresh to fetch new articles."
+          : "No cached articles found. Try adjusting your filters or add your NewsAPI key to fetch fresh headlines."}
       </p>
     );
   }

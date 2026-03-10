@@ -49,3 +49,28 @@ export interface RefreshResponse {
   status: string;
   message: string;
 }
+
+export type RefreshErrorCode =
+  | "missing_api_key"
+  | "invalid_api_key"
+  | "upstream_timeout"
+  | "upstream_transport_failure";
+
+export interface RefreshErrorDetail {
+  code: RefreshErrorCode;
+  message: string;
+}
+
+export interface RefreshErrorResponse {
+  detail: RefreshErrorDetail;
+}
+
+export interface RefreshStatusResponse {
+  status: string;
+  message: string;
+  started_at: string | null;
+  finished_at: string | null;
+  new_articles: number;
+  processed_articles: number;
+  failed_articles: number;
+}

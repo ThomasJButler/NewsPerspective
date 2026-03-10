@@ -11,10 +11,10 @@
   - `python3 -m unittest src.backend.tests.test_api_smoke -v` passed all 12 tests after the Step 16.2 backend contract change.
   - `npm run lint` passed in `src/frontend/`.
   - `npx tsc --noEmit` passed in `src/frontend/`.
+  - `npm run lint` passed again in `src/frontend/` after the Step 16.3 frontend refresh-contract update.
+  - `npx tsc --noEmit` passed again in `src/frontend/` after the Step 16.3 frontend refresh-contract update.
   - `npm run build` still fails in this sandbox with the known Turbopack port-bind panic: `Failed to write app endpoint /page` -> `creating new process` -> `binding to a port` -> `Operation not permitted (os error 1)`.
 - Current code review findings, highest risk first:
-  - [P1] The backend now returns structured refresh errors, but the frontend in `src/frontend/app/page.tsx` and `src/frontend/lib/api.ts` still assumes the older plain-string contract.
-  - [P1] The frontend still treats a long-running refresh as a failure after 120 seconds in `src/frontend/app/page.tsx`, even when the backend is still processing.
   - [P2] `GET /api/stats` still counts distinct raw `Article.source_name` values, not the normalized source label contract already used by `/api/articles` and `/api/sources`.
   - [P2] Backend smoke coverage now proves structured refresh errors and timeout handling, but it still does not prove successful refresh completion.
   - [P2] Real Phase 3 integration evidence is still missing because this sandbox cannot host the app on localhost or make the full outbound validation path reliable.
@@ -43,14 +43,14 @@ Phase 3B. Finish the refresh contract first. Then get real integration evidence.
 - [x] Return machine-readable refresh errors instead of plain string `detail` values.
 - [x] Distinguish at least these cases: missing key, invalid key, upstream timeout, and upstream transport failure.
 - [x] Keep this slice backend-only. Do not change frontend handling yet.
-- [ ] Step 16.3. Update the frontend refresh flow in `src/frontend/lib/api.ts`, `src/frontend/types/article.ts`, `src/frontend/app/page.tsx`, and the existing key UI components.
-- [ ] Consume the structured backend contract instead of regex parsing.
-- [ ] Preserve cached browsing and the current inline no-key onboarding flow.
-- [ ] Stop showing an in-progress refresh as a generic failure when polling reaches 120 seconds.
+- [x] Step 16.3. Update the frontend refresh flow in `src/frontend/lib/api.ts`, `src/frontend/types/article.ts`, `src/frontend/app/page.tsx`, and the existing key UI components.
+- [x] Consume the structured backend contract instead of regex parsing.
+- [x] Preserve cached browsing and the current inline no-key onboarding flow.
+- [x] Stop showing an in-progress refresh as a generic failure when polling reaches 120 seconds.
 - [ ] Step 16.4. Align `GET /api/stats` so `sources_count` uses the same normalized source label contract as `/api/articles` and `/api/sources`.
 - [ ] Step 16.5. Extend the smallest useful regression coverage for Steps 16.2 to 16.4.
 - [x] Add backend assertions for structured refresh errors and timeout handling.
-- [ ] Add or update frontend checks only if the structured contract reaches the client in this phase.
+- [x] Add or update frontend checks only if the structured contract reaches the client in this phase.
 - [ ] Re-run `python3 -m unittest src.backend.tests.test_api_smoke -v`, `npm run lint`, and `npx tsc --noEmit`.
 - [ ] Step 16.6. Run the remaining manual Phase 3 integration checks on a machine that allows localhost listeners and outbound network access.
 - [ ] Seed data first with `python -m src.backend.scripts.seed_manual_integration_data` if cached browse needs data.
@@ -76,7 +76,8 @@ Phase 3B. Finish the refresh contract first. Then get real integration evidence.
 - `POST /api/refresh` now validates the NewsAPI key with a 5-second timeout and returns structured `detail` payloads with codes for `missing_api_key`, `invalid_api_key`, `upstream_timeout`, and `upstream_transport_failure`.
 - `src/backend/services/article_processor.py` already owns terminal refresh states by calling `mark_completed()` and `mark_failed()`. The next backend slice should stay focused on the request/response contract, not widen into a background-job redesign.
 - `GET /api/articles` still returns only `processing_status == "processed"` rows. Manual browse checks need seeded data or a successful refresh first.
-- `src/frontend/lib/api.ts` and `src/frontend/app/page.tsx` still need Step 16.3 so they consume `detail.code` and `detail.message` instead of relying on older string parsing.
+- `src/frontend/lib/api.ts` now throws a typed `RefreshRequestError` with `detail.code` and `detail.message`, and `src/frontend/app/page.tsx` now branches on those codes instead of regex parsing.
+- `src/frontend/app/page.tsx` now treats the 120-second refresh-status polling limit as "still processing" rather than as a generic failure toast.
 - `src/frontend/app/page.tsx` renders the inline `ApiKeySetup` card when there is no saved key. The full-screen variant still exists in the component, but it is not the active home-page path.
 - `src/frontend/package.json` still has no `typecheck` script.
 - There is still no `.nvmrc`, `.node-version`, or `.tool-versions` file in the repo.
@@ -90,6 +91,6 @@ Simple
 - Next: Update the frontend refresh flow to consume the new backend error contract, then run the remaining Phase 3 checks on a machine with normal localhost and network access.
 
 ## Next recommended build slice
-Step 16.3. Update the frontend refresh flow in `src/frontend/lib/api.ts`, `src/frontend/types/article.ts`, `src/frontend/app/page.tsx`, and the existing key UI components.
+Step 16.4. Align `GET /api/stats` so `sources_count` uses the same normalized source label contract as `/api/articles` and `/api/sources`.
 
-Consume the structured backend refresh-error contract instead of regex parsing, preserve cached browsing and the inline no-key onboarding flow, and stop treating a still-processing refresh as a generic failure at the 120-second polling limit.
+Keep this slice backend-only, then extend the smallest useful regression coverage so the normalized stats contract is proven in smoke tests.

@@ -28,7 +28,7 @@ export function SourceFilter({
       <SelectContent>
         <SelectItem value="all">All Sources</SelectItem>
         {sources.map((source) => (
-          <SelectItem key={source.source_id} value={source.source_id}>
+          <SelectItem key={source.source_name} value={source.source_name}>
             {source.source_name} ({source.article_count})
           </SelectItem>
         ))}

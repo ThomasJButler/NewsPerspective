@@ -3,7 +3,10 @@ import type {
   Article,
   SourcesResponse,
   StatsResponse,
+  RefreshErrorCode,
+  RefreshErrorResponse,
   RefreshResponse,
+  RefreshStatusResponse,
 } from "@/types/article";
 
 interface FetchArticlesParams {
@@ -13,6 +16,58 @@ interface FetchArticlesParams {
   source?: string;
   category?: string;
   search?: string;
+}
+
+export class RefreshRequestError extends Error {
+  readonly status: number;
+  readonly code: RefreshErrorCode | "unknown";
+
+  constructor({
+    status,
+    code,
+    message,
+  }: {
+    status: number;
+    code: RefreshErrorCode | "unknown";
+    message: string;
+  }) {
+    super(message);
+    this.name = "RefreshRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function isRefreshErrorResponse(value: unknown): value is RefreshErrorResponse {
+  if (!value || typeof value !== "object" || !("detail" in value)) {
+    return false;
+  }
+
+  const detail = (value as RefreshErrorResponse).detail;
+  return Boolean(
+    detail &&
+      typeof detail === "object" &&
+      typeof detail.code === "string" &&
+      typeof detail.message === "string"
+  );
+}
+
+async function buildRefreshError(res: Response): Promise<RefreshRequestError> {
+  const body = await res.json().catch(() => null);
+
+  if (isRefreshErrorResponse(body)) {
+    return new RefreshRequestError({
+      status: res.status,
+      code: body.detail.code,
+      message: body.detail.message,
+    });
+  }
+
+  return new RefreshRequestError({
+    status: res.status,
+    code: "unknown",
+    message: `Refresh failed: ${res.status}`,
+  });
 }
 
 export async function fetchArticles(
@@ -57,8 +112,13 @@ export async function refreshArticles(
     headers: { "X-News-Api-Key": apiKey },
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(body.detail || `Refresh failed: ${res.status}`);
+    throw await buildRefreshError(res);
   }
+  return res.json();
+}
+
+export async function fetchRefreshStatus(): Promise<RefreshStatusResponse> {
+  const res = await fetch("/api/refresh/status");
+  if (!res.ok) throw new Error(`Failed to fetch refresh status: ${res.status}`);
   return res.json();
 }
