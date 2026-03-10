@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
+const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -11,7 +12,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:8000/api/:path*",
+        destination: `${backendOrigin}/api/:path*`,
       },
     ];
   },

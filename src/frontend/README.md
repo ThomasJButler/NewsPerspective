@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend
 
-## Getting Started
+Next.js frontend for NewsPerspective v2. The app proxies `/api/*` requests to the FastAPI backend, supports cached browsing without a saved NewsAPI key, and includes seeded Playwright coverage for the cached-browse flow.
 
-First, run the development server:
+## Local run
+
+From `src/frontend`:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The frontend expects the backend on `http://localhost:8000` by default. Override that at startup with `BACKEND_ORIGIN` if needed.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Playwright
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the seeded cached-browse spec:
 
-## Learn More
+```bash
+npx playwright test tests/e2e/cached-browse.spec.ts
+```
 
-To learn more about Next.js, take a look at the following resources:
+Successful runs now emit named screenshots under `output/playwright/test-results/`, including:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `cached-browse-home.png`
+- `cached-browse-filtered-results.png`
+- `cached-browse-article-detail.png`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+If you want Playwright to target an already-running app instead of starting its own frontend and backend, set:
 
-## Deploy on Vercel
+```bash
+PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npx playwright test tests/e2e/cached-browse.spec.ts
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Docker
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The frontend directory now includes a Docker-based workflow that runs the seeded backend and Next dev server together, plus a separate Playwright runner.
+
+Start the app stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml up --build app
+```
+
+Open `http://localhost:3000` for the frontend and `http://localhost:8000/api/stats` for the backend health endpoint.
+
+Run the seeded Playwright spec against the containerized app:
+
+```bash
+docker compose -f src/frontend/compose.yaml run --rm playwright
+```
+
+Stop the stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml down
+```
+
+If you need to refresh the container-managed `node_modules` volume after dependency changes:
+
+```bash
+docker compose -f src/frontend/compose.yaml down -v
+```

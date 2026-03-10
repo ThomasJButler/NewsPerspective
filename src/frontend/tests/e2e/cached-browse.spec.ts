@@ -1,6 +1,18 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-test("shows seeded cached articles without a saved key", async ({ page }) => {
+async function captureScreenshot(
+  page: Page,
+  testInfo: TestInfo,
+  name: string
+) {
+  await page.screenshot({
+    path: testInfo.outputPath(name),
+    fullPage: true,
+    animations: "disabled",
+  });
+}
+
+test("shows seeded cached articles without a saved key", async ({ page }, testInfo) => {
   await page.goto("/");
 
   await expect(
@@ -19,9 +31,11 @@ test("shows seeded cached articles without a saved key", async ({ page }) => {
     })
   ).toBeVisible();
   await expect(page.getByText(/articles processed/)).toBeVisible();
+
+  await captureScreenshot(page, testInfo, "cached-browse-home.png");
 });
 
-test("filters seeded cached articles and opens article detail", async ({ page }) => {
+test("filters seeded cached articles and opens article detail", async ({ page }, testInfo) => {
   await page.goto("/");
 
   await page.getByRole("combobox").click();
@@ -58,6 +72,8 @@ test("filters seeded cached articles and opens article detail", async ({ page })
     })
   ).toHaveCount(0);
 
+  await captureScreenshot(page, testInfo, "cached-browse-filtered-results.png");
+
   await detailLink.click();
 
   await expect(page).toHaveURL(/\/article\//);
@@ -71,4 +87,6 @@ test("filters seeded cached articles and opens article detail", async ({ page })
   await expect(
     page.getByRole("link", { name: "Read Full Article →" })
   ).toBeVisible();
+
+  await captureScreenshot(page, testInfo, "cached-browse-article-detail.png");
 });
