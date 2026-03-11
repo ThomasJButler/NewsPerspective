@@ -27,22 +27,47 @@ function articleImageLoader({ src }: ImageLoaderProps) {
 
 export default function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [requestVersion, setRequestVersion] = useState(0);
+
+  return (
+    <ArticleDetailRequest
+      key={`${id}:${requestVersion}`}
+      id={id}
+      onRetry={() => setRequestVersion((version) => version + 1)}
+    />
+  );
+}
+
+function ArticleDetailRequest({
+  id,
+  onRetry,
+}: {
+  id: string;
+  onRetry: () => void;
+}) {
   const [article, setArticle] = useState<Article | null>(null);
   const [errorState, setErrorState] = useState<{
     kind: "not_found" | "transient";
     message: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [requestVersion, setRequestVersion] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    setErrorState(null);
-    setArticle(null);
+    let cancelled = false;
 
     fetchArticle(id)
-      .then(setArticle)
+      .then((nextArticle) => {
+        if (cancelled) {
+          return;
+        }
+
+        setArticle(nextArticle);
+      })
       .catch((err) => {
+        if (cancelled) {
+          return;
+        }
+
         if (err instanceof ApiRequestError && err.status === 404) {
           setErrorState({
             kind: "not_found",
@@ -63,8 +88,16 @@ export default function ArticleDetailPage() {
           variant: "destructive",
         });
       })
-      .finally(() => setLoading(false));
-  }, [id, requestVersion]);
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   if (loading) {
     return (
@@ -94,9 +127,7 @@ export default function ArticleDetailPage() {
         <h1 className="text-2xl font-bold">Unable to load article</h1>
         <p className="text-muted-foreground">{errorState.message}</p>
         <div className="flex items-center justify-center gap-3">
-          <Button onClick={() => setRequestVersion((version) => version + 1)}>
-            Retry
-          </Button>
+          <Button onClick={onRetry}>Retry</Button>
           <Link href="/" className="text-primary hover:underline">
             ← Back to news feed
           </Link>
