@@ -79,7 +79,14 @@ def get_article(
     article_id: str,
     db: Session = Depends(get_db),
 ) -> ArticleResponse:
-    article = db.query(Article).filter(Article.id == article_id).first()
+    article = (
+        db.query(Article)
+        .filter(
+            Article.id == article_id,
+            Article.processing_status == "processed",
+        )
+        .first()
+    )
 
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")

@@ -1,13 +1,20 @@
-"""Capture a repeatable Phase 3 manual integration report.
+"""Capture a repeatable Phase 3 trusted-machine refresh evidence report.
 
 Run with:
     python -m src.backend.scripts.capture_manual_integration_evidence \
         --api-key "$NEWS_API_KEY" \
         --output /tmp/phase3-manual-integration.md
 
-This helper automates the backend-side HTTP checks needed for Step 16.7 and
-emits a Markdown report with manual frontend placeholders. It does not replace
-browser-level coverage; Step 16.8 still owns Playwright coverage.
+This helper automates the backend-side HTTP checks needed for the remaining
+Phase 3 trusted-machine evidence flow and emits a Markdown report with manual
+frontend placeholders. Pair it with:
+
+    cd src/frontend
+    npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts
+
+while the backend is already running on `http://localhost:8000` and the
+frontend is already running on `http://localhost:3000`. The helper does not
+replace browser-level checks or the real-key manual browser pass.
 """
 
 from __future__ import annotations
@@ -43,6 +50,33 @@ class HttpObservation:
     status_code: int | None
     body: Any
     error: str | None = None
+
+
+def _build_helper_command(backend_url: str, frontend_url: str) -> str:
+    command = (
+        "python -m src.backend.scripts.capture_manual_integration_evidence "
+        '--api-key "$NEWS_API_KEY" '
+    )
+
+    if backend_url != DEFAULT_BACKEND_URL:
+        command += f'--backend-url "{backend_url}" '
+
+    if frontend_url != DEFAULT_FRONTEND_URL:
+        command += f'--frontend-url "{frontend_url}" '
+
+    command += "--output <report-path>"
+    return command
+
+
+def _build_playwright_reuse_command(frontend_url: str) -> str:
+    default_command = "npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts"
+    if frontend_url in {DEFAULT_FRONTEND_URL, "http://127.0.0.1:3000"}:
+        return default_command
+
+    return (
+        f'PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL="{frontend_url}" '
+        "npx playwright test tests/e2e/refresh-path.spec.ts"
+    )
 
 
 def _compact_json(value: Any) -> str:
@@ -113,6 +147,34 @@ def evaluate_cached_browse(observation: HttpObservation) -> ScenarioResult:
         classification="still unproven",
         outcome="The read endpoint was reachable without a key, but no cached articles were available to browse.",
         evidence=_compact_json(observation.body),
+    )
+
+
+def evaluate_frontend_reachability(
+    observation: HttpObservation,
+    frontend_url: str,
+) -> ScenarioResult:
+    if not observation.ok:
+        return ScenarioResult(
+            name="Frontend URL reachability",
+            classification="environment behavior",
+            outcome=f"Could not reach the frontend at {frontend_url}.",
+            evidence=observation.error or "Unknown transport error.",
+        )
+
+    if observation.status_code == 200:
+        return ScenarioResult(
+            name="Frontend URL reachability",
+            classification="code behavior",
+            outcome=f"The frontend responded at {frontend_url}.",
+            evidence=f"HTTP {observation.status_code}",
+        )
+
+    return ScenarioResult(
+        name="Frontend URL reachability",
+        classification="environment behavior",
+        outcome=f"The frontend URL {frontend_url} responded with HTTP {observation.status_code}.",
+        evidence=f"HTTP {observation.status_code}",
     )
 
 
@@ -366,6 +428,10 @@ def build_markdown_report(
     frontend_url: str,
     results: list[ScenarioResult],
 ) -> str:
+    backend_articles_url = f"{backend_url}/api/articles"
+    helper_command = _build_helper_command(backend_url, frontend_url)
+    playwright_command = _build_playwright_reuse_command(frontend_url)
+
     lines = [
         "# Phase 3 Manual Integration Evidence",
         "",
@@ -389,14 +455,32 @@ def build_markdown_report(
     lines.extend(
         [
             "",
+            "## Trusted-machine execution checklist",
+            "",
+            "1. If cached browse is empty, seed data from the repo root:",
+            "   `python -m src.backend.scripts.seed_manual_integration_data`",
+            "2. From the repo root, run the backend helper with a real key:",
+            f"   `{helper_command}`",
+            "3. From `src/frontend`, run the reuse-path browser spec against the already-running local stack:",
+            f"   `{playwright_command}`",
+            f"4. Open `{frontend_url}` and replace the placeholders below with the exact UI outcomes you observed.",
+            "",
             "## Frontend manual follow-up",
             "",
-            "- Cached browse without a key",
-            "  Fill in whether `http://localhost:3000` still shows cached article cards and the inline API-key setup card when local storage is empty.",
-            "- Refresh UI with a real key",
-            "  Fill in the visible success, invalid-key, duplicate-refresh, and refresh-status states from the browser flow.",
-            "- Docs drift",
-            "  Note any mismatch between the observed UI/runtime behavior and `README.md` or `specs/`.",
+            "| Check | Exact observed outcome | Evidence to keep |",
+            "| --- | --- | --- |",
+            f"| Reuse-path Playwright check | TODO: note whether `{playwright_command}` completed outside the sandbox. | TODO: paste the terminal summary and any screenshot paths. |",
+            f"| Cached browse without a key | TODO: note whether `{frontend_url}` showed cached article cards and the inline API-key setup card with empty local storage while `{backend_articles_url}` stayed readable without a key. | TODO: record the visible headline/source state you saw. |",
+            "| Refresh UI with a real key | TODO: note the visible success, invalid-key, duplicate-refresh, and refresh-status states from the browser flow. | TODO: record the exact toast/dialog/status text you saw. |",
+            "| Docs drift | TODO: note any mismatch between observed behavior and `README.md` or `specs/`. | TODO: list the file paths that need follow-up, or write `none`. |",
+            "",
+            "## IMPLEMENTATION_PLAN.md paste template",
+            "",
+            "- Trusted-machine refresh evidence run date: TODO",
+            "- Backend helper report path: TODO",
+            "- Reuse-path Playwright outcome: TODO",
+            f"- Manual browser outcome at `{frontend_url}`: TODO",
+            "- Remaining mismatch or follow-up: TODO",
             "",
             "## Classification guide",
             "",
@@ -461,6 +545,9 @@ def main() -> int:
     frontend_url = args.frontend_url.rstrip("/")
 
     results: list[ScenarioResult] = []
+
+    frontend_reachability = _capture_response("GET", frontend_url)
+    results.append(evaluate_frontend_reachability(frontend_reachability, frontend_url))
 
     cached_browse = _capture_response("GET", f"{backend_url}/api/articles")
     results.append(evaluate_cached_browse(cached_browse))

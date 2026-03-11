@@ -9,12 +9,42 @@ from src.backend.scripts.capture_manual_integration_evidence import (
     build_markdown_report,
     evaluate_cached_browse,
     evaluate_duplicate_refresh,
+    evaluate_frontend_reachability,
     evaluate_invalid_key,
     evaluate_polling,
 )
 
 
 class ManualIntegrationEvidenceTest(unittest.TestCase):
+    def test_frontend_reachability_marks_successful_response_as_code_behavior(self) -> None:
+        result = evaluate_frontend_reachability(
+            HttpObservation(
+                ok=True,
+                status_code=200,
+                body="<!doctype html>",
+            ),
+            "http://localhost:3000",
+        )
+
+        self.assertEqual(result.classification, "code behavior")
+        self.assertIn("frontend responded", result.outcome.lower())
+        self.assertEqual(result.evidence, "HTTP 200")
+
+    def test_frontend_reachability_marks_transport_failure_as_environment_behavior(self) -> None:
+        result = evaluate_frontend_reachability(
+            HttpObservation(
+                ok=False,
+                status_code=None,
+                body=None,
+                error="Connection refused",
+            ),
+            "http://127.0.0.1:3100",
+        )
+
+        self.assertEqual(result.classification, "environment behavior")
+        self.assertIn("could not reach the frontend", result.outcome.lower())
+        self.assertEqual(result.evidence, "Connection refused")
+
     def test_cached_browse_marks_empty_feed_as_unproven(self) -> None:
         result = evaluate_cached_browse(
             HttpObservation(
@@ -88,8 +118,38 @@ class ManualIntegrationEvidenceTest(unittest.TestCase):
             results=[],
         )
 
+        self.assertIn("## Trusted-machine execution checklist", report)
         self.assertIn("## Frontend manual follow-up", report)
+        self.assertIn("| Reuse-path Playwright check |", report)
+        self.assertIn("npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts", report)
+        self.assertIn("## IMPLEMENTATION_PLAN.md paste template", report)
+        self.assertIn("- Backend helper report path: TODO", report)
         self.assertIn("Classification guide", report)
+
+    def test_report_uses_supplied_urls_in_manual_placeholders(self) -> None:
+        report = build_markdown_report(
+            backend_url="http://127.0.0.1:8100",
+            frontend_url="http://127.0.0.1:3100",
+            results=[],
+        )
+
+        self.assertIn("Open `http://127.0.0.1:3100`", report)
+        self.assertIn(
+            "`http://127.0.0.1:8100/api/articles` stayed readable without a key",
+            report,
+        )
+        self.assertIn(
+            '--backend-url "http://127.0.0.1:8100" --frontend-url "http://127.0.0.1:3100"',
+            report,
+        )
+        self.assertIn(
+            'PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3100" npx playwright test tests/e2e/refresh-path.spec.ts',
+            report,
+        )
+        self.assertIn(
+            "- Manual browser outcome at `http://127.0.0.1:3100`: TODO",
+            report,
+        )
 
 
 if __name__ == "__main__":

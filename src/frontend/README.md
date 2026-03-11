@@ -15,23 +15,49 @@ The frontend expects the backend on `http://localhost:8000` by default. Override
 
 ## Playwright
 
-Run the seeded cached-browse spec:
+Run the local Playwright suite with the repo-managed harness:
 
 ```bash
-npx playwright test tests/e2e/cached-browse.spec.ts
+npm run test:e2e
 ```
 
-Successful runs now emit named screenshots under `output/playwright/test-results/`, including:
+This path seeds a clean e2e SQLite database, then starts backend and frontend servers on fixed ports:
+
+- backend: `127.0.0.1:8000`
+- frontend: `127.0.0.1:3000`
+
+Use it only when Playwright owns those ports. If either port is already in use, the run will fail before test execution.
+
+If you already have the app running locally and want Playwright to reuse that stack instead of starting its own servers, run:
+
+```bash
+npm run test:e2e:reuse
+```
+
+That script expects your existing frontend at `http://127.0.0.1:3000` and the backend behind its normal `/api/*` proxy path.
+
+For the remaining trusted-machine refresh evidence flow, run only the refresh-path spec against that existing local stack:
+
+```bash
+npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts
+```
+
+Pair that with the backend helper from the repo root:
+
+```bash
+source src/backend/.venv/bin/activate
+python -m src.backend.scripts.capture_manual_integration_evidence \
+  --api-key "$NEWS_API_KEY" \
+  --output /tmp/phase3-manual-integration.md
+```
+
+The Playwright spec still uses mocked API responses. Its role in this trusted-machine pass is to prove the documented browser entrypoint works outside the sandbox while the helper and manual browser notes capture the real-key backend behavior.
+
+Successful runs emit named screenshots under `output/playwright/test-results/`, including:
 
 - `cached-browse-home.png`
 - `cached-browse-filtered-results.png`
 - `cached-browse-article-detail.png`
-
-If you want Playwright to target an already-running app instead of starting its own frontend and backend, set:
-
-```bash
-PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npx playwright test tests/e2e/cached-browse.spec.ts
-```
 
 ## Docker
 

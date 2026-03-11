@@ -45,7 +45,7 @@ The backend stores fetched articles in a single SQLite `articles` table with the
 ## Article visibility rules
 
 - `GET /api/articles`, `GET /api/sources`, and `GET /api/stats` only include rows where `processing_status = "processed"`.
-- `GET /api/articles/{id}` is currently more permissive and can return any stored article by id, including `pending` or `failed` rows. This is a known policy decision still tracked in `IMPLEMENTATION_PLAN.md`.
+- `GET /api/articles/{id}` follows the same visibility rule and only returns rows where `processing_status = "processed"`.
 
 ## API endpoints
 
@@ -78,7 +78,7 @@ Response shape:
 
 ### `GET /api/articles/{id}`
 
-Returns a single stored article or `404 {"detail":"Article not found"}`.
+Returns a single processed article or `404 {"detail":"Article not found"}`.
 
 ### `GET /api/sources`
 
@@ -222,5 +222,4 @@ Notes:
 ## Known limitations
 
 - Refresh state is per-process and resets on restart.
-- `GET /api/articles/{id}` is looser than the processed-only collection endpoints.
 - Trusted-machine manual evidence for the current real-key refresh flow is still tracked separately in `IMPLEMENTATION_PLAN.md`.

@@ -8,18 +8,10 @@ For the active v2 app:
 - use the FastAPI backend in `src/backend/`
 - use the Next.js frontend in `src/frontend/`
 
-Do not use this file for current local setup, Docker setup, validation, or Ralph loop work. Root-level scripts are historical artifacts and are not part of the supported v2 runtime.
+Do not use this file for current local setup, Docker setup, validation, or Ralph loop work. The root-level v1 runtime files were removed from the checked-out repo on 2026-03-10 and are not part of the supported v2 runtime.
 
 ## Legacy root files
 
-These files remain in the repo only so older implementation choices can be inspected when needed:
+The former root-level runtime files are no longer present in this working tree.
 
-- `batch_processor.py`
-- `run.py`
-- `search.py`
-- `web_app.py`
-- `azure_ai_language.py`
-- `azure_document_intelligence.py`
-- `logger_config.py`
-
-If a legacy behavior needs to be recovered, prefer git history or the archived specs/completed-plan records over treating these files as a supported runtime.
+If a legacy behavior needs to be recovered, use git history or the archived legacy docs and completed-plan records rather than treating the removed v1 runtime as a supported path.

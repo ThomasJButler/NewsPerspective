@@ -151,6 +151,18 @@ class BackendApiSmokeTest(unittest.TestCase):
                         category="technology",
                         processing_status="pending",
                     ),
+                    models.Article(
+                        id="article-7",
+                        original_title="Failed article",
+                        original_description="Description seven.",
+                        source_name="Failed Source",
+                        source_id="failed-source",
+                        url="https://example.com/article-7",
+                        published_at=now - timedelta(minutes=1),
+                        fetched_at=now - timedelta(minutes=1),
+                        category="science",
+                        processing_status="failed",
+                    ),
                 ]
             )
             session.commit()
@@ -215,6 +227,18 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(body["id"], "article-5")
         self.assertEqual(body["source_name"], "source-id-only")
         self.assertTrue(body["was_rewritten"])
+
+    def test_article_detail_returns_404_for_pending_article(self) -> None:
+        response = self.client.get("/api/articles/article-3")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"], "Article not found")
+
+    def test_article_detail_returns_404_for_failed_article(self) -> None:
+        response = self.client.get("/api/articles/article-7")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"], "Article not found")
 
     def test_article_detail_returns_404_for_missing_id(self) -> None:
         response = self.client.get("/api/articles/not-a-real-id")

@@ -21,7 +21,7 @@ NewsPerspective helps readers compare sensational framing against a calmer, fact
 ┌──────────────────────────────────────────────────────────┐
 │ Frontend (Next.js 16 + React 19 + ShadCN UI)            │
 │ - Cached article browsing                               │
-│ - Search, source, category, and good-news filters       │
+│ - Search, source, and good-news filters                 │
 │ - Inline onboarding and refresh UI                      │
 │ - Polling for refresh status                            │
 └──────────────────────────┬───────────────────────────────┘
@@ -60,7 +60,7 @@ NewsPerspective helps readers compare sensational framing against a calmer, fact
 - Direct OpenAI API usage replaced Azure OpenAI wiring in the v2 backend.
 - SQLite replaced Azure Search and other hosted indexing dependencies.
 - The frontend moved to Next.js plus ShadCN UI instead of the older root-level runtime approach.
-- Legacy root scripts remain in the repo for reference only and are not the supported execution path.
+- The old root-level v1 runtime files were removed from the checked-out repo on 2026-03-10; use git history or the archived legacy docs when older implementation details need to be inspected.
 
 ## External Dependencies
 

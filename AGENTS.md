@@ -5,7 +5,7 @@ NewsPerspective v2.0 is a two-part app:
 - `src/backend/` is a FastAPI service that fetches headlines from NewsAPI, processes them with OpenAI, and stores article data in SQLite.
 - `src/frontend/` is a Next.js + ShadCN UI for browsing rewritten headlines, summaries, source filters, search, and settings.
 
-Legacy v1 code still exists in the repo root for reference only. Do not modify root-level legacy files unless the current task explicitly includes migration or archival work.
+Legacy v1 runtime files were removed from the repo root on 2026-03-10. Use git history or the archived legacy docs for reference, and do not recreate root-level legacy runtime files unless the current task explicitly includes migration or archival work.
 
 ## Ralph operating rules
 - Read `IMPLEMENTATION_PLAN.md` before changing code.

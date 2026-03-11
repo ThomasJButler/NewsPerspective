@@ -5,7 +5,7 @@ NewsPerspective v2 is a two-part app:
 - FastAPI backend in `src/backend/`
 - Next.js frontend in `src/frontend/`
 
-The active product flow is: browse cached processed articles without a NewsAPI key, then trigger refreshes by sending a user-supplied key in the `X-News-Api-Key` header. Root-level v1 scripts remain in the repo only as legacy reference.
+The active product flow is: browse cached processed articles without a NewsAPI key, then trigger refreshes by sending a user-supplied key in the `X-News-Api-Key` header. The old root-level v1 runtime files were removed on 2026-03-10; use git history or `READMEOLD.md` for legacy reference.
 
 ## Runtime overview
 
@@ -76,6 +76,31 @@ source src/backend/.venv/bin/activate
 python -m src.backend.scripts.seed_manual_integration_data
 ```
 
+## Trusted-machine refresh evidence
+
+To finish the remaining Phase 3 refresh evidence on a local machine with a real
+`NEWS_API_KEY`, keep the backend on `http://localhost:8000` and the frontend on
+`http://localhost:3000`, then capture the backend report:
+
+```bash
+source src/backend/.venv/bin/activate
+python -m src.backend.scripts.capture_manual_integration_evidence \
+  --api-key "$NEWS_API_KEY" \
+  --output /tmp/phase3-manual-integration.md
+```
+
+With that same local app stack still running, exercise the documented
+refresh-path Playwright entrypoint from `src/frontend`:
+
+```bash
+cd src/frontend
+npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts
+```
+
+Then open `http://localhost:3000` and complete the frontend follow-up section in
+the generated report with the exact cached-browse and refresh UI outcomes you
+observed.
+
 ## Docker app flow
 
 The supported container workflow lives under `src/frontend/compose.yaml`. It starts a seeded backend and the frontend dev server together.
@@ -121,7 +146,7 @@ Frontend:
 cd src/frontend
 npm run lint
 npm run typecheck
-npx playwright test tests/e2e/cached-browse.spec.ts
+npm run test:e2e
 ```
 
 If `next build` is needed in this repo, prefer:
@@ -129,6 +154,13 @@ If `next build` is needed in this repo, prefer:
 ```bash
 cd src/frontend
 npx next build --webpack
+```
+
+For Playwright specifically, `npm run test:e2e` owns `127.0.0.1:8000` and `127.0.0.1:3000` so it can seed a clean backend database and start both servers itself. If those ports are already occupied because you already launched the app, use the reuse path instead:
+
+```bash
+cd src/frontend
+npm run test:e2e:reuse
 ```
 
 ## Ralph loop
@@ -163,4 +195,4 @@ RALPH_ALLOW_UNSAFE_SANDBOX=1 ./loop.sh build 1
 
 ## Legacy boundary
 
-`READMEOLD.md` is legacy reference material. Root-level files such as `batch_processor.py`, `run.py`, `search.py`, and `web_app.py` are not part of the active v2 runtime.
+`READMEOLD.md` is legacy reference material. The old root-level v1 runtime files were removed from the checked-out repo on 2026-03-10, so use git history or the archived legacy docs if older implementation details need to be recovered.

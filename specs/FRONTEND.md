@@ -43,7 +43,8 @@ src/frontend/
 │   ├── api.ts
 │   └── utils.ts
 ├── tests/e2e/
-│   └── cached-browse.spec.ts
+│   ├── cached-browse.spec.ts
+│   └── refresh-path.spec.ts
 ├── compose.yaml
 ├── next.config.ts
 ├── playwright.config.mts
@@ -147,6 +148,8 @@ npm run dev
 
 - The frontend expects the backend at `http://localhost:8000` unless `BACKEND_ORIGIN` is overridden.
 - `/api/*` requests are proxied to that backend origin through `next.config.ts`.
+- The repo-managed Playwright harness is `npm run test:e2e`. It seeds a clean e2e database and starts backend/frontend servers on fixed ports `127.0.0.1:8000` and `127.0.0.1:3000`.
+- If those ports are already occupied because the app is already running locally, use `npm run test:e2e:reuse` so Playwright targets the existing frontend at `http://127.0.0.1:3000` instead of trying to start duplicate servers.
 
 ### Docker-supported local flow
 
@@ -167,11 +170,11 @@ docker compose -f src/frontend/compose.yaml down
 Current automated validation for the frontend is limited but useful.
 
 - `npm run lint` and `npm run typecheck` are the routine source-level checks.
-- `npx playwright test tests/e2e/cached-browse.spec.ts` is the only deterministic browser spec currently maintained in-repo.
-- That Playwright coverage currently proves seeded cached browsing, source/search filtering, browser history re-sync, article-detail retry handling, and visible-headline fallback behavior.
+- `npm run test:e2e` runs the deterministic browser suite maintained in-repo.
+- Current Playwright coverage proves seeded cached browsing, source/search filtering, browser history re-sync, article-detail retry handling, visible-headline fallback behavior, accepted refresh handling, invalid-key UX, duplicate-refresh attach behavior, refresh polling, and the 120-second timeout path.
 
 Known caveats:
 
-- Refresh-path browser coverage is still missing for accepted refresh, invalid-key UX, polling UX, and duplicate-refresh messaging.
+- `npm run test:e2e` fails before assertions if ports `3000` or `8000` are already occupied by an existing local app stack; use `npm run test:e2e:reuse` in that case.
 - Real-key refresh validation is still a trusted-machine/manual task because this Codex environment does not expose `NEWS_API_KEY`.
 - `npm run build` may still be environment-sensitive in sandboxed runs because Turbopack can fail while binding worker ports; `npx next build --webpack` was the last known successful fallback in earlier validation.
