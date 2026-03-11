@@ -20,6 +20,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH}"
 
 article_processor = importlib.import_module("src.backend.services.article_processor")
 database = importlib.import_module("src.backend.database")
+models = importlib.import_module("src.backend.models")
 news_fetcher = importlib.import_module("src.backend.services.news_fetcher")
 refresh_tracker_module = importlib.import_module("src.backend.services.refresh_tracker")
 
@@ -39,6 +40,8 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
 
     def setUp(self) -> None:
         refresh_tracker_module.refresh_tracker.reset()
+        database.Base.metadata.drop_all(bind=database.engine)
+        database.Base.metadata.create_all(bind=database.engine)
 
     def test_fetcher_redacts_api_key_from_request_errors(self) -> None:
         api_key = "secret-news-api-key"
@@ -76,6 +79,109 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
                 processor.process_new_articles(db=_DummySession(), api_key="valid-key")
 
         self.assertIs(raised.exception, expected_error)
+
+    def test_fetcher_raises_after_429_retry_exhaustion(self) -> None:
+        api_key = "secret-news-api-key"
+        fetcher = news_fetcher.NewsFetcher(api_key=api_key)
+
+        class _RateLimitedResponse:
+            status_code = 429
+
+        with patch.object(
+            news_fetcher.requests,
+            "get",
+            return_value=_RateLimitedResponse(),
+        ) as mocked_get, patch.object(news_fetcher.time, "sleep") as mocked_sleep:
+            with self.assertRaises(news_fetcher.NewsFetchError) as raised:
+                fetcher._fetch(
+                    "https://newsapi.org/v2/top-headlines",
+                    {"country": "us", "apiKey": api_key, "pageSize": 100},
+                )
+
+        self.assertEqual(str(raised.exception), "NewsAPI rate limited the refresh request.")
+        self.assertEqual(mocked_get.call_count, 3)
+        self.assertEqual([call.args[0] for call in mocked_sleep.call_args_list], [1, 2])
+        self.assertEqual(fetcher.request_count, 3)
+
+    def test_fetcher_raises_after_transport_retry_exhaustion(self) -> None:
+        api_key = "secret-news-api-key"
+        fetcher = news_fetcher.NewsFetcher(api_key=api_key)
+        request_error = news_fetcher.requests.ConnectionError(
+            "Connection lost for "
+            f"https://newsapi.org/v2/top-headlines?country=us&apiKey={api_key}&pageSize=100"
+        )
+
+        with patch.object(
+            news_fetcher.requests,
+            "get",
+            side_effect=request_error,
+        ) as mocked_get, patch.object(news_fetcher.time, "sleep") as mocked_sleep:
+            with self.assertRaises(news_fetcher.NewsFetchError) as raised:
+                fetcher._fetch(
+                    "https://newsapi.org/v2/top-headlines",
+                    {"country": "us", "apiKey": api_key, "pageSize": 100},
+                )
+
+        message = str(raised.exception)
+        self.assertIn("Failed to fetch articles from NewsAPI:", message)
+        self.assertNotIn(api_key, message)
+        self.assertIn("apiKey=[redacted]", message)
+        self.assertEqual(mocked_get.call_count, 3)
+        self.assertEqual([call.args[0] for call in mocked_sleep.call_args_list], [1, 2])
+        self.assertEqual(fetcher.request_count, 3)
+
+    def test_fetch_all_categories_raises_when_later_category_fetch_fails(self) -> None:
+        fetcher = news_fetcher.NewsFetcher(api_key="valid-key")
+        general_articles = [
+            {
+                "original_title": "General success",
+                "original_description": "First category article.",
+                "source_name": "Example Source",
+                "source_id": "example-source",
+                "author": "Reporter",
+                "url": "https://example.com/general-success",
+                "image_url": "https://example.com/general-success.jpg",
+                "published_at": "2026-03-11T10:00:00Z",
+                "category": "general",
+            }
+        ]
+        later_failure = news_fetcher.NewsFetchError(
+            "sports category failed after general succeeded"
+        )
+
+        with patch.object(
+            news_fetcher,
+            "CATEGORIES",
+            ["general", "sports"],
+        ), patch.object(
+            fetcher,
+            "fetch_top_headlines",
+            side_effect=[general_articles, later_failure],
+        ) as mocked_fetch_top_headlines:
+            with self.assertRaises(news_fetcher.NewsFetchError) as raised:
+                fetcher.fetch_all_categories()
+
+        self.assertIs(raised.exception, later_failure)
+        self.assertEqual(mocked_fetch_top_headlines.call_count, 2)
+
+    def test_process_new_articles_leaves_db_empty_when_category_fetch_aborts(self) -> None:
+        session = database.SessionLocal()
+        failure = news_fetcher.NewsFetchError("sports category failed after general succeeded")
+
+        try:
+            with patch.object(
+                article_processor.NewsFetcher,
+                "fetch_all_categories",
+                side_effect=failure,
+            ):
+                processor = article_processor.ArticleProcessor()
+
+                with self.assertRaises(news_fetcher.NewsFetchError):
+                    processor.process_new_articles(db=session, api_key="valid-key")
+
+            self.assertEqual(session.query(models.Article).count(), 0)
+        finally:
+            session.close()
 
     def test_background_refresh_marks_failed_when_news_fetch_raises(self) -> None:
         session = _DummySession()
