@@ -1,16 +1,14 @@
 # IMPLEMENTATION_PLAN.md
 
 ## 1. Current status summary and code review
-- Updated on 2026-03-12 after landing the doc/spec alignment slice, keeping the earlier backend and refresh-path fixes in place, and leaving only the trusted-machine evidence pass plus two low-risk P3 cleanups.
+- Updated on 2026-03-12 after landing the remaining P3 cleanup slice, keeping the earlier backend, refresh-path, and doc/spec fixes in place, and leaving only the trusted-machine evidence pass.
 - Accessible GitHub state in this environment:
   - `gh issue list -L 20` previously returned no open issues.
   - The open `V2.0` PR review remains the highest-signal external review artifact for this repo.
 - Fresh validation rerun during this implementation pass:
-  - Docs/specs: targeted `rg` checks confirmed the stale backend-coverage wording and cached-browse-only Playwright wording are gone, and `specs/OVERVIEW.md` now uses a `text` fence for the ASCII diagram.
   - Backend: `python3 -m unittest src.backend.tests.test_refresh_processing -v` passed.
   - Frontend: `cd src/frontend && npm run lint` passed.
   - Frontend: `cd src/frontend && npm run typecheck` passed.
-  - Frontend: `cd src/frontend && npm run test:e2e:reuse -- --list` passed and listed both cached-browse and refresh-path specs.
 - Verified implementation status in code:
   - `src/backend/scripts/capture_manual_integration_evidence.py` now reads the real refresh key from the caller's `NEWS_API_KEY` environment variable when `--api-key` is omitted, and the generated report/checklist now tells the operator to export that variable before running the helper.
   - `README.md`, `AGENTS.md`, and `src/frontend/README.md` now describe one trusted-machine key-supply pattern: export `NEWS_API_KEY` in the local shell, let the helper read it from the environment, and use `curl --config - <<EOF` for direct refresh checks so the header value stays out of argv.
@@ -19,14 +17,15 @@
   - `src/backend/scripts/capture_manual_integration_evidence.py` now distinguishes an accepted refresh start from a duplicate `Refresh already in progress.` response, and it now treats HTTP `>=400` `/api/refresh/status` polls as backend-contract failures instead of collapsing them into "still unproven".
   - `src/frontend/tests/e2e/refresh-path.spec.ts` now mirrors backend `/api/sources` and `/api/stats` aggregation semantics for duplicate sources and `latest_fetch`, reuses a shared refresh-status payload builder, and the timeout path now asserts timeout behavior without coupling itself to a raw polling-cadence threshold.
   - `specs/BACKEND.md`, `src/frontend/README.md`, `AGENTS.md`, and `specs/OVERVIEW.md` now match the current codebase: backend retry/partial-failure coverage is described accurately, frontend Playwright docs mention both cached-browse and refresh-path flows, the AGENTS frontend validation block includes `npm run lint` plus `npm run typecheck`, and the overview architecture diagram is fenced as `text`.
+  - `src/backend/tests/test_refresh_processing.py` now gives `_DummySession` explicit guard stubs for the session methods the processor path could reach, so unexpected test-double usage fails with a clear assertion instead of an `AttributeError`.
+  - `src/frontend/app/article/[id]/page.tsx` no longer declares the redundant `articleImageLoader` or passes `loader={...}` to `Image` while also using `unoptimized`; the detail page still renders the optional image directly from `image_url`.
   - Processed-only visibility remains enforced across article list/detail, sources, and stats surfaces, with smoke coverage for pending/failed detail `404` behavior.
   - Structured refresh validation errors, duplicate-refresh short-circuiting at the API layer, tracker-state restoration after validation failure, and background-refresh regression coverage remain in place.
 - Re-verified open implementation work that still remains:
-  - [P3] `src/backend/tests/test_refresh_processing.py` still leaves `_DummySession` with only `close()`, not defensive stubs for other session methods.
-  - [P3] `src/frontend/app/article/[id]/page.tsx` still declares and uses the redundant `articleImageLoader` while also setting `unoptimized` on `Image`.
+  - [P2] The trusted-machine Phase 3 evidence pass still needs a real local `NEWS_API_KEY`, a running local stack, and a real browser session; it cannot be completed inside Codex alone.
 
 ## 2. Active phase
-Phase 3D remains active. The local P1 review findings, the remaining P2 refresh-path fixture drift, the trusted-machine key-handling/doc contract, and the doc/spec alignment slice are now closed in the worktree. The next priority is the real local evidence pass on a trusted machine; if the next loop still runs inside Codex without a real key/browser session, take the remaining P3 cleanup slice instead. Keep the 2026-03-10 v2 boundary intact: if legacy v1 behavior needs reference, recover it from git history or `READMEOLD.md` instead of recreating root-level runtime files.
+Phase 3D remains active. The local P1 review findings, the P2 refresh-path fixture drift, the trusted-machine key-handling/doc contract, the doc/spec alignment slice, and the low-risk P3 cleanup are now closed in the worktree. The next priority is the real local evidence pass on a trusted machine. Keep the 2026-03-10 v2 boundary intact: if legacy v1 behavior needs reference, recover it from git history or `READMEOLD.md` instead of recreating root-level runtime files.
 
 ## 3. Ordered checklist with [ ] and [x]
 - [x] [P1] Stabilize `/api/articles` pagination ordering in `src/backend/routers/articles.py`. Added the deterministic `Article.id.asc()` tiebreaker after `nulls_last(Article.published_at.desc())` and added backend regression coverage for tied and null `published_at` rows so offset pagination stays stable.
@@ -38,7 +37,7 @@ Phase 3D remains active. The local P1 review findings, the remaining P2 refresh-
 - [x] [P2] Resolve the trusted-machine key-handling contract across docs and helper flow. `src/backend/scripts/capture_manual_integration_evidence.py` now reads `NEWS_API_KEY` from the caller environment when `--api-key` is omitted, the generated checklist tells operators to export that variable before running the helper, and `README.md`, `AGENTS.md`, and `src/frontend/README.md` now use the same trusted-machine pattern. Direct refresh examples now use `curl --config - <<EOF` so the header value does not appear in argv during local checks.
 - [x] [P2] Align shipped docs/specs with current code: removed the stale backend coverage warning from `specs/BACKEND.md`; updated `src/frontend/README.md` to mention both cached-browse and refresh-path Playwright coverage; added `npm run lint` and `npm run typecheck` to the frontend validation guidance in `AGENTS.md`; labeled the ASCII diagram fence in `specs/OVERVIEW.md` as `text`.
 - [ ] [P2] After the local fixes above land, finish the trusted-machine Phase 3 evidence pass on a real local machine: seed cached data first with `source src/backend/.venv/bin/activate && python -m src.backend.scripts.seed_manual_integration_data` if `/api/articles` is empty; run `python -m src.backend.scripts.capture_manual_integration_evidence` against the already running local stack using whatever key-supply pattern the previous checklist item standardizes; keep the same backend/frontend stack running and execute the exact reuse-path Playwright command printed in the generated report; open the frontend URL from the report, complete the frontend follow-up table with exact cached-browse and refresh outcomes, and paste the final observed results back into this file.
-- [ ] [P3] Apply the remaining low-risk cleanup after the higher-priority items above land: add defensive stub methods to `_DummySession` in `src/backend/tests/test_refresh_processing.py`, and remove the redundant `articleImageLoader` / `loader={articleImageLoader}` pair from `src/frontend/app/article/[id]/page.tsx`.
+- [x] [P3] Apply the remaining low-risk cleanup after the higher-priority items above land: added defensive stub methods to `_DummySession` in `src/backend/tests/test_refresh_processing.py`, removed the redundant `articleImageLoader` / `loader={articleImageLoader}` pair from `src/frontend/app/article/[id]/page.tsx`, and reran the targeted backend/frontend proof set for those files.
 - [x] [P3] For the documentation-only slice above, run the smallest proof set for the touched files: used targeted `rg` checks to confirm stale wording is gone; reran `python3 -m unittest src.backend.tests.test_refresh_processing -v` because `specs/BACKEND.md` changed; reran `cd src/frontend && npm run lint`, `cd src/frontend && npm run typecheck`, and `cd src/frontend && npm run test:e2e:reuse -- --list` because the frontend validation and Playwright guidance changed.
 - [x] Backend smoke, manual-evidence, frontend typecheck, and the targeted refresh-path Playwright validations currently pass in this worktree.
 - [x] Repo-managed and reuse-path Playwright entrypoints already exist, and the current suite still includes both cached-browse and refresh-path coverage.
@@ -53,11 +52,13 @@ Phase 3D remains active. The local P1 review findings, the remaining P2 refresh-
 - The shipped docs/specs now agree on two important operator details: the backend retry and partial-failure paths are covered in `src/backend/tests/test_refresh_processing.py`, and the frontend Playwright surface includes both cached-browse and refresh-path coverage.
 - `AGENTS.md` now advertises the existing frontend `npm run lint` and `npm run typecheck` commands, and both commands currently exit cleanly in this worktree.
 - `cd src/frontend && npm run test:e2e:reuse -- --list` currently enumerates 9 tests across `cached-browse.spec.ts` and `refresh-path.spec.ts`, which is enough to prove the documented reuse-path entrypoint still exposes both flows without requiring a live browser run for this doc slice.
+- `_DummySession` in `src/backend/tests/test_refresh_processing.py` is now intentionally strict: `query`, `add`, `commit`, `refresh`, and `rollback` all raise an assertion if the supposedly unreachable DB path is touched in those tests.
+- The article detail page still renders remote images with `unoptimized`, but it no longer carries a no-op loader wrapper around the same URL.
 - Trusted-machine evidence is still blocked inside Codex by the lack of a real `NEWS_API_KEY` and a real browser session. The mocked Playwright suite is useful contract coverage, but it does not replace the real local evidence pass.
-- This implementation pass reran the refresh-processing backend tests plus frontend lint/typecheck and the reuse-path Playwright listing; it did not execute the helper against a real key or complete the manual browser evidence checklist.
+- This implementation pass reran the refresh-processing backend tests plus frontend lint/typecheck; it did not execute the helper against a real key or complete the manual browser evidence checklist.
 - Backend tests that set `DATABASE_URL` before importing app modules should continue to run in separate Python processes. Do not collapse `test_api_smoke` and `test_refresh_processing` into one interpreter invocation.
 - Keep the legacy boundary intact. If upcoming work needs v1 behavior, recover it from git history or `READMEOLD.md`; do not recreate root-level runtime files as part of unrelated v2 cleanup.
 
 ## 5. Next recommended build slice
 - On a trusted local machine, finish the Phase 3 evidence pass next and paste the concrete observed outcomes back into this file.
-- If the next loop still runs inside Codex without a real key/browser session, take the remaining P3 cleanup in `src/backend/tests/test_refresh_processing.py` and `src/frontend/app/article/[id]/page.tsx` instead.
+- If the next loop still runs inside Codex without a real key/browser session, stop after confirming the blocker rather than inventing new cleanup work; the remaining task is environmental, not an in-repo code gap.

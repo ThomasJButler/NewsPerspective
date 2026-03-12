@@ -29,6 +29,24 @@ class _DummySession:
     def __init__(self) -> None:
         self.closed = False
 
+    def _unexpected_call(self, method_name: str) -> None:
+        raise AssertionError(f"_DummySession.{method_name}() should not be called in this test")
+
+    def query(self, *args, **kwargs):
+        self._unexpected_call("query")
+
+    def add(self, *args, **kwargs) -> None:
+        self._unexpected_call("add")
+
+    def commit(self) -> None:
+        self._unexpected_call("commit")
+
+    def refresh(self, *args, **kwargs) -> None:
+        self._unexpected_call("refresh")
+
+    def rollback(self) -> None:
+        self._unexpected_call("rollback")
+
     def close(self) -> None:
         self.closed = True
 

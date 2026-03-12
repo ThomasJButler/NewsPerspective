@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image, { type ImageLoaderProps } from "next/image";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ApiRequestError, fetchArticle } from "@/lib/api";
@@ -19,10 +19,6 @@ function sentimentVariant(
   if (sentiment === "positive") return "default";
   if (sentiment === "negative") return "destructive";
   return "secondary";
-}
-
-function articleImageLoader({ src }: ImageLoaderProps) {
-  return src;
 }
 
 export default function ArticleDetailPage() {
@@ -189,7 +185,6 @@ function ArticleDetailRequest({
               src={imageUrl}
               alt={headline}
               fill
-              loader={articleImageLoader}
               unoptimized
               sizes="(min-width: 768px) 768px, 100vw"
               className="object-cover"
