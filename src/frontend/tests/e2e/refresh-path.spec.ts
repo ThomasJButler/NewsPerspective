@@ -111,6 +111,7 @@ const wireArticle: TestArticle = {
 };
 
 const refreshedArticles = [refreshedArticle, followUpArticle, wireArticle];
+const REFRESHED_NEW_ARTICLES = 2;
 
 function buildArticleListResponse(articles: TestArticle[]) {
   return {
@@ -312,7 +313,7 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
       contentType: "application/json",
       body: JSON.stringify(
         buildRefreshStatusResponse("completed", {
-          new_articles: refreshedArticles.length,
+          new_articles: REFRESHED_NEW_ARTICLES,
           processed_articles: refreshedArticles.length,
         })
       ),
@@ -332,9 +333,9 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
   await page.getByRole("button", { name: "Refresh articles" }).click();
 
   await expect(page.getByText("Refresh complete", { exact: true })).toBeVisible();
-  await expect(page.getByText("Processed 3 new articles.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Added 2 new articles.", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Latest refresh added 3 articles.", { exact: true })
+    page.getByText("Latest refresh added 2 articles.", { exact: true })
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {

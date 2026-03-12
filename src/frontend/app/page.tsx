@@ -415,7 +415,7 @@ function HomeContent() {
           : "Refresh finished",
         description:
           refreshStatus.new_articles > 0
-            ? `Processed ${refreshStatus.processed_articles} new article${refreshStatus.processed_articles === 1 ? "" : "s"}.`
+            ? `Added ${refreshStatus.new_articles} new article${refreshStatus.new_articles === 1 ? "" : "s"}.`
             : currentRequestValidatedKey
               ? "No new articles were added this time."
               : "The in-progress refresh finished without adding new articles.",
