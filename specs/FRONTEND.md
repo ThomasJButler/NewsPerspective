@@ -102,13 +102,15 @@ The refresh button in the header is the only frontend action that requires the u
 - A backend `invalid_api_key` error opens settings with invalid-key feedback and shows a destructive toast.
 - A backend `upstream_timeout` error surfaces a timeout-specific toast, but cached browsing remains available.
 - If `POST /api/refresh` returns the duplicate message `Refresh already in progress.`, the frontend treats that as attach-to-existing work and waits on `/api/refresh/status` instead of failing immediately.
-- If polling does not reach a terminal state within 120 seconds, the frontend leaves the user on cached content and shows a non-fatal "still running" toast.
+- If polling does not reach a terminal state within 120 seconds, the frontend stops that active polling pass, leaves the user on cached content, and shows a non-fatal "still running" toast.
+- After that timeout, a later successful `GET /api/refresh/status` response that still reports the same in-flight refresh as `processing` causes the page to resume polling that existing refresh instead of treating the timeout as terminal.
 
 ### Persistent refresh status
 
 - The home route fetches `GET /api/refresh/status` on load and after terminal refresh states to seed the persistent status card.
 - The card uses `/api/stats.latest_fetch` as the durable `Last refreshed` signal and treats `GET /api/refresh/status` as volatile process state.
 - If the backend reports `processing`, the card shows that live state and the header refresh button stays disabled while the page is actively polling.
+- If a prior polling pass timed out but the latest status fetch still reports that same refresh as `processing`, the page resumes polling and the card continues showing the live in-progress state.
 - If the backend reports `completed`, the card differentiates between refreshes that added new articles and refreshes that completed without adding anything new.
 - If the backend reports `failed`, the card keeps the last failure visible until a later refresh replaces it or the backend restarts.
 - If the backend has restarted and `GET /api/refresh/status` returns `idle` while `/api/stats.latest_fetch` still exists, the card keeps showing the durable `Last refreshed` signal instead of implying refresh history was lost.
