@@ -1,8 +1,8 @@
 """Capture a repeatable Phase 3 trusted-machine refresh evidence report.
 
 Run with:
+    export NEWS_API_KEY=your_real_key
     python -m src.backend.scripts.capture_manual_integration_evidence \
-        --api-key "$NEWS_API_KEY" \
         --output /tmp/phase3-manual-integration.md
 
 This helper automates the backend-side HTTP checks needed for the remaining
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ import requests
 DEFAULT_BACKEND_URL = "http://localhost:8000"
 DEFAULT_FRONTEND_URL = "http://localhost:3000"
 DEFAULT_OUTPUT_PATH = "logs/phase3_manual_integration_report.md"
+DEFAULT_API_KEY_ENV_VAR = "NEWS_API_KEY"
 DEFAULT_INVALID_API_KEY = "invalid-key"
 REQUEST_TIMEOUT_SECONDS = 10
 ACCEPTED_REFRESH_MESSAGE = "Fetching and processing articles in the background."
@@ -55,10 +57,7 @@ class HttpObservation:
 
 
 def _build_helper_command(backend_url: str, frontend_url: str) -> str:
-    command = (
-        "python -m src.backend.scripts.capture_manual_integration_evidence "
-        '--api-key "$NEWS_API_KEY" '
-    )
+    command = "python -m src.backend.scripts.capture_manual_integration_evidence "
 
     if backend_url != DEFAULT_BACKEND_URL:
         command += f'--backend-url "{backend_url}" '
@@ -228,7 +227,7 @@ def evaluate_refresh_start(observation: HttpObservation, api_key_supplied: bool)
             name="Successful refresh with a real key",
             classification="still unproven",
             outcome="No real NewsAPI key was supplied to the helper.",
-            evidence="Run again with --api-key to exercise the real refresh path.",
+            evidence="Run again with NEWS_API_KEY in the caller environment or pass --api-key.",
         )
 
     if not observation.ok:
@@ -515,7 +514,7 @@ def build_markdown_report(
             "",
             "1. If cached browse is empty, seed data from the repo root:",
             "   `python -m src.backend.scripts.seed_manual_integration_data`",
-            "2. From the repo root, run the backend helper with a real key:",
+            f"2. From the repo root, with {DEFAULT_API_KEY_ENV_VAR} already exported in this shell, run the backend helper:",
             f"   `{helper_command}`",
             "3. From `src/frontend`, run the reuse-path browser spec against the already-running local stack:",
             f"   `{playwright_command}`",
@@ -551,6 +550,13 @@ def build_markdown_report(
     return "\n".join(lines)
 
 
+def resolve_api_key(args: argparse.Namespace) -> str:
+    if args.api_key:
+        return args.api_key
+
+    return os.environ.get(DEFAULT_API_KEY_ENV_VAR, "")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Capture a Phase 3 manual integration evidence report."
@@ -568,7 +574,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--api-key",
         default="",
-        help="Real NewsAPI key for the successful refresh scenarios.",
+        help=(
+            "Real NewsAPI key for the successful refresh scenarios. "
+            f"If omitted, the helper reads {DEFAULT_API_KEY_ENV_VAR} from the caller's environment."
+        ),
     )
     parser.add_argument(
         "--invalid-api-key",
@@ -599,6 +608,7 @@ def main() -> int:
     args = parse_args()
     backend_url = args.backend_url.rstrip("/")
     frontend_url = args.frontend_url.rstrip("/")
+    api_key = resolve_api_key(args)
 
     results: list[ScenarioResult] = []
 
@@ -618,21 +628,24 @@ def main() -> int:
     refresh_start = _capture_response(
         "POST",
         f"{backend_url}/api/refresh",
-        headers={"X-News-Api-Key": args.api_key},
-    ) if args.api_key else HttpObservation(
+        headers={"X-News-Api-Key": api_key},
+    ) if api_key else HttpObservation(
         ok=False,
         status_code=None,
         body=None,
-        error="No real NewsAPI key supplied.",
+        error=(
+            "No real NewsAPI key supplied. Set NEWS_API_KEY in the caller environment "
+            "or pass --api-key."
+        ),
     )
-    refresh_started = bool(args.api_key) and refresh_start_was_accepted(refresh_start)
-    results.append(evaluate_refresh_start(refresh_start, bool(args.api_key)))
+    refresh_started = bool(api_key) and refresh_start_was_accepted(refresh_start)
+    results.append(evaluate_refresh_start(refresh_start, bool(api_key)))
 
     duplicate_refresh = (
         _capture_response(
             "POST",
             f"{backend_url}/api/refresh",
-            headers={"X-News-Api-Key": args.api_key},
+            headers={"X-News-Api-Key": api_key},
         )
         if refresh_started
         else None

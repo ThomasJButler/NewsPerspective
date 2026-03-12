@@ -65,8 +65,11 @@ npm run dev
 curl http://localhost:8000/api/articles
 
 # trigger refresh with user-supplied key
-curl -X POST http://localhost:8000/api/refresh \
-  -H "X-News-Api-Key: $NEWS_API_KEY"
+curl --config - <<EOF
+url = "http://localhost:8000/api/refresh"
+request = POST
+header = "X-News-Api-Key: ${NEWS_API_KEY:?set NEWS_API_KEY in this shell first}"
+EOF
 ```
 
 ## Documentation update rules

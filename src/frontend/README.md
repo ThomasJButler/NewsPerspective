@@ -46,12 +46,13 @@ Pair that with the backend helper from the repo root:
 
 ```bash
 source src/backend/.venv/bin/activate
+export NEWS_API_KEY=your_real_key
 python -m src.backend.scripts.capture_manual_integration_evidence \
-  --api-key "$NEWS_API_KEY" \
   --output /tmp/phase3-manual-integration.md
 ```
 
 The Playwright spec still uses mocked API responses. Its role in this trusted-machine pass is to prove the documented browser entrypoint works outside the sandbox while the helper and manual browser notes capture the real-key backend behavior.
+The helper reads `NEWS_API_KEY` from the caller environment so the real key stays out of argv during local runs.
 
 Successful runs emit named screenshots under `output/playwright/test-results/`, including:
 

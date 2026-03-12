@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from src.backend.scripts.capture_manual_integration_evidence import (
+    DEFAULT_API_KEY_ENV_VAR,
     HttpObservation,
     build_markdown_report,
     evaluate_cached_browse,
@@ -13,6 +16,7 @@ from src.backend.scripts.capture_manual_integration_evidence import (
     evaluate_invalid_key,
     evaluate_polling,
     evaluate_refresh_start,
+    resolve_api_key,
     refresh_start_was_accepted,
 )
 
@@ -173,6 +177,10 @@ class ManualIntegrationEvidenceTest(unittest.TestCase):
         self.assertIn("## Frontend manual follow-up", report)
         self.assertIn("| Reuse-path Playwright check |", report)
         self.assertIn("npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts", report)
+        self.assertIn(
+            "python -m src.backend.scripts.capture_manual_integration_evidence --output <report-path>",
+            report,
+        )
         self.assertIn("## IMPLEMENTATION_PLAN.md paste template", report)
         self.assertIn("- Backend helper report path: TODO", report)
         self.assertIn("Classification guide", report)
@@ -201,6 +209,18 @@ class ManualIntegrationEvidenceTest(unittest.TestCase):
             "- Manual browser outcome at `http://127.0.0.1:3100`: TODO",
             report,
         )
+
+    def test_resolve_api_key_prefers_cli_value(self) -> None:
+        args = SimpleNamespace(api_key="cli-key")
+
+        with patch.dict("os.environ", {DEFAULT_API_KEY_ENV_VAR: "env-key"}, clear=True):
+            self.assertEqual(resolve_api_key(args), "cli-key")
+
+    def test_resolve_api_key_falls_back_to_environment_variable(self) -> None:
+        args = SimpleNamespace(api_key="")
+
+        with patch.dict("os.environ", {DEFAULT_API_KEY_ENV_VAR: "env-key"}, clear=True):
+            self.assertEqual(resolve_api_key(args), "env-key")
 
 
 if __name__ == "__main__":

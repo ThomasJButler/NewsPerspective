@@ -63,8 +63,11 @@ Useful manual checks:
 ```bash
 curl http://localhost:8000/api/articles
 
-curl -X POST http://localhost:8000/api/refresh \
-  -H "X-News-Api-Key: $NEWS_API_KEY"
+curl --config - <<EOF
+url = "http://localhost:8000/api/refresh"
+request = POST
+header = "X-News-Api-Key: ${NEWS_API_KEY:?set NEWS_API_KEY in this shell first}"
+EOF
 
 curl http://localhost:8000/api/refresh/status
 ```
@@ -78,16 +81,21 @@ python -m src.backend.scripts.seed_manual_integration_data
 
 ## Trusted-machine refresh evidence
 
-To finish the remaining Phase 3 refresh evidence on a local machine with a real
-`NEWS_API_KEY`, keep the backend on `http://localhost:8000` and the frontend on
-`http://localhost:3000`, then capture the backend report:
+To finish the remaining Phase 3 refresh evidence on a trusted local machine,
+export `NEWS_API_KEY` in the current shell, keep the backend on
+`http://localhost:8000` and the frontend on `http://localhost:3000`, then
+capture the backend report:
 
 ```bash
 source src/backend/.venv/bin/activate
+export NEWS_API_KEY=your_real_key
 python -m src.backend.scripts.capture_manual_integration_evidence \
-  --api-key "$NEWS_API_KEY" \
   --output /tmp/phase3-manual-integration.md
 ```
+
+The helper reads `NEWS_API_KEY` from the caller environment so the real key
+does not need to appear in argv. That shell variable is only a local helper
+input; the backend still does not read a server-side `NEWS_API_KEY`.
 
 With that same local app stack still running, exercise the documented
 refresh-path Playwright entrypoint from `src/frontend`:
