@@ -1,7 +1,7 @@
 # IMPLEMENTATION_PLAN.md
 
 ## 1. Current status summary and code review
-- Updated on 2026-03-12 after a frontend spec-alignment slice across `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `specs/FRONTEND.md`, and the current refresh-status frontend source.
+- Updated on 2026-03-12 after the roadmap-spec cleanup slice across `IMPLEMENTATION_PLAN.md` and `specs/ROADMAP.md`.
 - Priority guide:
   - `P1`: correctness or validation regressions that block safe build work.
   - `P2`: shipped-behavior or source-of-truth alignment that should land after `P1`.
@@ -29,10 +29,10 @@
   - Resume-after-timeout handling for the same in-flight refresh is implemented in `src/frontend/app/page.tsx` and unit-covered in `src/frontend/lib/refresh-status.test.mjs`.
   - Root-level v1 runtime files remain absent; legacy reference stays in `READMEOLD.md` and git history.
 - Confirmed mismatches and remaining follow-up:
-  - `specs/ROADMAP.md` still points the near-term loop order at already-completed refresh-status and Good News slices.
+  - The only live follow-up still tracked from router review is explicit exception chaining in `src/backend/routers/sources.py`.
 
 ## 2. Active phase
-Phase 4 closeout: the backend validation-isolation and SQLite lifecycle warnings are closed, the refresh completion toast now distinguishes added-new count from processed count, and `specs/FRONTEND.md` now documents timeout-reset / same-refresh resume behavior. The next loop should take the remaining roadmap spec drift and then the router review cleanup. Phase 3 trusted-machine evidence is current, and no new runtime contract break was found in the app flow.
+Phase 4 closeout: the backend validation-isolation and SQLite lifecycle warnings are closed, the refresh completion toast now distinguishes added-new count from processed count, `specs/FRONTEND.md` documents timeout-reset / same-refresh resume behavior, and `specs/ROADMAP.md` no longer points the near-term order at completed frontend slices. The next loop should take the remaining router review cleanup. Phase 3 trusted-machine evidence is current, and no new runtime contract break was found in the app flow.
 
 ## 3. Ordered checklist with [ ] and [x]
 - [x] [P1] Re-read `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `README.md`, active specs, trusted-machine evidence, and relevant backend/frontend source before rewriting this plan.
@@ -42,7 +42,7 @@ Phase 4 closeout: the backend validation-isolation and SQLite lifecycle warnings
 - [x] [P1] Eliminate or intentionally explain the unclosed SQLite `ResourceWarning` emitted by `python -m unittest src.backend.tests.test_api_smoke -v`, then revalidate that suite.
 - [x] [P2] Align refresh completion toast copy in `src/frontend/app/page.tsx` so it does not label `processed_articles` as `new articles`; update focused frontend coverage if the observable text changes.
 - [x] [P2] Update `specs/FRONTEND.md` so the Refresh UX section documents the shipped timeout-reset / same-refresh resume behavior after a 120-second polling timeout.
-- [ ] [P2] Update `specs/ROADMAP.md` so its near-term loop order matches the actual remaining priorities instead of already-finished slices.
+- [x] [P2] Update `specs/ROADMAP.md` so its near-term loop order matches the actual remaining priorities instead of already-finished slices.
 - [ ] [P3] Make refresh-validation exception chaining explicit in `src/backend/routers/sources.py` (`from exc` or `from None`) so the last live router review finding is closed cleanly.
 
 ## 4. Notes / discoveries that matter for the next loop
@@ -50,14 +50,14 @@ Phase 4 closeout: the backend validation-isolation and SQLite lifecycle warnings
 - The combined-suite failure was deterministic, not flaky. `src.backend.tests.test_api_smoke` imports `src.backend.database` first, so `src.backend.tests.test_refresh_processing` must explicitly rebind that shared module to its own temp database before calling `create_all(...)`.
 - The smoke-suite `ResourceWarning` disappeared once the smoke path stopped creating a second same-path engine and instead disposed the original engine in `tearDownClass()`.
 - `README.md` and `src/frontend/README.md` are close to the shipped runtime. The main documentation gaps for this pass are in the active specs rather than the top-level docs.
-- The refresh success toast in `src/frontend/app/page.tsx` now uses `new_articles` for `Added X new articles.` and the focused refresh e2e path keeps `new_articles` and `processed_articles` different so that regression is covered.
-- `specs/FRONTEND.md` now describes the shipped timeout-reset / same-refresh resume behavior, so the remaining spec drift is the near-term ordering in `specs/ROADMAP.md`.
+- The refresh success toast in `src/frontend/app/page.tsx` now uses `new_articles` for “Added X new articles.” and the focused refresh e2e path keeps `new_articles` and `processed_articles` different so that regression is covered.
+- `specs/FRONTEND.md` now describes the shipped timeout-reset / same-refresh resume behavior, and `specs/ROADMAP.md` now points the near-term order at the actual remaining cleanup instead of completed refresh-status / Good News slices.
 - If a future slice changes refresh request/status behavior or user-visible refresh copy, refresh the trusted-machine evidence so `logs/phase3_manual_integration_report.md` does not drift.
 - Keep the legacy boundary strict. If a future slice needs v1 reference behavior, use `READMEOLD.md` or git history instead of recreating deleted root-level runtime files.
 
 ## 5. Next recommended build slice
-Take the roadmap spec cleanup slice:
+Take the router review cleanup slice:
 
-1. Update `specs/ROADMAP.md` so its near-term loop order reflects the actual remaining priorities: roadmap-spec cleanup first, then the router exception-chaining cleanup.
-2. Keep the roadmap wording aligned with the now-completed refresh-status/runtime slices instead of pointing at already-finished frontend work.
-3. Re-read the affected roadmap section after editing, then leave the router review cleanup as the next fresh implementation slice.
+1. Update `src/backend/routers/sources.py` so refresh-validation exceptions use explicit chaining (`from exc` or `from None`) and the last live router review finding is resolved.
+2. Run the smallest backend validation that exercises the refresh router path after that edit.
+3. Update this plan to mark the router cleanup complete and confirm whether any review-driven follow-up still remains.

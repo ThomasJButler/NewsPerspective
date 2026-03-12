@@ -175,13 +175,13 @@ If a paid tier ever exists, it should remain aligned with the core mission:
 
 Do not let roadmap work scramble the immediate execution order.
 
-The current intended sequence remains:
+Recently completed loops already landed the refresh-status surface, the Good News exclusions for `sports`, `entertainment`, and `politics`, the timeout-resume frontend spec alignment, and the visible-headline runtime fix.
 
-1. Plan-mode loop:
-   Clean up stale Phase 3 blocker language and promote missing product decisions into source-of-truth.
-2. Build-mode loop:
-   Add a visible `last refreshed / refresh result` surface in the frontend.
-3. Follow-up build loop:
-   Enforce the Good News category exclusions for `sports`, `entertainment`, and `politics`.
-4. Current next build loop:
-   Close the remaining backend refresh-router review cleanup tracked in `IMPLEMENTATION_PLAN.md`.
+The current intended sequence is now:
+
+1. Current build-mode loop:
+   Clean up this roadmap section so it reflects the actual remaining priorities instead of pointing at completed slices.
+2. Next build loop:
+   Close the remaining backend refresh-router review cleanup tracked in `IMPLEMENTATION_PLAN.md` by making the validation exception chaining explicit in `src/backend/routers/sources.py`.
+3. After that cleanup:
+   Re-evaluate roadmap-only product-direction items against `IMPLEMENTATION_PLAN.md` before promoting any new work into the active specs.
