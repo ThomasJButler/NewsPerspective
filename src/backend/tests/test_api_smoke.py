@@ -177,6 +177,7 @@ class BackendApiSmokeTest(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.client_context.__exit__(None, None, None)
         database.Base.metadata.drop_all(bind=database.engine)
+        database.dispose_engine()
         _TEMP_DIR.cleanup()
 
     def setUp(self) -> None:
