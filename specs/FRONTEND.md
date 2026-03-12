@@ -59,6 +59,7 @@ src/frontend/
 - The search box, source filter, and good-news toggle are synchronized with the URL query string.
 - Browser back/forward restores those controls from the current URL instead of leaving stale client state behind.
 - The article feed is always allowed to render cached backend data, even when no NewsAPI key has been stored.
+- A persistent refresh-status card sits above the stats bar and feed, so the latest known refresh state stays visible after any toast disappears.
 - The stats bar is only shown when `/api/stats` returns a non-zero article count.
 
 ### No Saved Key
@@ -100,9 +101,19 @@ The refresh button in the header is the only frontend action that requires the u
 - If `POST /api/refresh` returns the duplicate message `Refresh already in progress.`, the frontend treats that as attach-to-existing work and waits on `/api/refresh/status` instead of failing immediately.
 - If polling does not reach a terminal state within 120 seconds, the frontend leaves the user on cached content and shows a non-fatal "still running" toast.
 
+### Persistent refresh status
+
+- The home route fetches `GET /api/refresh/status` on load and after terminal refresh states to seed the persistent status card.
+- The card uses `/api/stats.latest_fetch` as the durable `Last refreshed` signal and treats `GET /api/refresh/status` as volatile process state.
+- If the backend reports `processing`, the card shows that live state and the header refresh button stays disabled while the page is actively polling.
+- If the backend reports `completed`, the card differentiates between refreshes that added new articles and refreshes that completed without adding anything new.
+- If the backend reports `failed`, the card keeps the last failure visible until a later refresh replaces it or the backend restarts.
+- If the backend has restarted and `GET /api/refresh/status` returns `idle` while `/api/stats.latest_fetch` still exists, the card keeps showing the durable `Last refreshed` signal instead of implying refresh history was lost.
+
 ### Success feedback
 
 - Successful refreshes show a completion toast that differentiates between new articles and a no-op refresh.
+- The persistent refresh-status card mirrors the latest known refresh outcome, so the result remains visible after toast dismissal.
 - When the current request validated the saved key, the settings dialog retains a positive "accepted" status message for that key.
 
 ## Article Feed and Detail Behavior
@@ -171,7 +182,7 @@ Current automated validation for the frontend is limited but useful.
 
 - `npm run lint` and `npm run typecheck` are the routine source-level checks.
 - `npm run test:e2e` runs the deterministic browser suite maintained in-repo.
-- Current Playwright coverage proves seeded cached browsing, source/search filtering, browser history re-sync, article-detail retry handling, visible-headline fallback behavior, accepted refresh handling, invalid-key UX, duplicate-refresh attach behavior, refresh polling, and the 120-second timeout path.
+- Current Playwright coverage proves seeded cached browsing, source/search filtering, browser history re-sync, article-detail retry handling, visible-headline fallback behavior, accepted refresh handling, invalid-key UX, duplicate-refresh attach behavior, refresh polling, the persistent refresh-status card, restart-to-idle fallback behavior, and the 120-second timeout path.
 
 Known caveats:
 

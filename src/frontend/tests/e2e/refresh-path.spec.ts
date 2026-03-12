@@ -262,11 +262,13 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
   page,
 }) => {
   let refreshFinished = false;
+  let refreshStarted = false;
 
   await saveApiKey(page, "valid-key");
   await mockHomeData(page, () => (refreshFinished ? refreshedArticles : [cachedArticle]));
 
   await page.route("**/api/refresh", async (route) => {
+    refreshStarted = true;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -278,6 +280,23 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
   });
 
   await page.route("**/api/refresh/status", async (route) => {
+    if (!refreshStarted) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "idle",
+          message: "No refresh has been started yet.",
+          started_at: null,
+          finished_at: null,
+          new_articles: 0,
+          processed_articles: 0,
+          failed_articles: 0,
+        }),
+      });
+      return;
+    }
+
     if (!refreshFinished) {
       await route.fulfill({
         status: 200,
@@ -308,11 +327,15 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
       name: "Cached headline stays available while refresh runs",
     })
   ).toBeVisible();
+  await expect(page.getByText("Last refreshed", { exact: false })).toBeVisible();
 
   await page.getByRole("button", { name: "Refresh articles" }).click();
 
   await expect(page.getByText("Refresh complete", { exact: true })).toBeVisible();
   await expect(page.getByText("Processed 3 new articles.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Latest refresh added 3 articles.", { exact: true })
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", {
       level: 2,
@@ -335,7 +358,7 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
 test("surfaces invalid-key feedback without polling refresh status", async ({
   page,
 }) => {
-  let refreshStatusCalled = false;
+  let refreshStatusCalls = 0;
 
   await saveApiKey(page, "invalid-key");
   await mockHomeData(page, () => [cachedArticle]);
@@ -354,15 +377,24 @@ test("surfaces invalid-key feedback without polling refresh status", async ({
   });
 
   await page.route("**/api/refresh/status", async (route) => {
-    refreshStatusCalled = true;
+    refreshStatusCalls += 1;
     await route.fulfill({
-      status: 500,
+      status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ detail: "unexpected polling call" }),
+      body: JSON.stringify({
+        status: "idle",
+        message: "No refresh has been started yet.",
+        started_at: null,
+        finished_at: null,
+        new_articles: 0,
+        processed_articles: 0,
+        failed_articles: 0,
+      }),
     });
   });
 
   await page.goto("/");
+  await expect.poll(() => refreshStatusCalls).toBe(1);
   await page.getByRole("button", { name: "Refresh articles" }).click();
 
   await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible();
@@ -371,18 +403,20 @@ test("surfaces invalid-key feedback without polling refresh status", async ({
   ).toBeVisible();
   await expect(page.getByText("Refresh failed")).toBeVisible();
   await expect(page.getByText("Invalid API key. Check your key in Settings.")).toBeVisible();
-  expect(refreshStatusCalled).toBe(false);
+  expect(refreshStatusCalls).toBe(1);
 });
 
 test("attaches to an in-progress refresh and waits for the shared terminal state", async ({
   page,
 }) => {
   let refreshStatusRequests = 0;
+  let refreshStarted = false;
 
   await saveApiKey(page, "valid-key");
   await mockHomeData(page, () => [cachedArticle]);
 
   await page.route("**/api/refresh", async (route) => {
+    refreshStarted = true;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -394,6 +428,23 @@ test("attaches to an in-progress refresh and waits for the shared terminal state
   });
 
   await page.route("**/api/refresh/status", async (route) => {
+    if (!refreshStarted) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "idle",
+          message: "No refresh has been started yet.",
+          started_at: null,
+          finished_at: null,
+          new_articles: 0,
+          processed_articles: 0,
+          failed_articles: 0,
+        }),
+      });
+      return;
+    }
+
     refreshStatusRequests += 1;
 
     await route.fulfill({
@@ -429,12 +480,14 @@ test("shows a non-fatal timeout toast when polling stays in processing past 120 
   page,
 }) => {
   let refreshStatusRequests = 0;
+  let refreshStarted = false;
 
   await page.clock.install({ time: new Date("2026-03-11T10:00:00Z") });
   await saveApiKey(page, "slow-key");
   await mockHomeData(page, () => [cachedArticle]);
 
   await page.route("**/api/refresh", async (route) => {
+    refreshStarted = true;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -446,6 +499,23 @@ test("shows a non-fatal timeout toast when polling stays in processing past 120 
   });
 
   await page.route("**/api/refresh/status", async (route) => {
+    if (!refreshStarted) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "idle",
+          message: "No refresh has been started yet.",
+          started_at: null,
+          finished_at: null,
+          new_articles: 0,
+          processed_articles: 0,
+          failed_articles: 0,
+        }),
+      });
+      return;
+    }
+
     refreshStatusRequests += 1;
     await route.fulfill({
       status: 200,
@@ -477,4 +547,37 @@ test("shows a non-fatal timeout toast when polling stays in processing past 120 
   const requestsWhenTimeoutToastAppeared = refreshStatusRequests;
   await page.clock.runFor("00:05");
   expect(refreshStatusRequests).toBe(requestsWhenTimeoutToastAppeared);
+});
+
+test("keeps the last successful refresh visible after the backend tracker resets to idle", async ({
+  page,
+}) => {
+  await saveApiKey(page, "valid-key");
+  await mockHomeData(page, () => refreshedArticles);
+
+  await page.route("**/api/refresh/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "idle",
+        message: "No refresh has been started yet.",
+        started_at: null,
+        finished_at: null,
+        new_articles: 0,
+        processed_articles: 0,
+        failed_articles: 0,
+      }),
+    });
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByText("Ready to refresh", { exact: true })).toBeVisible();
+  await expect(page.getByText("Last refreshed", { exact: false })).toBeVisible();
+  await expect(
+    page.getByText(
+      "No refresh is running. Cached headlines still reflect the latest successful fetch."
+    )
+  ).toBeVisible();
 });

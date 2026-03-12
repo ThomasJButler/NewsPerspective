@@ -50,6 +50,8 @@ export interface RefreshResponse {
   message: string;
 }
 
+export type RefreshStatus = "idle" | "processing" | "completed" | "failed";
+
 export type RefreshErrorCode =
   | "missing_api_key"
   | "invalid_api_key"
@@ -66,7 +68,7 @@ export interface RefreshErrorResponse {
 }
 
 export interface RefreshStatusResponse {
-  status: string;
+  status: RefreshStatus;
   message: string;
   started_at: string | null;
   finished_at: string | null;

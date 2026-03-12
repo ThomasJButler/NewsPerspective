@@ -12,10 +12,16 @@ import {
   RefreshRequestError,
   refreshArticles,
 } from "@/lib/api";
-import type { Article, Source, StatsResponse } from "@/types/article";
+import type {
+  Article,
+  RefreshStatusResponse,
+  Source,
+  StatsResponse,
+} from "@/types/article";
 import { ApiKeySetup } from "@/components/api-key-setup";
 import { Header } from "@/components/header";
 import { GoodNewsToggle } from "@/components/good-news-toggle";
+import { RefreshStatusCard } from "@/components/refresh-status-card";
 import { SourceFilter } from "@/components/source-filter";
 import { StatsBar } from "@/components/stats-bar";
 import { ArticleFeed } from "@/components/article-feed";
@@ -35,10 +41,16 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const onboardingRef = useRef<HTMLDivElement>(null);
   const currentQueryRef = useRef(searchParams.toString());
+  const lastObservedProcessingKeyRef = useRef<string | null>(null);
+  const refreshStatusPollRef = useRef<Promise<RefreshStatusResponse | null> | null>(
+    null
+  );
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [refreshStatus, setRefreshStatus] =
+    useState<RefreshStatusResponse | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -141,10 +153,12 @@ function HomeContent() {
   );
 
   const loadMetadata = useCallback(async () => {
-    const [sourcesResult, statsResult] = await Promise.allSettled([
-      fetchSources(),
-      fetchStats(),
-    ]);
+    const [sourcesResult, statsResult, refreshStatusResult] =
+      await Promise.allSettled([
+        fetchSources(),
+        fetchStats(),
+        fetchRefreshStatus(),
+      ]);
 
     if (sourcesResult.status === "fulfilled") {
       setSources(sourcesResult.value.sources);
@@ -153,24 +167,49 @@ function HomeContent() {
     if (statsResult.status === "fulfilled") {
       setStats(statsResult.value);
     }
+
+    if (refreshStatusResult.status === "fulfilled") {
+      setRefreshStatus(refreshStatusResult.value);
+    }
   }, []);
 
   const waitForRefreshCompletion = useCallback(async () => {
-    const deadline = Date.now() + REFRESH_STATUS_TIMEOUT_MS;
-
-    while (Date.now() < deadline) {
-      const status = await fetchRefreshStatus();
-
-      if (status.status !== "processing") {
-        return status;
-      }
-
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, REFRESH_STATUS_POLL_INTERVAL_MS)
-      );
+    if (refreshStatusPollRef.current) {
+      return refreshStatusPollRef.current;
     }
 
-    return null;
+    const deadline = Date.now() + REFRESH_STATUS_TIMEOUT_MS;
+    const pollPromise = (async () => {
+      while (Date.now() < deadline) {
+        const status = await fetchRefreshStatus();
+        setRefreshStatus(status);
+
+        if (status.status === "processing") {
+          lastObservedProcessingKeyRef.current = status.started_at ?? "processing";
+        }
+
+        if (status.status !== "processing") {
+          lastObservedProcessingKeyRef.current = null;
+          return status;
+        }
+
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, REFRESH_STATUS_POLL_INTERVAL_MS)
+        );
+      }
+
+      return null;
+    })();
+
+    refreshStatusPollRef.current = pollPromise;
+
+    try {
+      return await pollPromise;
+    } finally {
+      if (refreshStatusPollRef.current === pollPromise) {
+        refreshStatusPollRef.current = null;
+      }
+    }
   }, []);
 
   const openApiKeyHelp = useCallback(
@@ -195,6 +234,69 @@ function HomeContent() {
     if (!isLoaded) return;
     void loadMetadata();
   }, [isLoaded, loadMetadata]);
+
+  useEffect(() => {
+    const processingKey =
+      refreshStatus?.status === "processing"
+        ? refreshStatus.started_at ?? "processing"
+        : null;
+
+    if (
+      !isLoaded ||
+      refreshStatus?.status !== "processing" ||
+      refreshing ||
+      processingKey === null ||
+      lastObservedProcessingKeyRef.current === processingKey
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    lastObservedProcessingKeyRef.current = processingKey;
+
+    const resumeRefreshPolling = async () => {
+      setRefreshing(true);
+
+      try {
+        const terminalStatus = await waitForRefreshCompletion();
+
+        if (!terminalStatus || cancelled) {
+          return;
+        }
+
+        await Promise.all([loadArticles(1), loadMetadata()]);
+      } catch (err) {
+        if (!cancelled) {
+          toast({
+            title: "Unable to refresh status",
+            description:
+              err instanceof Error
+                ? err.message
+                : "Failed to load the latest refresh state.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setRefreshing(false);
+        }
+      }
+    };
+
+    void resumeRefreshPolling();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isLoaded,
+    loadArticles,
+    loadMetadata,
+    refreshStatus?.started_at,
+    refreshStatus?.status,
+    refreshing,
+    waitForRefreshCompletion,
+  ]);
 
   const handleRefresh = async () => {
     if (!apiKey) {
@@ -353,6 +455,8 @@ function HomeContent() {
             onValueChange={setSourceFilter}
           />
         </div>
+
+        <RefreshStatusCard refreshStatus={refreshStatus} stats={stats} />
 
         <StatsBar stats={stats} />
 
