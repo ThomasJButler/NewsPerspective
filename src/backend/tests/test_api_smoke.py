@@ -182,6 +182,16 @@ class BackendApiSmokeTest(unittest.TestCase):
     def setUp(self) -> None:
         refresh_tracker_module.refresh_tracker.reset()
 
+    def assert_utc_offset_timestamp(
+        self,
+        value: str | None,
+        expected: datetime,
+    ) -> None:
+        self.assertIsNotNone(value)
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        self.assertEqual(parsed.utcoffset(), timedelta(0))
+        self.assertEqual(parsed, expected)
+
     def test_articles_list_returns_only_processed_rows(self) -> None:
         response = self.client.get("/api/articles")
 
@@ -198,6 +208,38 @@ class BackendApiSmokeTest(unittest.TestCase):
         )
         self.assertTrue(
             all(article["processing_status"] == "processed" for article in body["articles"])
+        )
+
+    def test_articles_list_preserves_utc_offsets_after_sqlite_round_trip(self) -> None:
+        response = self.client.get("/api/articles")
+
+        self.assertEqual(response.status_code, 200)
+        by_id = {article["id"]: article for article in response.json()["articles"]}
+
+        session = database.SessionLocal()
+        try:
+            latest_article = session.get(models.Article, "article-6")
+            earliest_article = session.get(models.Article, "article-1")
+        finally:
+            session.close()
+
+        self.assertIsNotNone(latest_article)
+        self.assertIsNotNone(earliest_article)
+        self.assert_utc_offset_timestamp(
+            by_id["article-6"]["published_at"],
+            latest_article.published_at,
+        )
+        self.assert_utc_offset_timestamp(
+            by_id["article-6"]["fetched_at"],
+            latest_article.fetched_at,
+        )
+        self.assert_utc_offset_timestamp(
+            by_id["article-1"]["published_at"],
+            earliest_article.published_at,
+        )
+        self.assert_utc_offset_timestamp(
+            by_id["article-1"]["fetched_at"],
+            earliest_article.fetched_at,
         )
 
     def test_backend_entrypoint_imports_as_top_level_module(self) -> None:
@@ -426,6 +468,22 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(body["source_name"], "source-id-only")
         self.assertTrue(body["was_rewritten"])
 
+    def test_article_detail_preserves_utc_offsets_after_sqlite_round_trip(self) -> None:
+        response = self.client.get("/api/articles/article-5")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+
+        session = database.SessionLocal()
+        try:
+            article = session.get(models.Article, "article-5")
+        finally:
+            session.close()
+
+        self.assertIsNotNone(article)
+        self.assert_utc_offset_timestamp(body["published_at"], article.published_at)
+        self.assert_utc_offset_timestamp(body["fetched_at"], article.fetched_at)
+
     def test_article_detail_masks_good_news_for_excluded_categories(self) -> None:
         session = database.SessionLocal()
         article_id = "article-sports-detail"
@@ -553,6 +611,10 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(body["good_news_count"], 2)
         self.assertEqual(body["sources_count"], 4)
         self.assertIsNotNone(body["latest_fetch"])
+        parsed_latest_fetch = datetime.fromisoformat(
+            body["latest_fetch"].replace("Z", "+00:00")
+        )
+        self.assertEqual(parsed_latest_fetch.utcoffset(), timedelta(0))
 
     def test_stats_good_news_count_excludes_sports_and_entertainment_categories(self) -> None:
         session = database.SessionLocal()
