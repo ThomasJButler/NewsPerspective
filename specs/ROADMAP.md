@@ -37,7 +37,7 @@ Rationale:
 
 Good News should be opinionated, not just a generic positive sentiment toggle.
 
-Current v2 behavior is narrower than the target state below: the shipped app still treats Good News as the backend-provided `is_good_news` flag, without these additional topic exclusions.
+Current v2 behavior now excludes `sports` and `entertainment` in the shipped backend/frontend flow, but the broader target state below is still incomplete because `politics` is not yet enforced.
 
 Planned rules:
 

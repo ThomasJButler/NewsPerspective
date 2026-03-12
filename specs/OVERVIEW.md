@@ -54,7 +54,8 @@ For future-facing product direction, content guardrails, and roadmap items that 
 - Refresh requests must include the user's key in the `X-News-Api-Key` header.
 - Read-only endpoints continue to serve cached processed articles without a NewsAPI key.
 - Each article is analysed in a single OpenAI call that returns sentiment, rewrite decision/output, TLDR, and the good-news flag.
-- The shipped good-news filter currently reflects the backend-provided `is_good_news` flag only; roadmap-only topic/content guardrails remain future work until they are promoted into the active specs and implemented.
+- The shipped good-news filter now excludes `sports` and `entertainment` stories in addition to the backend `is_good_news` signal.
+- The roadmap-only `politics` exclusion and broader topic/content guardrails remain future work until they are promoted into the active specs and implemented.
 - SQLite is the active persistence layer for v2.
 
 ## What Changed From v1

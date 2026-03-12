@@ -1,7 +1,7 @@
 # IMPLEMENTATION_PLAN.md
 
 ## 1. Current status summary and code review
-- Updated on 2026-03-12 after completing the roadmap/source-of-truth alignment slice for Good News guardrails, rerunning targeted spec validation, and refreshing the plan so the next loop can move into the first runtime exclusion work.
+- Updated on 2026-03-12 after completing the first runtime Good News exclusion slice for `sports` and `entertainment`, rerunning targeted backend/frontend validation, and narrowing the remaining work to `politics` detection plus one backend router review cleanup.
 - Priority levels used below:
   - `P1`: next-loop work that closes a user-visible product/spec gap or correctness risk.
   - `P2`: important follow-up work that depends on `P1` or needs source-of-truth alignment.
@@ -9,26 +9,28 @@
 - GitHub state checked during this planning pass:
   - `gh issue list --state open -L 20 --json number,title,state,url` returned `[]`.
   - `gh pr status` shows PR `#3 V2.0` on branch `v2.0` with checks passing.
-  - PR `#3` review history confirms the earlier refresh-path, manual-evidence, and Playwright findings are already reflected in the checked-out code. The remaining review findings still visible in source are limited to backend router cleanup: SQLAlchemy boolean comparisons still use `== True` in `src/backend/routers/articles.py` and `src/backend/routers/sources.py`, and `src/backend/routers/sources.py` still re-raises refresh-validation failures without explicit exception chaining.
+  - PR `#3` review history confirms the earlier refresh-path, manual-evidence, and Playwright findings are already reflected in the checked-out code. The remaining review finding still visible in source is limited to backend router cleanup: `src/backend/routers/sources.py` still re-raises refresh-validation failures without explicit exception chaining.
 - Validation rerun during this build slice:
-  - `sed -n '1,90p' specs/ROADMAP.md` verified the roadmap now labels the content guardrails and Good News exclusions as future-facing until promoted into active specs.
-  - `sed -n '48,230p' specs/BACKEND.md` verified the backend spec now states that `good_news_only` currently filters on stored `is_good_news` only and does not enforce roadmap-only exclusions.
-  - `sed -n '1,150p' specs/FRONTEND.md` verified the frontend spec now matches the current good-news toggle behavior without implying unshipped topic/content guardrails.
-  - `sed -n '1,80p' specs/OVERVIEW.md` verified the overview now points to roadmap guardrails as future work rather than active runtime behavior.
-  - `git diff --check -- specs/ROADMAP.md specs/BACKEND.md specs/FRONTEND.md specs/OVERVIEW.md` passed.
+  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke -v` passed (`22` tests).
+  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_refresh_processing -v` passed (`8` tests).
+  - `cd src/frontend && npm run lint` passed.
+  - `cd src/frontend && npm run typecheck` passed.
+  - `cd src/frontend && npx playwright test tests/e2e/cached-browse.spec.ts` passed (`5` tests).
+  - `git diff --check` passed.
 - Verified implementation state:
   - Phase 3 trusted-machine evidence is complete and stored in `logs/phase3_manual_integration_report.md`. The repo-local report covers cached browse without a key, invalid-key handling, accepted real-key refresh, duplicate refresh short-circuiting, refresh-status polling, terminal completion, reuse-path Playwright (`4 passed (9.3s)`), and the manual browser refresh outcome.
   - The v2 boundary is still intact. The removed root-level v1 runtime files have not reappeared; legacy reference remains limited to `READMEOLD.md` and git history.
   - The live backend contract still matches the active specs: cached read-only article endpoints work without a NewsAPI key, refresh requires `X-News-Api-Key`, and each article is processed with one AI call that returns sentiment, rewrite data, TLDR, and the good-news flag.
   - The home route now renders a persistent refresh-status card above the stats bar and feed. It combines durable `stats.latest_fetch` data with the volatile `/api/refresh/status` snapshot so `processing`, terminal `completed`, terminal `failed`, and restart-to-`idle` cases all stay visible beyond transient toasts.
   - `specs/FRONTEND.md` now documents the shipped persistent refresh-status behavior, including the restart case where `latest_fetch` survives but the in-memory refresh tracker resets to `idle`.
-  - Good News roadmap exclusions for `sports`, `entertainment`, and `politics` are still not enforced in backend classification/filtering or frontend copy. Current runtime continues to trust the AI-provided `is_good_news` flag and the existing `good_news_only` filter.
-  - The roadmap/source-of-truth mismatch is now narrowed: `specs/ROADMAP.md` explicitly treats the `war`, `suicide`, `depression`, `death`, and `grief` exclusions as future-facing guardrails, while `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md` now state that the shipped runtime still relies on the backend `is_good_news` flag and does not yet enforce those roadmap-only rules.
+  - Good News exclusions for `sports` and `entertainment` are now enforced in backend processing, API filtering, stats counting, serialized article responses, and frontend toggle copy.
+  - The remaining Good News roadmap gap is now isolated to `politics`. The current runtime still lacks an app-level topic mapping/classification rule that can exclude politics stories consistently, because NewsAPI is not currently fetched with a dedicated `politics` category.
+  - The roadmap/source-of-truth mismatch is now narrower: `specs/ROADMAP.md` records the full target state, while `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md` now describe the shipped `sports`/`entertainment` exclusions and keep `politics` plus the `war`/`suicide`/`depression`/`death`/`grief` guardrails as future work.
   - Documentation status for Phase 3 evidence is now aligned in `README.md`, `src/frontend/README.md`, and `specs/BACKEND.md`; those files point at `logs/phase3_manual_integration_report.md` instead of describing trusted-machine evidence as unfinished or separately tracked.
   - One previously tracked review nit is already resolved and should not stay open in this plan: `specs/OVERVIEW.md` already labels the ASCII architecture fence as `text`.
 
 ## 2. Active phase
-Phase 4 frontend integration cleanup and source-of-truth alignment. Phase 3 evidence is closed, the follow-up wording cleanup is now closed, and the next build loop should move to the remaining roadmap/runtime alignment work around Good News guardrails. Keep the root-level v2 boundary intact: if older behavior needs reference, use `READMEOLD.md` or git history instead of recreating removed legacy runtime files.
+Phase 4 frontend integration cleanup and source-of-truth alignment. Phase 3 evidence is closed, the refresh-status/UI wording cleanup is closed, and the remaining roadmap/runtime alignment work is now the unresolved `politics` Good News rule plus the final backend router review cleanup. Keep the root-level v2 boundary intact: if older behavior needs reference, use `READMEOLD.md` or git history instead of recreating removed legacy runtime files.
 
 ## 3. Ordered checklist with [ ] and [x]
 - [x] [P1] Re-read repo operating docs, active specs, README context, current PR review state, and the relevant backend/frontend source before updating the plan.
@@ -43,9 +45,10 @@ Phase 4 frontend integration cleanup and source-of-truth alignment. Phase 3 evid
 - [x] [P2] After the refresh-status surface lands, update `specs/FRONTEND.md` so it describes the shipped persistent refresh-status behavior instead of the current toast-only flow.
 - [x] [P2] Remove stale “remaining Phase 3 / tracked separately in the plan” wording from `README.md`, `src/frontend/README.md`, and `specs/BACKEND.md`, and point those references at `logs/phase3_manual_integration_report.md` where appropriate.
 - [x] [P2] Decide how the roadmap-only content guardrails (`war`, `suicide`, `depression`, `death`, `grief`) should be treated in v2 source-of-truth documents before changing behavior. Decision on 2026-03-12: keep them as roadmap-only future work until they are explicitly promoted into the active specs and implemented.
-- [ ] [P2] After the source-of-truth decision, enforce the Good News exclusions for `sports`, `entertainment`, and `politics` consistently in backend behavior and frontend UX copy.
+- [x] [P2] After the source-of-truth decision, enforce the supported Good News exclusions for `sports` and `entertainment` consistently in backend behavior and frontend UX copy.
 - [ ] [P2] Resolve the `politics` detection rule before implementing that exclusion. `src/backend/services/news_fetcher.py` does not fetch a `politics` category from NewsAPI today, so this needs app-level topic mapping or broader topic classification rather than a simple fetch-category toggle.
-- [ ] [P3] Apply the remaining backend router review cleanup by replacing SQLAlchemy boolean filters that still use `== True` with `.is_(True)` in `src/backend/routers/articles.py` and `src/backend/routers/sources.py`.
+- [ ] [P2] After the `politics` detection rule is explicit, enforce the remaining Good News `politics` exclusion consistently in backend behavior and frontend UX copy.
+- [x] [P3] Apply the remaining backend router review cleanup by replacing SQLAlchemy boolean filters that still use `== True` with `.is_(True)` in `src/backend/routers/articles.py` and `src/backend/routers/sources.py`.
 - [ ] [P3] Make refresh-validation exception chaining explicit in `src/backend/routers/sources.py` (`from exc` or `from None`) so the remaining review finding there is fully closed.
 
 ## 4. Notes / discoveries that matter for the next loop
@@ -55,15 +58,16 @@ Phase 4 frontend integration cleanup and source-of-truth alignment. Phase 3 evid
 - `src/frontend/app/page.tsx` now fetches `/api/refresh/status` on load to seed the persistent refresh-status card. Any future mocked refresh tests need to account for that initial request before user-triggered refresh polling begins.
 - Hidden dependency for the refresh-status UI: `/api/refresh/status` is process-local and resets on backend restart, while `/api/stats.latest_fetch` is persisted in SQLite. The UI should treat `latest_fetch` as durable history and the refresh-status endpoint as volatile process state.
 - Another refresh-status caveat: failed refresh state is also in-memory only. If the backend restarts after a failure, the UI can still show the last successful fetch time from `latest_fetch`, but it cannot reconstruct a durable failed refresh history without new backend persistence.
-- Hidden dependency for the Good News exclusions: `sports` and `entertainment` can be enforced against current category data, but `politics` cannot be implemented by simply removing a NewsAPI category because the fetcher never receives one today.
+- Hidden dependency for the Good News exclusions: `sports` and `entertainment` are now enforced against current category data, but `politics` still cannot be implemented by simply removing a NewsAPI category because the fetcher never receives one today.
 - Source-of-truth decision made on 2026-03-12: roadmap guardrails stay future-facing until explicitly promoted into `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`. Do not make the runtime or active docs imply those exclusions are already enforced.
 - `specs/OVERVIEW.md` already contains the `text` fence label. Do not reopen that resolved review nit in later planning passes.
 - In this Codex shell, `npm run lint` and `npm run typecheck` print `nvm` help text before the normal npm output but still exit `0`. Treat that as an environment quirk unless a repo-local cause is found.
+- Backend validation caveat: `src.backend.tests.test_api_smoke` and `src.backend.tests.test_refresh_processing` both set `DATABASE_URL` at module import time. Running them together in one `python -m unittest ...` process can make the second module inherit the first module's engine and fail with a readonly SQLite database; run them as separate commands unless the test harness is refactored.
 - Keep legacy handling conservative. If a future slice needs v1 behavior for reference, inspect `READMEOLD.md` or git history instead of recreating deleted root-level runtime files.
 
 ## 5. Next recommended build slice
-Implement the first runtime Good News exclusions that are already supported by current category data:
+Resolve the remaining `politics` Good News exclusion gap without regressing the newly shipped `sports` and `entertainment` behavior:
 
-1. Re-read `specs/ROADMAP.md` alongside the active backend/frontend specs and isolate which exclusions are roadmap intent versus current product contract.
-2. Enforce the `sports` and `entertainment` Good News exclusions in the backend path that derives/filters `is_good_news` results, and update the frontend UX copy if it currently implies a broader positive-only definition.
-3. Leave `politics` as a separate follow-up unless the loop also introduces app-level topic detection; the current fetcher category list is not sufficient to implement that rule cleanly.
+1. Re-read `specs/ROADMAP.md` and the active backend/frontend specs, then make the `politics` detection rule explicit before changing runtime behavior.
+2. Decide whether that rule belongs in refresh-time topic derivation, a reusable backend topic helper, or a broader AI/topic-classification path; the current NewsAPI category list alone is not enough.
+3. If the rule can be implemented cleanly in one slice, enforce it in processing/filtering/tests and update frontend/spec copy; otherwise record the chosen direction in this plan and take the remaining backend router exception-chaining cleanup next.

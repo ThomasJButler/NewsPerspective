@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Article
 from ..schemas import ArticleListResponse, ArticleResponse
+from ..utils.good_news import apply_good_news_rules, good_news_filter_expression
 from ..utils.source_normalization import (
     clean_source_value,
     normalized_source_label,
@@ -20,7 +21,11 @@ def _serialize_article(article: Article) -> ArticleResponse:
             "source_name": normalized_source_label(
                 article.source_name,
                 article.source_id,
-            )
+            ),
+            "is_good_news": apply_good_news_rules(
+                article.is_good_news,
+                article.category,
+            ),
         }
     )
 
@@ -38,7 +43,7 @@ def get_articles(
     query = db.query(Article).filter(Article.processing_status == "processed")
 
     if good_news_only:
-        query = query.filter(Article.is_good_news == True)
+        query = query.filter(good_news_filter_expression(Article))
 
     normalized_source = clean_source_value(source)
     if normalized_source is not None:

@@ -316,6 +316,59 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(body["total"], 2)
         self.assertEqual([article["id"] for article in body["articles"]], ["article-4", "article-2"])
 
+    def test_good_news_filter_excludes_sports_and_entertainment_categories(self) -> None:
+        session = database.SessionLocal()
+        inserted_ids = ["article-sports-good", "article-entertainment-good"]
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add_all(
+                [
+                    models.Article(
+                        id="article-sports-good",
+                        original_title="Sports win",
+                        original_description="Sports story flagged as good news.",
+                        source_name="Sports Desk",
+                        source_id="sports-desk",
+                        url="https://example.com/article-sports-good",
+                        published_at=now,
+                        fetched_at=now,
+                        is_good_news=True,
+                        category="sports",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="article-entertainment-good",
+                        original_title="Entertainment premiere",
+                        original_description="Entertainment story flagged as good news.",
+                        source_name="Culture Desk",
+                        source_id="culture-desk",
+                        url="https://example.com/article-entertainment-good",
+                        published_at=now,
+                        fetched_at=now,
+                        is_good_news=True,
+                        category="entertainment",
+                        processing_status="processed",
+                    ),
+                ]
+            )
+            session.commit()
+
+            response = self.client.get("/api/articles", params={"good_news_only": "true"})
+
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+
+            self.assertEqual(body["total"], 2)
+            self.assertEqual([article["id"] for article in body["articles"]], ["article-6", "article-2"])
+        finally:
+            for article_id in inserted_ids:
+                article = session.get(models.Article, article_id)
+                if article is not None:
+                    session.delete(article)
+            session.commit()
+            session.close()
+
     def test_articles_list_returns_normalized_source_labels(self) -> None:
         response = self.client.get("/api/articles")
 
@@ -335,6 +388,40 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(body["id"], "article-5")
         self.assertEqual(body["source_name"], "source-id-only")
         self.assertTrue(body["was_rewritten"])
+
+    def test_article_detail_masks_good_news_for_excluded_categories(self) -> None:
+        session = database.SessionLocal()
+        article_id = "article-sports-detail"
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add(
+                models.Article(
+                    id=article_id,
+                    original_title="Sports feature",
+                    original_description="Sports feature marked as good news in storage.",
+                    source_name="Sports Desk",
+                    source_id="sports-desk",
+                    url="https://example.com/article-sports-detail",
+                    published_at=now,
+                    fetched_at=now,
+                    is_good_news=True,
+                    category="sports",
+                    processing_status="processed",
+                )
+            )
+            session.commit()
+
+            response = self.client.get(f"/api/articles/{article_id}")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(response.json()["is_good_news"])
+        finally:
+            article = session.get(models.Article, article_id)
+            if article is not None:
+                session.delete(article)
+            session.commit()
+            session.close()
 
     def test_article_detail_returns_404_for_pending_article(self) -> None:
         response = self.client.get("/api/articles/article-3")
@@ -395,6 +482,56 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(body["good_news_count"], 2)
         self.assertEqual(body["sources_count"], 4)
         self.assertIsNotNone(body["latest_fetch"])
+
+    def test_stats_good_news_count_excludes_sports_and_entertainment_categories(self) -> None:
+        session = database.SessionLocal()
+        inserted_ids = ["article-sports-stats", "article-entertainment-stats"]
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add_all(
+                [
+                    models.Article(
+                        id="article-sports-stats",
+                        original_title="Sports stats row",
+                        original_description="Sports article that should not count as good news.",
+                        source_name="Sports Desk",
+                        source_id="sports-desk",
+                        url="https://example.com/article-sports-stats",
+                        published_at=now,
+                        fetched_at=now,
+                        is_good_news=True,
+                        category="sports",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="article-entertainment-stats",
+                        original_title="Entertainment stats row",
+                        original_description="Entertainment article that should not count as good news.",
+                        source_name="Culture Desk",
+                        source_id="culture-desk",
+                        url="https://example.com/article-entertainment-stats",
+                        published_at=now,
+                        fetched_at=now,
+                        is_good_news=True,
+                        category="entertainment",
+                        processing_status="processed",
+                    ),
+                ]
+            )
+            session.commit()
+
+            response = self.client.get("/api/stats")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["good_news_count"], 2)
+        finally:
+            for article_id in inserted_ids:
+                article = session.get(models.Article, article_id)
+                if article is not None:
+                    session.delete(article)
+            session.commit()
+            session.close()
 
     def test_refresh_status_starts_idle(self) -> None:
         response = self.client.get("/api/refresh/status")

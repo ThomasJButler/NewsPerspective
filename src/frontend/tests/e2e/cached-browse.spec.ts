@@ -51,6 +51,9 @@ test("shows seeded cached articles without a saved key", async ({ page }, testIn
       name: "NHS expands virtual wards to ease hospital demand",
     })
   ).toBeVisible();
+  await expect(
+    page.getByText("Excludes sports and entertainment stories.")
+  ).toBeVisible();
   await expect(page.getByText(/articles processed/)).toBeVisible();
 
   await captureScreenshot(page, testInfo, "cached-browse-home.png");

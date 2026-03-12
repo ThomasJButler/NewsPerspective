@@ -20,6 +20,7 @@ from ..schemas import (
 from ..services.article_processor import process_new_articles_background
 from ..services.news_fetcher import DEFAULT_NEWSAPI_COUNTRY
 from ..services.refresh_tracker import refresh_tracker
+from ..utils.good_news import good_news_filter_expression
 from ..utils.source_normalization import source_id_expression, source_label_expression
 
 router = APIRouter(prefix="/api", tags=["sources"])
@@ -83,14 +84,17 @@ def get_stats(db: Session = Depends(get_db)):
 
     rewritten_count = (
         db.query(func.count(Article.id))
-        .filter(Article.processing_status == "processed", Article.was_rewritten == True)
+        .filter(Article.processing_status == "processed", Article.was_rewritten.is_(True))
         .scalar()
         or 0
     )
 
     good_news_count = (
         db.query(func.count(Article.id))
-        .filter(Article.processing_status == "processed", Article.is_good_news == True)
+        .filter(
+            Article.processing_status == "processed",
+            good_news_filter_expression(Article),
+        )
         .scalar()
         or 0
     )

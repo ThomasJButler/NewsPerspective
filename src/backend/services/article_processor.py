@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Article
 from ..utils.logger import setup_logger
+from ..utils.good_news import apply_good_news_rules
 from .ai_service import AIService
 from .news_fetcher import NewsFetchError, NewsFetcher
 
@@ -83,7 +84,10 @@ class ArticleProcessor:
                 article.was_rewritten = result.get("needs_rewrite", False)
                 article.original_sentiment = result.get("sentiment")
                 article.sentiment_score = result.get("sentiment_score")
-                article.is_good_news = result.get("is_good_news", False)
+                article.is_good_news = apply_good_news_rules(
+                    result.get("is_good_news", False),
+                    article.category,
+                )
                 article.processing_status = "processed"
 
                 db.commit()

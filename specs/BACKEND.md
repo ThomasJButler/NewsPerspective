@@ -62,8 +62,9 @@ Query params:
 - `search` optional string; matches `original_title` or `rewritten_title` with `ILIKE`
 
 Current `good_news_only` semantics:
-- Filters on stored `is_good_news = true` only.
-- Does not yet enforce roadmap-only Good News exclusions for `sports`, `entertainment`, or `politics`.
+- Filters on the effective Good News set only.
+- Excludes `sports` and `entertainment` stories even if the stored AI result marked them as good news.
+- Does not yet enforce the roadmap-only `politics` exclusion.
 - Does not yet enforce the roadmap-only content guardrails for `war`, `suicide`, `depression`, `death`, or `grief`.
 
 Ordering:
@@ -203,8 +204,9 @@ Retry behavior:
 6. Marks per-article AI failures as `failed` and continues
 
 Current classification boundary:
-- The backend persists the single-call AI `is_good_news` result as-is.
-- It does not yet apply a second pass that removes roadmap-only categories/topics from the Good News set.
+- The backend persists the single-call AI `is_good_news` result after applying the shipped topic exclusions for `sports` and `entertainment`.
+- Article responses and Good News counts also apply those `sports` and `entertainment` exclusions so older cached rows do not leak through the Good News UX.
+- It does not yet apply the roadmap-only `politics` exclusion.
 - It does not yet apply roadmap-only guardrails that exclude `war`, `suicide`, `depression`, `death`, or `grief` stories from ingestion or browse results.
 
 If `OPENAI_API_KEY` is missing or OpenAI returns unusable output:
@@ -230,5 +232,5 @@ Notes:
 ## Known limitations
 
 - Refresh state is per-process and resets on restart.
-- The current runtime still trusts the AI-provided `is_good_news` flag; roadmap-only content guardrails and topic exclusions remain unimplemented future work.
+- The current runtime excludes `sports` and `entertainment` from Good News, but the broader roadmap-only `politics` exclusion and content guardrails remain future work.
 - Trusted-machine manual evidence for the current real-key refresh flow is recorded in `logs/phase3_manual_integration_report.md`.
