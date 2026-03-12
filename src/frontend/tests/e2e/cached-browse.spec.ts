@@ -33,6 +33,31 @@ const stubbedArticle = {
   processing_status: "processed",
 };
 
+type TestArticle = Omit<typeof stubbedArticle, "rewritten_title" | "tldr"> & {
+  rewritten_title: string | null;
+  tldr: string | null;
+};
+
+function buildArticle(overrides: Partial<TestArticle> = {}): TestArticle {
+  return {
+    ...stubbedArticle,
+    rewritten_title: null,
+    tldr: "Stubbed article summary for deterministic frontend coverage.",
+    was_rewritten: false,
+    ...overrides,
+  };
+}
+
+function buildArticleListResponse(article: TestArticle = stubbedArticle) {
+  return {
+    articles: [article],
+    total: 1,
+    page: 1,
+    per_page: 20,
+    has_more: false,
+  };
+}
+
 test("shows seeded cached articles without a saved key", async ({ page }, testInfo) => {
   await page.goto("/");
 
@@ -212,13 +237,7 @@ test("falls back to the original headline when rewritten text is blank", async (
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        articles: [stubbedArticle],
-        total: 1,
-        page: 1,
-        per_page: 20,
-        has_more: false,
-      }),
+      body: JSON.stringify(buildArticleListResponse(stubbedArticle)),
     });
   });
 
@@ -261,4 +280,93 @@ test("falls back to the original headline when rewritten text is blank", async (
     })
   ).toBeVisible();
   await expect(page.getByText("Original headline", { exact: true })).toHaveCount(0);
+});
+
+test("keeps the newest search results when an older article response finishes later", async ({
+  page,
+}) => {
+  const initialArticle = buildArticle({
+    id: "initial-story",
+    original_title: "Initial cached article",
+    url: "https://example.com/initial-story",
+  });
+  const staleArticle = buildArticle({
+    id: "stale-story",
+    original_title: "Stale search result should not overwrite the feed",
+    url: "https://example.com/stale-story",
+  });
+  const freshArticle = buildArticle({
+    id: "fresh-story",
+    original_title: "Fresh search result should stay visible",
+    url: "https://example.com/fresh-story",
+  });
+
+  await page.route("**/api/articles?**", async (route) => {
+    const url = new URL(route.request().url());
+    const search = url.searchParams.get("search");
+
+    if (search === "nhs") {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(buildArticleListResponse(staleArticle)),
+      });
+      return;
+    }
+
+    if (search === "solar") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(buildArticleListResponse(freshArticle)),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildArticleListResponse(initialArticle)),
+    });
+  });
+
+  await page.goto("/");
+
+  const searchBox = page.getByRole("searchbox", { name: "Search articles" });
+  const staleHeading = page.getByRole("heading", {
+    level: 2,
+    name: "Stale search result should not overwrite the feed",
+  });
+  const freshHeading = page.getByRole("heading", {
+    level: 2,
+    name: "Fresh search result should stay visible",
+  });
+
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Initial cached article" })
+  ).toBeVisible();
+
+  const staleRequest = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return (
+      url.pathname === "/api/articles" &&
+      url.searchParams.get("search") === "nhs"
+    );
+  });
+
+  await searchBox.fill("nhs");
+  await staleRequest;
+  await expect(page).toHaveURL(/search=nhs/);
+
+  await searchBox.fill("solar");
+
+  await expect(page).toHaveURL(/search=solar/);
+  await expect(freshHeading).toBeVisible();
+  await expect(staleHeading).toHaveCount(0);
+
+  await page.waitForTimeout(3000);
+
+  await expect(freshHeading).toBeVisible();
+  await expect(staleHeading).toHaveCount(0);
 });

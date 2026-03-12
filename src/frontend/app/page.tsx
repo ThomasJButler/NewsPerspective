@@ -35,12 +35,31 @@ const REFRESH_STATUS_POLL_INTERVAL_MS = 1000;
 const REFRESH_STATUS_TIMEOUT_MS = 120000;
 const DUPLICATE_REFRESH_MESSAGE = "Refresh already in progress.";
 
+interface ArticleQueryState {
+  search?: string;
+  good_news_only?: boolean;
+  source?: string;
+}
+
+function articleQueryMatches(
+  left: ArticleQueryState,
+  right: ArticleQueryState
+) {
+  return (
+    left.search === right.search &&
+    left.good_news_only === right.good_news_only &&
+    left.source === right.source
+  );
+}
+
 function HomeContent() {
   const { apiKey, setApiKey, clearApiKey, hasApiKey, isLoaded } = useApiKey();
   const router = useRouter();
   const searchParams = useSearchParams();
   const onboardingRef = useRef<HTMLDivElement>(null);
   const currentQueryRef = useRef(searchParams.toString());
+  const articleQueryRef = useRef<ArticleQueryState>({});
+  const latestArticleRequestIdRef = useRef(0);
   const lastObservedProcessingKeyRef = useRef<string | null>(null);
   const refreshStatusPollRef = useRef<Promise<RefreshStatusResponse | null> | null>(
     null
@@ -77,6 +96,14 @@ function HomeContent() {
     sources.some((source) => source.source_name === sourceFilter)
       ? sourceFilter
       : "all";
+  const currentArticleQuery: ArticleQueryState = {
+    search: debouncedSearch || undefined,
+    good_news_only: goodNewsOnly || undefined,
+    source: effectiveSourceFilter !== "all" ? effectiveSourceFilter : undefined,
+  };
+  const currentArticleQueryKey = JSON.stringify(currentArticleQuery);
+
+  articleQueryRef.current = currentArticleQuery;
 
   useEffect(() => {
     currentQueryRef.current = searchParams.toString();
@@ -123,34 +150,49 @@ function HomeContent() {
     searchValue,
   ]);
 
-  const loadArticles = useCallback(
-    async (pageNum: number, append = false) => {
-      setLoading(true);
-      try {
-        const data = await fetchArticles({
-          page: pageNum,
-          search: debouncedSearch || undefined,
-          good_news_only: goodNewsOnly || undefined,
-          source:
-            effectiveSourceFilter !== "all" ? effectiveSourceFilter : undefined,
-        });
-        setArticles((prev) =>
-          append ? [...prev, ...data.articles] : data.articles
-        );
-        setHasMore(data.has_more);
-        setPage(data.page);
-      } catch (err) {
-        toast({
-          title: "Failed to load articles",
-          description: err instanceof Error ? err.message : "Please try again later.",
-          variant: "destructive",
-        });
-      } finally {
+  const loadArticles = useCallback(async (pageNum: number, append = false) => {
+    const requestId = ++latestArticleRequestIdRef.current;
+    const requestQuery = articleQueryRef.current;
+
+    setLoading(true);
+
+    try {
+      const data = await fetchArticles({
+        page: pageNum,
+        ...requestQuery,
+      });
+
+      if (
+        latestArticleRequestIdRef.current !== requestId ||
+        !articleQueryMatches(articleQueryRef.current, requestQuery)
+      ) {
+        return;
+      }
+
+      setArticles((prev) =>
+        append ? [...prev, ...data.articles] : data.articles
+      );
+      setHasMore(data.has_more);
+      setPage(data.page);
+    } catch (err) {
+      if (
+        latestArticleRequestIdRef.current !== requestId ||
+        !articleQueryMatches(articleQueryRef.current, requestQuery)
+      ) {
+        return;
+      }
+
+      toast({
+        title: "Failed to load articles",
+        description: err instanceof Error ? err.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      if (latestArticleRequestIdRef.current === requestId) {
         setLoading(false);
       }
-    },
-    [debouncedSearch, effectiveSourceFilter, goodNewsOnly]
-  );
+    }
+  }, []);
 
   const loadMetadata = useCallback(async () => {
     const [sourcesResult, statsResult, refreshStatusResult] =
@@ -228,7 +270,7 @@ function HomeContent() {
     if (isLoaded) {
       loadArticles(1);
     }
-  }, [isLoaded, loadArticles]);
+  }, [currentArticleQueryKey, isLoaded, loadArticles]);
 
   useEffect(() => {
     if (!isLoaded) return;
