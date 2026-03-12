@@ -88,8 +88,11 @@ python -m src.backend.scripts.seed_manual_integration_data
 
 ## Trusted-machine refresh evidence
 
-To finish the remaining Phase 3 refresh evidence on a trusted local machine,
-export `NEWS_API_KEY` in the current shell, keep the backend on
+Phase 3 trusted-machine refresh evidence was captured on 2026-03-12 and is
+stored in `logs/phase3_manual_integration_report.md`.
+
+If you need to refresh that artifact on a trusted local machine, export
+`NEWS_API_KEY` in the current shell, keep the backend on
 `http://localhost:8000` and the frontend on `http://localhost:3000`, then
 capture the backend report:
 
@@ -112,9 +115,9 @@ cd src/frontend
 npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts
 ```
 
-Then open `http://localhost:3000` and complete the frontend follow-up section in
-the generated report with the exact cached-browse and refresh UI outcomes you
-observed.
+Then open `http://localhost:3000` and compare the cached-browse and refresh UI
+outcomes against `logs/phase3_manual_integration_report.md`, or update the
+artifact if you are intentionally replacing the recorded evidence.
 
 ## Docker app flow
 

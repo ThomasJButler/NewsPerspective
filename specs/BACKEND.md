@@ -220,4 +220,4 @@ Notes:
 ## Known limitations
 
 - Refresh state is per-process and resets on restart.
-- Trusted-machine manual evidence for the current real-key refresh flow is still tracked separately in `IMPLEMENTATION_PLAN.md`.
+- Trusted-machine manual evidence for the current real-key refresh flow is recorded in `logs/phase3_manual_integration_report.md`.

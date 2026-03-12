@@ -36,7 +36,9 @@ npm run test:e2e:reuse
 
 That script expects your existing frontend at `http://127.0.0.1:3000` and the backend behind its normal `/api/*` proxy path.
 
-For the remaining trusted-machine refresh evidence flow, run only the refresh-path spec against that existing local stack:
+Phase 3 trusted-machine refresh evidence is recorded in `../../logs/phase3_manual_integration_report.md`.
+
+If you need to refresh that evidence on a trusted local machine, run only the refresh-path spec against that existing local stack:
 
 ```bash
 npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts
@@ -51,7 +53,7 @@ python -m src.backend.scripts.capture_manual_integration_evidence \
   --output /tmp/phase3-manual-integration.md
 ```
 
-The Playwright spec still uses mocked API responses. Its role in this trusted-machine pass is to prove the documented browser entrypoint works outside the sandbox while the helper and manual browser notes capture the real-key backend behavior.
+The Playwright spec still uses mocked API responses. Its role in this trusted-machine evidence flow is to prove the documented browser entrypoint works outside the sandbox while the helper and manual browser notes capture the real-key backend behavior.
 The helper reads `NEWS_API_KEY` from the caller environment so the real key stays out of argv during local runs.
 
 Successful runs emit named screenshots under `output/playwright/test-results/`, including:
