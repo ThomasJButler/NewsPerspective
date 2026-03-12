@@ -1,6 +1,6 @@
 # Frontend
 
-Next.js frontend for NewsPerspective v2. The app proxies `/api/*` requests to the FastAPI backend, supports cached browsing without a saved NewsAPI key, and includes seeded Playwright coverage for the cached-browse flow.
+Next.js frontend for NewsPerspective v2. The app proxies `/api/*` requests to the FastAPI backend, supports cached browsing without a saved NewsAPI key, and includes seeded Playwright coverage for both the cached-browse and refresh-path flows.
 
 ## Local run
 

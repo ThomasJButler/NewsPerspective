@@ -178,9 +178,7 @@ Retry behavior:
 - `429` responses back off with `2 ** attempt` seconds between retries.
 - Other `requests` transport failures also retry with the same backoff.
 - After retries are exhausted, the refresh raises `NewsFetchError`.
-
-Known evidence gap:
-- The retry and multi-category partial-failure paths are still only lightly covered in tests and remain tracked in `IMPLEMENTATION_PLAN.md`.
+ - Backend coverage includes retry exhaustion and multi-category partial-failure handling in `src/backend/tests/test_refresh_processing.py`.
 
 ### Article processing
 

@@ -17,7 +17,7 @@ NewsPerspective helps readers compare sensational framing against a calmer, fact
 
 ## Current Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────┐
 │ Frontend (Next.js 16 + React 19 + ShadCN UI)            │
 │ - Cached article browsing                               │

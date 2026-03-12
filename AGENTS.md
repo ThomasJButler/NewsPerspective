@@ -56,6 +56,8 @@ uvicorn src.backend.main:app --reload --port 8000
 ```bash
 cd src/frontend
 npm install
+npm run lint
+npm run typecheck
 npm run dev
 ```
 
