@@ -30,6 +30,11 @@ import {
   type ApiKeyFeedback,
 } from "@/components/settings-dialog";
 import { toast } from "@/hooks/use-toast";
+import {
+  getNextObservedProcessingKey,
+  getRefreshProcessingObservationKey,
+  shouldResumeRefreshPolling,
+} from "@/lib/refresh-status";
 
 const REFRESH_STATUS_POLL_INTERVAL_MS = 1000;
 const REFRESH_STATUS_TIMEOUT_MS = 120000;
@@ -61,6 +66,7 @@ function HomeContent() {
   const articleQueryRef = useRef<ArticleQueryState>({});
   const latestArticleRequestIdRef = useRef(0);
   const lastObservedProcessingKeyRef = useRef<string | null>(null);
+  const lastTimedOutRefreshStatusRef = useRef<RefreshStatusResponse | null>(null);
   const refreshStatusPollRef = useRef<Promise<RefreshStatusResponse | null> | null>(
     null
   );
@@ -222,16 +228,19 @@ function HomeContent() {
 
     const deadline = Date.now() + REFRESH_STATUS_TIMEOUT_MS;
     const pollPromise = (async () => {
+      let latestObservedStatus: RefreshStatusResponse | null = null;
+
       while (Date.now() < deadline) {
         const status = await fetchRefreshStatus();
+        latestObservedStatus = status;
         setRefreshStatus(status);
+        lastTimedOutRefreshStatusRef.current = null;
 
-        if (status.status === "processing") {
-          lastObservedProcessingKeyRef.current = status.started_at ?? "processing";
-        }
+        lastObservedProcessingKeyRef.current = getNextObservedProcessingKey({
+          refreshStatus: status,
+        });
 
         if (status.status !== "processing") {
-          lastObservedProcessingKeyRef.current = null;
           return status;
         }
 
@@ -240,6 +249,11 @@ function HomeContent() {
         );
       }
 
+      lastObservedProcessingKeyRef.current = getNextObservedProcessingKey({
+        refreshStatus: null,
+        timedOut: true,
+      });
+      lastTimedOutRefreshStatusRef.current = latestObservedStatus;
       return null;
     })();
 
@@ -278,23 +292,25 @@ function HomeContent() {
   }, [isLoaded, loadMetadata]);
 
   useEffect(() => {
-    const processingKey =
-      refreshStatus?.status === "processing"
-        ? refreshStatus.started_at ?? "processing"
-        : null;
+    const processingKey = getRefreshProcessingObservationKey(refreshStatus);
 
     if (
-      !isLoaded ||
-      refreshStatus?.status !== "processing" ||
-      refreshing ||
-      processingKey === null ||
-      lastObservedProcessingKeyRef.current === processingKey
+      !shouldResumeRefreshPolling({
+        isLoaded,
+        refreshStatus,
+        refreshing,
+        lastObservedProcessingKey: lastObservedProcessingKeyRef.current,
+        timedOutObservationActive:
+          refreshStatus === lastTimedOutRefreshStatusRef.current,
+      }) ||
+      processingKey === null
     ) {
       return;
     }
 
     let cancelled = false;
     lastObservedProcessingKeyRef.current = processingKey;
+    lastTimedOutRefreshStatusRef.current = null;
 
     const resumeRefreshPolling = async () => {
       setRefreshing(true);
@@ -334,8 +350,7 @@ function HomeContent() {
     isLoaded,
     loadArticles,
     loadMetadata,
-    refreshStatus?.started_at,
-    refreshStatus?.status,
+    refreshStatus,
     refreshing,
     waitForRefreshCompletion,
   ]);
