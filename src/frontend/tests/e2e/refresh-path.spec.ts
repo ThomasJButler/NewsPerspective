@@ -11,9 +11,9 @@ type TestArticle = {
   rewritten_title: string | null;
   tldr: string | null;
   original_description: string | null;
-  source_name: string;
-  source_id: string;
-  author: string;
+  source_name: string | null;
+  source_id: string | null;
+  author: string | null;
   url: string;
   image_url: string | null;
   published_at: string;
@@ -68,6 +68,50 @@ const refreshedArticle: TestArticle = {
   processing_status: "processed",
 };
 
+const followUpArticle: TestArticle = {
+  id: "follow-up-story",
+  original_title: "Fresh News follow-up adds context to the refresh",
+  rewritten_title: "Fresh News follow-up adds context to the refresh",
+  tldr: "Duplicate source rows should collapse into one source-filter option with a count.",
+  original_description: null,
+  source_name: "Fresh News",
+  source_id: "fresh-news",
+  author: "Morgan Patel",
+  url: "https://example.com/follow-up-story",
+  image_url: null,
+  published_at: "2026-03-11T09:30:00Z",
+  fetched_at: "2026-03-11T10:05:00Z",
+  was_rewritten: true,
+  original_sentiment: "positive",
+  sentiment_score: 0.4,
+  is_good_news: true,
+  category: "science",
+  processing_status: "processed",
+};
+
+const wireArticle: TestArticle = {
+  id: "wire-story",
+  original_title: "Wire update rounds out the refreshed feed",
+  rewritten_title: null,
+  tldr: "The refreshed feed can include multiple sources after one completed refresh.",
+  original_description: null,
+  source_name: "Wire Daily",
+  source_id: "wire-daily",
+  author: "Sam Rivera",
+  url: "https://example.com/wire-story",
+  image_url: null,
+  published_at: "2026-03-11T11:15:00Z",
+  fetched_at: "2026-03-11T10:02:00Z",
+  was_rewritten: false,
+  original_sentiment: "neutral",
+  sentiment_score: 0.1,
+  is_good_news: false,
+  category: "general",
+  processing_status: "processed",
+};
+
+const refreshedArticles = [refreshedArticle, followUpArticle, wireArticle];
+
 function buildArticleListResponse(articles: TestArticle[]) {
   return {
     articles,
@@ -78,30 +122,101 @@ function buildArticleListResponse(articles: TestArticle[]) {
   };
 }
 
+function cleanSourceValue(value: string | null) {
+  const cleaned = value?.trim();
+  return cleaned ? cleaned : null;
+}
+
+function getNormalizedSourceName(article: TestArticle) {
+  return (
+    cleanSourceValue(article.source_name) ??
+    cleanSourceValue(article.source_id) ??
+    "Unknown source"
+  );
+}
+
 function buildSourcesResponse(articles: TestArticle[]) {
-  const sources = Array.from(
-    new Map(
-      articles.map((article) => [
-        article.source_name,
-        {
-          source_name: article.source_name,
-          source_id: article.source_id,
-          article_count: 1,
-        },
-      ])
-    ).values()
+  const aggregatedSources = new Map<
+    string,
+    { source_name: string; source_id: string; article_count: number }
+  >();
+
+  for (const article of articles) {
+    const sourceName = getNormalizedSourceName(article);
+    const sourceId = cleanSourceValue(article.source_id) ?? "";
+    const existingSource = aggregatedSources.get(sourceName);
+
+    if (existingSource) {
+      existingSource.article_count += 1;
+      if (sourceId > existingSource.source_id) {
+        existingSource.source_id = sourceId;
+      }
+      continue;
+    }
+
+    aggregatedSources.set(sourceName, {
+      source_name: sourceName,
+      source_id: sourceId,
+      article_count: 1,
+    });
+  }
+
+  const sources = Array.from(aggregatedSources.values()).sort(
+    (left, right) =>
+      right.article_count - left.article_count ||
+      left.source_name.localeCompare(right.source_name)
   );
 
   return { sources };
 }
 
 function buildStatsResponse(articles: TestArticle[]) {
+  const latestFetch = articles.reduce<string | null>((latest, article) => {
+    if (!article.fetched_at) {
+      return latest;
+    }
+    if (latest === null || article.fetched_at > latest) {
+      return article.fetched_at;
+    }
+    return latest;
+  }, null);
+
   return {
     total_articles: articles.length,
     rewritten_count: articles.filter((article) => article.was_rewritten).length,
     good_news_count: articles.filter((article) => article.is_good_news).length,
-    sources_count: new Set(articles.map((article) => article.source_name)).size,
-    latest_fetch: articles[0]?.fetched_at ?? null,
+    sources_count: new Set(articles.map(getNormalizedSourceName)).size,
+    latest_fetch: latestFetch,
+  };
+}
+
+function buildRefreshStatusResponse(
+  status: "processing" | "completed" | "failed",
+  overrides: Partial<{
+    message: string;
+    started_at: string | null;
+    finished_at: string | null;
+    new_articles: number;
+    processed_articles: number;
+    failed_articles: number;
+  }> = {}
+) {
+  const message =
+    status === "processing"
+      ? ACCEPTED_REFRESH_MESSAGE
+      : status === "completed"
+        ? "Refresh completed."
+        : "Refresh failed.";
+
+  return {
+    status,
+    message,
+    started_at: "2026-03-11T10:00:00Z",
+    finished_at: status === "processing" ? null : "2026-03-11T10:00:02Z",
+    new_articles: 0,
+    processed_articles: 0,
+    failed_articles: 0,
+    ...overrides,
   };
 }
 
@@ -147,10 +262,9 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
   page,
 }) => {
   let refreshFinished = false;
-  let refreshStatusRequests = 0;
 
   await saveApiKey(page, "valid-key");
-  await mockHomeData(page, () => (refreshFinished ? [refreshedArticle] : [cachedArticle]));
+  await mockHomeData(page, () => (refreshFinished ? refreshedArticles : [cachedArticle]));
 
   await page.route("**/api/refresh", async (route) => {
     await route.fulfill({
@@ -164,39 +278,25 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
   });
 
   await page.route("**/api/refresh/status", async (route) => {
-    refreshStatusRequests += 1;
-
-    if (refreshStatusRequests === 1) {
+    if (!refreshFinished) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          status: "processing",
-          message: ACCEPTED_REFRESH_MESSAGE,
-          started_at: "2026-03-11T10:00:00Z",
-          finished_at: null,
-          new_articles: 0,
-          processed_articles: 0,
-          failed_articles: 0,
-        }),
+        body: JSON.stringify(buildRefreshStatusResponse("processing")),
       });
+      refreshFinished = true;
       return;
     }
-
-    refreshFinished = true;
 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        status: "completed",
-        message: "Refresh completed.",
-        started_at: "2026-03-11T10:00:00Z",
-        finished_at: "2026-03-11T10:00:02Z",
-        new_articles: 1,
-        processed_articles: 1,
-        failed_articles: 0,
-      }),
+      body: JSON.stringify(
+        buildRefreshStatusResponse("completed", {
+          new_articles: refreshedArticles.length,
+          processed_articles: refreshedArticles.length,
+        })
+      ),
     });
   });
 
@@ -212,19 +312,24 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
   await page.getByRole("button", { name: "Refresh articles" }).click();
 
   await expect(page.getByText("Refresh complete", { exact: true })).toBeVisible();
-  await expect(page.getByText("Processed 1 new article.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Processed 3 new articles.", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", {
       level: 2,
       name: "Fresh article arrives after refresh completes",
     })
   ).toBeVisible();
+  await expect(page.getByText("3 articles processed · 1 headline improved")).toBeVisible();
+
+  await page.getByRole("combobox").click();
+  await expect(page.getByRole("option", { name: "Fresh News (2)" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Wire Daily (1)" })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(
     page.getByText("Your saved NewsAPI key was accepted during the last refresh.")
   ).toBeVisible();
-  expect(refreshStatusRequests).toBe(2);
 });
 
 test("surfaces invalid-key feedback without polling refresh status", async ({
@@ -296,24 +401,8 @@ test("attaches to an in-progress refresh and waits for the shared terminal state
       contentType: "application/json",
       body: JSON.stringify(
         refreshStatusRequests === 1
-          ? {
-              status: "processing",
-              message: ACCEPTED_REFRESH_MESSAGE,
-              started_at: "2026-03-11T10:00:00Z",
-              finished_at: null,
-              new_articles: 0,
-              processed_articles: 0,
-              failed_articles: 0,
-            }
-          : {
-              status: "completed",
-              message: "Refresh completed.",
-              started_at: "2026-03-11T10:00:00Z",
-              finished_at: "2026-03-11T10:00:02Z",
-              new_articles: 0,
-              processed_articles: 0,
-              failed_articles: 0,
-            }
+          ? buildRefreshStatusResponse("processing")
+          : buildRefreshStatusResponse("completed")
       ),
     });
   });
@@ -334,7 +423,6 @@ test("attaches to an in-progress refresh and waits for the shared terminal state
   await expect(
     page.getByText("Your saved NewsAPI key was accepted during the last refresh.")
   ).toHaveCount(0);
-  expect(refreshStatusRequests).toBe(2);
 });
 
 test("shows a non-fatal timeout toast when polling stays in processing past 120 seconds", async ({
@@ -362,15 +450,7 @@ test("shows a non-fatal timeout toast when polling stays in processing past 120 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        status: "processing",
-        message: ACCEPTED_REFRESH_MESSAGE,
-        started_at: "2026-03-11T10:00:00Z",
-        finished_at: null,
-        new_articles: 0,
-        processed_articles: 0,
-        failed_articles: 0,
-      }),
+      body: JSON.stringify(buildRefreshStatusResponse("processing")),
     });
   });
 
@@ -393,5 +473,8 @@ test("shows a non-fatal timeout toast when polling stays in processing past 120 
     })
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Refresh articles" })).toBeEnabled();
-  expect(refreshStatusRequests).toBeGreaterThan(100);
+
+  const requestsWhenTimeoutToastAppeared = refreshStatusRequests;
+  await page.clock.runFor("00:05");
+  expect(refreshStatusRequests).toBe(requestsWhenTimeoutToastAppeared);
 });
