@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { TldrSection } from "@/components/tldr-section";
-import { formatDate, getVisibleHeadline } from "@/lib/utils";
+import { getVisibleHeadline } from "@/lib/headlines";
+import { formatDate } from "@/lib/utils";
 import type { Article } from "@/types/article";
 
 interface ArticleCardProps {

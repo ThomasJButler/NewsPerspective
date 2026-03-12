@@ -9,7 +9,8 @@ import { TldrSection } from "@/components/tldr-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate, getVisibleHeadline } from "@/lib/utils";
+import { getVisibleHeadline } from "@/lib/headlines";
+import { formatDate } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import type { Article } from "@/types/article";
 
