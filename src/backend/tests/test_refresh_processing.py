@@ -270,6 +270,79 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         finally:
             session.close()
 
+    def test_process_new_articles_excludes_detected_politics_from_persisted_good_news(self) -> None:
+        session = database.SessionLocal()
+        fetched_articles = [
+            {
+                "original_title": "Senate advances housing package",
+                "original_description": "Lawmakers described the vote as bipartisan progress.",
+                "source_name": "Capitol Desk",
+                "source_id": "capitol-desk",
+                "author": "Reporter One",
+                "url": "https://example.com/senate-housing-package",
+                "image_url": "https://example.com/senate-housing-package.jpg",
+                "published_at": "2026-03-11T10:00:00Z",
+                "category": "general",
+            },
+            {
+                "original_title": "Community garden expands",
+                "original_description": "Volunteers opened new plots for families.",
+                "source_name": "Metro Desk",
+                "source_id": "metro-desk",
+                "author": "Reporter Two",
+                "url": "https://example.com/community-garden-expands",
+                "image_url": "https://example.com/community-garden-expands.jpg",
+                "published_at": "2026-03-11T11:00:00Z",
+                "category": "general",
+            },
+        ]
+        analysis_result = {
+            "rewritten_title": "Calmer headline",
+            "tldr": "Summary.",
+            "needs_rewrite": True,
+            "sentiment": "positive",
+            "sentiment_score": 0.8,
+            "is_good_news": True,
+        }
+
+        try:
+            with patch.object(
+                article_processor.NewsFetcher,
+                "fetch_all_categories",
+                return_value=fetched_articles,
+            ), patch.object(
+                article_processor.AIService,
+                "analyse_article",
+                return_value=analysis_result,
+            ):
+                processor = article_processor.ArticleProcessor()
+                summary = processor.process_new_articles(db=session, api_key="valid-key")
+
+            self.assertEqual(
+                summary,
+                {
+                    "new_articles": 2,
+                    "processed_articles": 2,
+                    "failed_articles": 0,
+                },
+            )
+
+            politics_article = (
+                session.query(models.Article)
+                .filter_by(url="https://example.com/senate-housing-package")
+                .one()
+            )
+            community_article = (
+                session.query(models.Article)
+                .filter_by(url="https://example.com/community-garden-expands")
+                .one()
+            )
+
+            self.assertFalse(politics_article.is_good_news)
+            self.assertTrue(community_article.is_good_news)
+        finally:
+            session.close()
+
     def test_background_refresh_marks_failed_when_news_fetch_raises(self) -> None:
         session = _DummySession()
         error = news_fetcher.NewsFetchError("NewsAPI returned an error: quota exceeded")

@@ -60,8 +60,8 @@ src/frontend/
 - Browser back/forward restores those controls from the current URL instead of leaving stale client state behind.
 - The article feed is always allowed to render cached backend data, even when no NewsAPI key has been stored.
 - The good-news toggle mirrors the backend `good_news_only` filter only.
-- The shipped backend filter excludes `sports` and `entertainment`; the frontend explains that scope in the toggle hint instead of adding a separate client-side rule.
-- The roadmap-only `politics` exclusion and broader content guardrails are still future work.
+- The shipped backend filter excludes `sports`, `entertainment`, and detected `politics`; the frontend explains that scope in the toggle hint instead of adding a separate client-side rule.
+- The broader roadmap-only content guardrails are still future work.
 - A persistent refresh-status card sits above the stats bar and feed, so the latest known refresh state stays visible after any toast disappears.
 - The stats bar is only shown when `/api/stats` returns a non-zero article count.
 
@@ -126,8 +126,8 @@ The refresh button in the header is the only frontend action that requires the u
 - Cards render source and publication time, the visible headline, TLDR text when available, and an external source link.
 - Headline rendering uses `getVisibleHeadline(...)`, which falls back to the original title if a rewritten title is blank or missing.
 - The original headline is only shown in a disclosure block when the article was rewritten and the visible headline differs from the original.
-- If an article is in the `sports` or `entertainment` category, the backend now suppresses its Good News flag in list/detail responses and in the `good_news_only` filter.
-- The frontend does not try to infer the remaining roadmap-only `politics` exclusion on its own.
+- If an article is in the `sports` or `entertainment` category, or matches the backend's politics-topic detection rule, the backend suppresses its Good News flag in list/detail responses and in the `good_news_only` filter.
+- The frontend does not try to infer Good News exclusions on its own; it mirrors the backend result and copy only.
 - Empty states differ based on whether the user has a saved key:
   - saved key: adjust filters or refresh
   - no saved key: browse cache or add a key to fetch fresh headlines

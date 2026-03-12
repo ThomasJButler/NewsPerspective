@@ -37,15 +37,15 @@ Rationale:
 
 Good News should be opinionated, not just a generic positive sentiment toggle.
 
-Current v2 behavior now excludes `sports` and `entertainment` in the shipped backend/frontend flow, but the broader target state below is still incomplete because `politics` is not yet enforced.
+Current v2 behavior now excludes `sports`, `entertainment`, and `politics` in the shipped backend/frontend flow.
 
-Planned rules:
+Shipped rules:
 
 - `sports` should not count toward Good News.
 - `entertainment` should not count toward Good News.
 - `politics` should not count toward Good News.
 
-These exclusions should be enforced consistently in the backend classification/filtering path and reflected clearly in the frontend UX.
+The current `politics` exclusion uses app-level topic detection in the backend Good News path because NewsAPI does not provide a dedicated `politics` category in the existing fetch loop. Those exclusions should stay enforced consistently in the backend classification/filtering path and reflected clearly in the frontend UX.
 
 ## Feed And Filtering Roadmap
 
@@ -183,3 +183,5 @@ The current intended sequence remains:
    Add a visible `last refreshed / refresh result` surface in the frontend.
 3. Follow-up build loop:
    Enforce the Good News category exclusions for `sports`, `entertainment`, and `politics`.
+4. Current next build loop:
+   Close the remaining backend refresh-router review cleanup tracked in `IMPLEMENTATION_PLAN.md`.

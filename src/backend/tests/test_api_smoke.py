@@ -369,6 +369,43 @@ class BackendApiSmokeTest(unittest.TestCase):
             session.commit()
             session.close()
 
+    def test_good_news_filter_excludes_detected_politics_articles(self) -> None:
+        session = database.SessionLocal()
+        article_id = "article-politics-good"
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add(
+                models.Article(
+                    id=article_id,
+                    original_title="Senate approves infrastructure funding",
+                    original_description="Lawmakers celebrated the vote as a win.",
+                    source_name="Reuters Politics",
+                    source_id="reuters",
+                    url="https://example.com/article-politics-good",
+                    published_at=now,
+                    fetched_at=now,
+                    is_good_news=True,
+                    category="general",
+                    processing_status="processed",
+                )
+            )
+            session.commit()
+
+            response = self.client.get("/api/articles", params={"good_news_only": "true"})
+
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+
+            self.assertEqual(body["total"], 2)
+            self.assertEqual([article["id"] for article in body["articles"]], ["article-6", "article-2"])
+        finally:
+            article = session.get(models.Article, article_id)
+            if article is not None:
+                session.delete(article)
+            session.commit()
+            session.close()
+
     def test_articles_list_returns_normalized_source_labels(self) -> None:
         response = self.client.get("/api/articles")
 
@@ -407,6 +444,40 @@ class BackendApiSmokeTest(unittest.TestCase):
                     fetched_at=now,
                     is_good_news=True,
                     category="sports",
+                    processing_status="processed",
+                )
+            )
+            session.commit()
+
+            response = self.client.get(f"/api/articles/{article_id}")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(response.json()["is_good_news"])
+        finally:
+            article = session.get(models.Article, article_id)
+            if article is not None:
+                session.delete(article)
+            session.commit()
+            session.close()
+
+    def test_article_detail_masks_good_news_for_detected_politics_story(self) -> None:
+        session = database.SessionLocal()
+        article_id = "article-politics-detail"
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add(
+                models.Article(
+                    id=article_id,
+                    original_title="Parliament backs clean-energy package",
+                    original_description="Government ministers hailed the legislation.",
+                    source_name="World Desk",
+                    source_id="world-desk",
+                    url="https://example.com/article-politics-detail",
+                    published_at=now,
+                    fetched_at=now,
+                    is_good_news=True,
+                    category="business",
                     processing_status="processed",
                 )
             )
@@ -530,6 +601,40 @@ class BackendApiSmokeTest(unittest.TestCase):
                 article = session.get(models.Article, article_id)
                 if article is not None:
                     session.delete(article)
+            session.commit()
+            session.close()
+
+    def test_stats_good_news_count_excludes_detected_politics_articles(self) -> None:
+        session = database.SessionLocal()
+        article_id = "article-politics-stats"
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add(
+                models.Article(
+                    id=article_id,
+                    original_title="Election officials certify final result",
+                    original_description="Government leaders accepted the outcome.",
+                    source_name="National Desk",
+                    source_id="national-desk",
+                    url="https://example.com/article-politics-stats",
+                    published_at=now,
+                    fetched_at=now,
+                    is_good_news=True,
+                    category="general",
+                    processing_status="processed",
+                )
+            )
+            session.commit()
+
+            response = self.client.get("/api/stats")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["good_news_count"], 2)
+        finally:
+            article = session.get(models.Article, article_id)
+            if article is not None:
+                session.delete(article)
             session.commit()
             session.close()
 

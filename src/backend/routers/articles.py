@@ -25,6 +25,9 @@ def _serialize_article(article: Article) -> ArticleResponse:
             "is_good_news": apply_good_news_rules(
                 article.is_good_news,
                 article.category,
+                title=article.original_title,
+                description=article.original_description,
+                source_name=article.source_name,
             ),
         }
     )
