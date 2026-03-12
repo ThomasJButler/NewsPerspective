@@ -211,8 +211,8 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
 
   await page.getByRole("button", { name: "Refresh articles" }).click();
 
-  await expect(page.getByText("Refresh complete")).toBeVisible();
-  await expect(page.getByText("Processed 1 new article.")).toBeVisible();
+  await expect(page.getByText("Refresh complete", { exact: true })).toBeVisible();
+  await expect(page.getByText("Processed 1 new article.", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", {
       level: 2,
@@ -325,7 +325,7 @@ test("attaches to an in-progress refresh and waits for the shared terminal state
   await expect(
     page.getByText("Another refresh request is already in progress. Waiting for its final status now.")
   ).toBeVisible();
-  await expect(page.getByText("Refresh finished")).toBeVisible();
+  await expect(page.getByText("Refresh finished", { exact: true })).toBeVisible();
   await expect(
     page.getByText("The in-progress refresh finished without adding new articles.")
   ).toBeVisible();

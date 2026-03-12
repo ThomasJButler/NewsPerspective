@@ -12,6 +12,8 @@ from src.backend.scripts.capture_manual_integration_evidence import (
     evaluate_frontend_reachability,
     evaluate_invalid_key,
     evaluate_polling,
+    evaluate_refresh_start,
+    refresh_start_was_accepted,
 )
 
 
@@ -90,6 +92,38 @@ class ManualIntegrationEvidenceTest(unittest.TestCase):
         self.assertEqual(result.classification, "still unproven")
         self.assertIn("did not hit the in-progress window", result.outcome)
 
+    def test_refresh_start_accepts_only_the_backend_accepted_processing_message(self) -> None:
+        observation = HttpObservation(
+            ok=True,
+            status_code=200,
+            body={
+                "status": "processing",
+                "message": "Fetching and processing articles in the background.",
+            },
+        )
+
+        self.assertTrue(refresh_start_was_accepted(observation))
+
+        result = evaluate_refresh_start(observation, api_key_supplied=True)
+        self.assertEqual(result.classification, "code behavior")
+        self.assertIn("background processing started", result.outcome.lower())
+
+    def test_refresh_start_treats_duplicate_processing_response_as_unproven(self) -> None:
+        observation = HttpObservation(
+            ok=True,
+            status_code=200,
+            body={
+                "status": "processing",
+                "message": "Refresh already in progress.",
+            },
+        )
+
+        self.assertFalse(refresh_start_was_accepted(observation))
+
+        result = evaluate_refresh_start(observation, api_key_supplied=True)
+        self.assertEqual(result.classification, "still unproven")
+        self.assertIn("did not start a new one", result.outcome.lower())
+
     def test_polling_distinguishes_processing_window_and_terminal_state(self) -> None:
         polling_result, final_result = evaluate_polling(
             [
@@ -110,6 +144,23 @@ class ManualIntegrationEvidenceTest(unittest.TestCase):
         self.assertEqual(polling_result.classification, "code behavior")
         self.assertEqual(final_result.classification, "code behavior")
         self.assertIn("terminal `completed`", final_result.outcome)
+
+    def test_polling_marks_http_error_responses_as_contract_failures(self) -> None:
+        polling_result, final_result = evaluate_polling(
+            [
+                HttpObservation(
+                    ok=True,
+                    status_code=500,
+                    body={"detail": "backend broke"},
+                )
+            ],
+            timed_out=False,
+        )
+
+        self.assertEqual(polling_result.classification, "documentation mismatch")
+        self.assertIn("http 500", polling_result.outcome.lower())
+        self.assertEqual(final_result.classification, "documentation mismatch")
+        self.assertIn("http 500", final_result.outcome.lower())
 
     def test_report_includes_manual_frontend_follow_up_section(self) -> None:
         report = build_markdown_report(

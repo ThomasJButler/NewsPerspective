@@ -199,6 +199,101 @@ class BackendApiSmokeTest(unittest.TestCase):
             all(article["processing_status"] == "processed" for article in body["articles"])
         )
 
+    def test_articles_pagination_stays_stable_with_tied_and_null_published_at(self) -> None:
+        session = database.SessionLocal()
+        inserted_ids = ["article-5a", "article-5b", "null-a", "null-b"]
+        try:
+            tied_timestamp = session.get(models.Article, "article-5").published_at
+            session.add_all(
+                [
+                    models.Article(
+                        id="article-5a",
+                        original_title="Tied published article A",
+                        original_description="Tie A.",
+                        source_name="Tie Source",
+                        source_id="tie-source",
+                        url="https://example.com/article-5a",
+                        published_at=tied_timestamp,
+                        fetched_at=tied_timestamp,
+                        category="general",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="article-5b",
+                        original_title="Tied published article B",
+                        original_description="Tie B.",
+                        source_name="Tie Source",
+                        source_id="tie-source",
+                        url="https://example.com/article-5b",
+                        published_at=tied_timestamp,
+                        fetched_at=tied_timestamp,
+                        category="general",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="null-a",
+                        original_title="Null published article A",
+                        original_description="Null A.",
+                        source_name="Null Source",
+                        source_id="null-source",
+                        url="https://example.com/null-a",
+                        published_at=None,
+                        fetched_at=datetime.now(timezone.utc),
+                        category="general",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="null-b",
+                        original_title="Null published article B",
+                        original_description="Null B.",
+                        source_name="Null Source",
+                        source_id="null-source",
+                        url="https://example.com/null-b",
+                        published_at=None,
+                        fetched_at=datetime.now(timezone.utc),
+                        category="general",
+                        processing_status="processed",
+                    ),
+                ]
+            )
+            session.commit()
+            seen_ids: list[str] = []
+            page = 1
+            while True:
+                response = self.client.get("/api/articles", params={"page": page, "per_page": 2})
+
+                self.assertEqual(response.status_code, 200)
+                body = response.json()
+                seen_ids.extend(article["id"] for article in body["articles"])
+
+                if not body["has_more"]:
+                    break
+
+                page += 1
+
+            self.assertEqual(
+                seen_ids,
+                [
+                    "article-6",
+                    "article-5",
+                    "article-5a",
+                    "article-5b",
+                    "article-4",
+                    "article-2",
+                    "article-1",
+                    "null-a",
+                    "null-b",
+                ],
+            )
+            self.assertEqual(len(seen_ids), len(set(seen_ids)))
+        finally:
+            for article_id in inserted_ids:
+                article = session.get(models.Article, article_id)
+                if article is not None:
+                    session.delete(article)
+            session.commit()
+            session.close()
+
     def test_articles_filter_by_source_label(self) -> None:
         response = self.client.get("/api/articles", params={"source": "Reuters"})
 
@@ -518,6 +613,29 @@ class BackendApiSmokeTest(unittest.TestCase):
         status_response = self.client.get("/api/refresh/status")
         self.assertEqual(status_response.status_code, 200)
         self.assertEqual(status_response.json()["status"], "completed")
+
+    def test_refresh_transport_failure_redacts_api_key_from_error_detail(self) -> None:
+        api_key = "top-secret-key"
+        error = sources_router.http_requests.ConnectionError(
+            "validation failed for "
+            f"https://newsapi.org/v2/top-headlines?country=us&apiKey={api_key}&pageSize=1"
+        )
+
+        with patch.object(
+            sources_router.http_requests,
+            "get",
+            side_effect=error,
+        ):
+            response = self.client.post(
+                "/api/refresh",
+                headers={"X-News-Api-Key": api_key},
+            )
+
+        self.assertEqual(response.status_code, 502)
+        detail = response.json()["detail"]
+        self.assertEqual(detail["code"], "upstream_transport_failure")
+        self.assertNotIn(api_key, detail["message"])
+        self.assertIn("apiKey=[redacted]", detail["message"])
 
 
 if __name__ == "__main__":

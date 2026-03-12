@@ -1,3 +1,5 @@
+import re
+
 import requests as http_requests
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from sqlalchemy import func
@@ -22,6 +24,11 @@ from ..utils.source_normalization import source_id_expression, source_label_expr
 
 router = APIRouter(prefix="/api", tags=["sources"])
 NEWSAPI_VALIDATION_TIMEOUT_SECONDS = 5
+
+
+def _redact_validation_error(message: str, api_key: str) -> str:
+    redacted = message.replace(api_key, "[redacted]")
+    return re.sub(r"(apiKey=)[^&\\s]+", r"\1[redacted]", redacted)
 
 
 def _refresh_error(
@@ -155,10 +162,11 @@ def refresh_articles(
         )
     except http_requests.RequestException as exc:
         refresh_tracker.release_claim()
+        safe_error = _redact_validation_error(str(exc), x_news_api_key)
         raise _refresh_error(
             status_code=502,
             code="upstream_transport_failure",
-            message=f"Failed to reach NewsAPI while validating the key: {exc}",
+            message=f"Failed to reach NewsAPI while validating the key: {safe_error}",
         )
 
     body = None

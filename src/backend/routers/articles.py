@@ -56,7 +56,10 @@ def get_articles(
             )
         )
 
-    query = query.order_by(nulls_last(Article.published_at.desc()))
+    query = query.order_by(
+        nulls_last(Article.published_at.desc()),
+        Article.id.asc(),
+    )
 
     total = query.count()
 

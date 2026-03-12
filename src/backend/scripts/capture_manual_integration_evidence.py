@@ -34,6 +34,8 @@ DEFAULT_FRONTEND_URL = "http://localhost:3000"
 DEFAULT_OUTPUT_PATH = "logs/phase3_manual_integration_report.md"
 DEFAULT_INVALID_API_KEY = "invalid-key"
 REQUEST_TIMEOUT_SECONDS = 10
+ACCEPTED_REFRESH_MESSAGE = "Fetching and processing articles in the background."
+DUPLICATE_REFRESH_MESSAGE = "Refresh already in progress."
 
 
 @dataclass(frozen=True)
@@ -209,6 +211,17 @@ def evaluate_invalid_key(observation: HttpObservation) -> ScenarioResult:
     )
 
 
+def refresh_start_was_accepted(observation: HttpObservation) -> bool:
+    body = observation.body
+    return (
+        observation.ok
+        and observation.status_code == 200
+        and isinstance(body, dict)
+        and body.get("status") == "processing"
+        and body.get("message") == ACCEPTED_REFRESH_MESSAGE
+    )
+
+
 def evaluate_refresh_start(observation: HttpObservation, api_key_supplied: bool) -> ScenarioResult:
     if not api_key_supplied:
         return ScenarioResult(
@@ -227,11 +240,24 @@ def evaluate_refresh_start(observation: HttpObservation, api_key_supplied: bool)
         )
 
     body = observation.body
-    if observation.status_code == 200 and isinstance(body, dict) and body.get("status") == "processing":
+    if refresh_start_was_accepted(observation):
         return ScenarioResult(
             name="Successful refresh with a real key",
             classification="code behavior",
             outcome="Real-key refresh was accepted and background processing started.",
+            evidence=_compact_json(body),
+        )
+
+    if (
+        observation.status_code == 200
+        and isinstance(body, dict)
+        and body.get("status") == "processing"
+        and body.get("message") == DUPLICATE_REFRESH_MESSAGE
+    ):
+        return ScenarioResult(
+            name="Successful refresh with a real key",
+            classification="still unproven",
+            outcome="The real-key refresh hit an existing in-progress refresh, so the helper did not start a new one.",
             evidence=_compact_json(body),
         )
 
@@ -276,7 +302,7 @@ def evaluate_duplicate_refresh(
     if (
         observation.status_code == 200
         and isinstance(body, dict)
-        and body.get("message") == "Refresh already in progress."
+        and body.get("message") == DUPLICATE_REFRESH_MESSAGE
     ):
         return ScenarioResult(
             name="Duplicate refresh behavior",
@@ -339,6 +365,36 @@ def evaluate_polling(
                 classification="still unproven",
                 outcome="A terminal refresh state could not be confirmed because polling failed.",
                 evidence=first_error.error or evidence,
+            ),
+        )
+
+    first_http_error = next(
+        (
+            item
+            for item in observations
+            if item.status_code is not None and item.status_code >= 400
+        ),
+        None,
+    )
+    if first_http_error is not None:
+        return (
+            ScenarioResult(
+                name="Refresh-status polling during a long refresh",
+                classification="documentation mismatch",
+                outcome=(
+                    "Polling /api/refresh/status returned "
+                    f"HTTP {first_http_error.status_code} before a usable state trail was captured."
+                ),
+                evidence=evidence,
+            ),
+            ScenarioResult(
+                name="Final completion state",
+                classification="documentation mismatch",
+                outcome=(
+                    "A terminal refresh state could not be confirmed because "
+                    f"/api/refresh/status returned HTTP {first_http_error.status_code}."
+                ),
+                evidence=evidence,
             ),
         )
 
@@ -569,13 +625,7 @@ def main() -> int:
         body=None,
         error="No real NewsAPI key supplied.",
     )
-    refresh_started = (
-        bool(args.api_key)
-        and refresh_start.ok
-        and refresh_start.status_code == 200
-        and isinstance(refresh_start.body, dict)
-        and refresh_start.body.get("status") == "processing"
-    )
+    refresh_started = bool(args.api_key) and refresh_start_was_accepted(refresh_start)
     results.append(evaluate_refresh_start(refresh_start, bool(args.api_key)))
 
     duplicate_refresh = (
