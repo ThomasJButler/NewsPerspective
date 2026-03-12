@@ -7,6 +7,7 @@ Run with:
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 import tempfile
 import unittest
@@ -198,6 +199,18 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertTrue(
             all(article["processing_status"] == "processed" for article in body["articles"])
         )
+
+    def test_backend_entrypoint_imports_as_top_level_module(self) -> None:
+        main_path = Path(__file__).resolve().parents[1] / "main.py"
+        spec = importlib.util.spec_from_file_location("backend_main_direct", main_path)
+
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        self.assertEqual(module.app.title, "NewsPerspective API")
 
     def test_articles_pagination_stays_stable_with_tied_and_null_published_at(self) -> None:
         session = database.SessionLocal()

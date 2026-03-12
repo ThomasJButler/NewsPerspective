@@ -48,6 +48,13 @@ source src/backend/.venv/bin/activate
 uvicorn src.backend.main:app --reload --port 8000
 ```
 
+If you are already inside `src/backend`, this equivalent command now works too:
+
+```bash
+source .venv/bin/activate
+uvicorn main:app --reload --port 8000
+```
+
 In a second shell, start the frontend:
 
 ```bash

@@ -1,8 +1,21 @@
+from pathlib import Path
+import sys
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .database import Base, engine
-from .routers import articles, sources
+
+if __package__ in (None, ""):
+    repo_root = Path(__file__).resolve().parents[2]
+    repo_root_str = str(repo_root)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+
+    from src.backend.database import Base, engine
+    from src.backend.routers import articles, sources
+else:
+    from .database import Base, engine
+    from .routers import articles, sources
 
 
 @asynccontextmanager

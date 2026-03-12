@@ -8,6 +8,8 @@ NewsPerspective helps readers compare sensational framing against a calmer, fact
 2. Generate short TLDR summaries from the article description so the story can be understood quickly.
 3. Surface genuinely positive stories with a dedicated good-news filter.
 
+For future-facing product direction, content guardrails, and roadmap items that are not yet part of the active implementation slice, see `specs/ROADMAP.md`.
+
 ## Core Principles
 
 - Simple: cached browse should work without a saved NewsAPI key.
