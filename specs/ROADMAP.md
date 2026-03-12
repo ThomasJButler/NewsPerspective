@@ -2,7 +2,9 @@
 
 ## Purpose
 
-This file captures future-facing product direction, hard content guardrails, and design intent that should survive implementation churn. It is not a promise that every item ships immediately. The immediate next-loop sequence still comes from `IMPLEMENTATION_PLAN.md`.
+This file captures future-facing product direction, content guardrails, and design intent that should survive implementation churn. It is not a promise that every item ships immediately. The immediate next-loop sequence still comes from `IMPLEMENTATION_PLAN.md`.
+
+Anything here becomes part of the active v2 runtime contract only after it is promoted into `specs/OVERVIEW.md`, `specs/BACKEND.md`, or `specs/FRONTEND.md`.
 
 ## Product Intent
 
@@ -15,9 +17,9 @@ The app should make it easier to:
 3. Avoid categories and topics that are emotionally harmful or unwanted.
 4. Understand how the same story is framed across outlets and countries.
 
-## Non-Negotiable Content Guardrails
+## Planned Content Guardrails
 
-These rules apply to both the normal feed and Good News mode unless a later spec explicitly narrows them:
+These are product-direction guardrails for a future implementation phase. They are not enforced by the current v2 runtime yet, and the active specs should not imply that they already ship. Once implemented, they should apply to both the normal feed and Good News mode unless a later active spec explicitly narrows them:
 
 - Exclude war stories for now.
 - Exclude suicide stories.
@@ -34,6 +36,8 @@ Rationale:
 ## Good News Rules
 
 Good News should be opinionated, not just a generic positive sentiment toggle.
+
+Current v2 behavior is narrower than the target state below: the shipped app still treats Good News as the backend-provided `is_good_news` flag, without these additional topic exclusions.
 
 Planned rules:
 

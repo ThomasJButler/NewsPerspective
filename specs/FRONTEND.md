@@ -59,6 +59,7 @@ src/frontend/
 - The search box, source filter, and good-news toggle are synchronized with the URL query string.
 - Browser back/forward restores those controls from the current URL instead of leaving stale client state behind.
 - The article feed is always allowed to render cached backend data, even when no NewsAPI key has been stored.
+- The current good-news toggle mirrors the backend `good_news_only` filter only; it does not add separate client-side exclusions for roadmap-only topics or content guardrails.
 - A persistent refresh-status card sits above the stats bar and feed, so the latest known refresh state stays visible after any toast disappears.
 - The stats bar is only shown when `/api/stats` returns a non-zero article count.
 
@@ -123,6 +124,7 @@ The refresh button in the header is the only frontend action that requires the u
 - Cards render source and publication time, the visible headline, TLDR text when available, and an external source link.
 - Headline rendering uses `getVisibleHeadline(...)`, which falls back to the original title if a rewritten title is blank or missing.
 - The original headline is only shown in a disclosure block when the article was rewritten and the visible headline differs from the original.
+- If the backend marks an article as Good News, the frontend may still display it even when the category is `sports` or `entertainment`; those roadmap exclusions are not implemented in the current UI contract yet.
 - Empty states differ based on whether the user has a saved key:
   - saved key: adjust filters or refresh
   - no saved key: browse cache or add a key to fetch fresh headlines

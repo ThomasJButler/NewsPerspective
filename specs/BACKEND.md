@@ -61,6 +61,11 @@ Query params:
 - `category` optional string
 - `search` optional string; matches `original_title` or `rewritten_title` with `ILIKE`
 
+Current `good_news_only` semantics:
+- Filters on stored `is_good_news = true` only.
+- Does not yet enforce roadmap-only Good News exclusions for `sports`, `entertainment`, or `politics`.
+- Does not yet enforce the roadmap-only content guardrails for `war`, `suicide`, `depression`, `death`, or `grief`.
+
 Ordering:
 - Newest `published_at` first, with null publication times sorted last.
 
@@ -197,6 +202,11 @@ Retry behavior:
 5. Marks successful AI work as `processed`
 6. Marks per-article AI failures as `failed` and continues
 
+Current classification boundary:
+- The backend persists the single-call AI `is_good_news` result as-is.
+- It does not yet apply a second pass that removes roadmap-only categories/topics from the Good News set.
+- It does not yet apply roadmap-only guardrails that exclude `war`, `suicide`, `depression`, `death`, or `grief` stories from ingestion or browse results.
+
 If `OPENAI_API_KEY` is missing or OpenAI returns unusable output:
 - the AI service falls back to neutral defaults instead of aborting ingestion.
 
@@ -220,4 +230,5 @@ Notes:
 ## Known limitations
 
 - Refresh state is per-process and resets on restart.
+- The current runtime still trusts the AI-provided `is_good_news` flag; roadmap-only content guardrails and topic exclusions remain unimplemented future work.
 - Trusted-machine manual evidence for the current real-key refresh flow is recorded in `logs/phase3_manual_integration_report.md`.
