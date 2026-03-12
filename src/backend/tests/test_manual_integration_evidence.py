@@ -80,6 +80,21 @@ class ManualIntegrationEvidenceTest(unittest.TestCase):
         self.assertEqual(result.classification, "code behavior")
         self.assertIn("structured 401", result.outcome)
 
+    def test_invalid_key_duplicate_refresh_response_is_unproven(self) -> None:
+        result = evaluate_invalid_key(
+            HttpObservation(
+                ok=True,
+                status_code=200,
+                body={
+                    "status": "processing",
+                    "message": "Refresh already in progress.",
+                },
+            )
+        )
+
+        self.assertEqual(result.classification, "still unproven")
+        self.assertIn("did not validate the supplied key", result.outcome.lower())
+
     def test_duplicate_refresh_marks_missed_window_as_unproven(self) -> None:
         result = evaluate_duplicate_refresh(
             HttpObservation(

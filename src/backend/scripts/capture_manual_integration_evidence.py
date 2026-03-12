@@ -202,6 +202,22 @@ def evaluate_invalid_key(observation: HttpObservation) -> ScenarioResult:
             evidence=_compact_json(body),
         )
 
+    if (
+        observation.status_code == 200
+        and isinstance(body, dict)
+        and body.get("status") == "processing"
+        and body.get("message") == DUPLICATE_REFRESH_MESSAGE
+    ):
+        return ScenarioResult(
+            name="Invalid-key handling",
+            classification="still unproven",
+            outcome=(
+                "The invalid-key refresh hit an existing in-progress refresh, "
+                "so the backend did not validate the supplied key."
+            ),
+            evidence=_compact_json(body),
+        )
+
     return ScenarioResult(
         name="Invalid-key handling",
         classification="documentation mismatch",
