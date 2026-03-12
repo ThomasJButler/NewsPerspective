@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from fastapi import BackgroundTasks, HTTPException
 from fastapi.testclient import TestClient
 
 
@@ -898,6 +899,23 @@ class BackendApiSmokeTest(unittest.TestCase):
         self.assertEqual(status_response.status_code, 200)
         self.assertEqual(status_response.json()["status"], "completed")
 
+    def test_refresh_timeout_chains_original_timeout_exception(self) -> None:
+        original_error = sources_router.http_requests.Timeout("timed out")
+
+        with patch.object(
+            sources_router.http_requests,
+            "get",
+            side_effect=original_error,
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                sources_router.refresh_articles(
+                    background_tasks=BackgroundTasks(),
+                    x_news_api_key="slow-key",
+                )
+
+        self.assertEqual(raised.exception.status_code, 504)
+        self.assertIs(raised.exception.__cause__, original_error)
+
     def test_refresh_transport_failure_returns_structured_502_and_releases_claim(
         self,
     ) -> None:
@@ -931,6 +949,23 @@ class BackendApiSmokeTest(unittest.TestCase):
         status_response = self.client.get("/api/refresh/status")
         self.assertEqual(status_response.status_code, 200)
         self.assertEqual(status_response.json()["status"], "completed")
+
+    def test_refresh_transport_failure_chains_original_request_exception(self) -> None:
+        original_error = sources_router.http_requests.ConnectionError("network down")
+
+        with patch.object(
+            sources_router.http_requests,
+            "get",
+            side_effect=original_error,
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                sources_router.refresh_articles(
+                    background_tasks=BackgroundTasks(),
+                    x_news_api_key="offline-key",
+                )
+
+        self.assertEqual(raised.exception.status_code, 502)
+        self.assertIs(raised.exception.__cause__, original_error)
 
     def test_refresh_transport_failure_redacts_api_key_from_error_detail(self) -> None:
         api_key = "top-secret-key"

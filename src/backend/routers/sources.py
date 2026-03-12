@@ -157,13 +157,13 @@ def refresh_articles(
             },
             timeout=NEWSAPI_VALIDATION_TIMEOUT_SECONDS,
         )
-    except http_requests.Timeout:
+    except http_requests.Timeout as exc:
         refresh_tracker.release_claim()
         raise _refresh_error(
             status_code=504,
             code="upstream_timeout",
             message="Timed out while validating the NewsAPI key with NewsAPI.",
-        )
+        ) from exc
     except http_requests.RequestException as exc:
         refresh_tracker.release_claim()
         safe_error = _redact_validation_error(str(exc), x_news_api_key)
@@ -171,7 +171,7 @@ def refresh_articles(
             status_code=502,
             code="upstream_transport_failure",
             message=f"Failed to reach NewsAPI while validating the key: {safe_error}",
-        )
+        ) from exc
 
     body = None
     try:
