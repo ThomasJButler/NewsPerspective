@@ -1,0 +1,44 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: src/frontend/Dockerfile
+    command: ["bash", "/workspace/src/frontend/scripts/docker-start-app.sh"]
+    environment:
+      BACKEND_ORIGIN: http://localhost:8000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "Promise.all([fetch('http://127.0.0.1:3000'), fetch('http://127.0.0.1:8000/api/stats')]).then(([frontend, backend]) => process.exit(frontend.ok && backend.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    ports:
+      - "3000:3000"
+      - "8000:8000"
+    volumes:
+      - ../..:/workspace
+      - frontend_node_modules:/workspace/src/frontend/node_modules
+
+  playwright:
+    build:
+      context: ../..
+      dockerfile: src/frontend/Dockerfile
+    command: ["npx", "playwright", "test", "tests/e2e/cached-browse.spec.ts"]
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      PLAYWRIGHT_BASE_URL: http://app:3000
+      PLAYWRIGHT_SKIP_WEBSERVER: "1"
+    volumes:
+      - ../..:/workspace
+      - frontend_node_modules:/workspace/src/frontend/node_modules
+
+volumes:
+  frontend_node_modules:

@@ -1,4 +1,5 @@
 .env
+.venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,9 +7,28 @@ __pycache__/
 /build/
 /*.egg-info
 
+# Database
+*.db
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+output/playwright/
+
+# Logs
+/logs/
+logs/
+
 # Development learning files (keep private)
 to-do.md
 ai-search-azure-portal.png
 config.json
-/logs
-logs/news_perspective_20250616.log
+/.claude
+/.codex
+.codex-run/
+RALPH_CODEX_MIGRATION_NOTES.md
+.claude-run/
+/CoachWiggum
+/CoachWiggumV3Learn
+twinkly-yawning-minsky.md

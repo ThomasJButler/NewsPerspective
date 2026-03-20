@@ -1,90 +1,216 @@
-# News Perspective
+# NewsPerspective v2
 
-A tool to fetch news headlines and rewrite them in a more positive, factual tone. 
+NewsPerspective v2 is a two-part app:
 
-<p align="center"> <img src="./rewrites.png" alt="Rewrites screenshot" width="600" />&nbsp;&nbsp </p>
+- FastAPI backend in `src/backend/`
+- Next.js frontend in `src/frontend/`
 
-# Front End Demo Incoming 
+The active product flow is: browse cached processed articles without a NewsAPI key, then trigger refreshes by sending a user-supplied key in the `X-News-Api-Key` header. The old root-level v1 runtime files were removed on 2026-03-10; use git history or `READMEOLD.md` for legacy reference.
 
-## What It Does
+## Runtime overview
 
-1. Fetches headlines from [NewsAPI.org](https://newsapi.org/)
-2. Analyses sentiment and identifies problematic language using Azure AI Language
-3. Rewrites negative headlines in a calmer, more factual tone using Azure OpenAI
-4. Indexes results in Azure AI Search for semantic retrieval
-5. Provides a Streamlit web interface to browse and search the results
+- Backend entrypoint: `uvicorn src.backend.main:app --reload --port 8000`
+- Frontend entrypoint: `cd src/frontend && npm run dev`
+- Frontend proxy: `src/frontend/next.config.ts` rewrites `/api/*` to `BACKEND_ORIGIN` and defaults to `http://localhost:8000`
+- Database: SQLite via `DATABASE_URL`
+- OpenAI config: `OPENAI_API_KEY` and optional `OPENAI_MODEL`
+- NewsAPI key: request-scoped only, never stored as a backend env var
 
-Built to help reduce doomscrolling and emotional bias caused by alarmist headlines.
+## Local setup
 
-## Setup
+Node is pinned via `.nvmrc` to `22.17.0`.
 
-Prerequisites: You'll need Azure OpenAI and Azure AI Search configured.
+Create the backend environment from the repo root:
 
-1. Clone the repo
-2. Create a `.env` file with these variables:
-
-```
-NEWS_API_KEY=your_newsapi_key
-AZURE_OPENAI_KEY=your_azure_openai_key
-AZURE_OPENAI_ENDPOINT=https://<your-region>.cognitiveservices.azure.com/
-AZURE_OPENAI_DEPLOYMENT=gpt-35-turbo-instruct
-AZURE_SEARCH_KEY=your_azure_search_key
-AZURE_SEARCH_ENDPOINT=https://<your-search-name>.search.windows.net
-AZURE_SEARCH_INDEX=news-perspective-index
-AZURE_AI_LANGUAGE_ENDPOINT=https://<your-region>.cognitiveservices.azure.com/
-AZURE_AI_LANGUAGE_KEY=your_azure_ai_language_key
-AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://<your-region>.cognitiveservices.azure.com/
-AZURE_DOCUMENT_INTELLIGENCE_KEY=your_azure_document_intelligence_key
-```
-
-Keep keys secure - never commit `.env` to git. Use Azure Key Vault for production.
-
-3. Install dependencies:
 ```bash
-pip install -r requirements.txt
+python3 -m venv src/backend/.venv
+source src/backend/.venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r src/backend/requirements.txt
 ```
 
-4. Run the batch processor:
+Create a repo-root `.env` from `.env.template`:
+
+```env
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+DATABASE_URL=sqlite:///./newsperspective.db
+```
+
+`NEWS_API_KEY` is intentionally absent from backend env config. Refresh requests must send the user's key in the `X-News-Api-Key` header.
+
+## Run locally
+
+Start the backend from the repo root:
+
 ```bash
-python batch_processor.py
+source src/backend/.venv/bin/activate
+uvicorn src.backend.main:app --reload --port 8000
 ```
 
-Or run the simple version:
+If you are already inside `src/backend`, this equivalent command now works too:
+
 ```bash
-python run.py
+source .venv/bin/activate
+uvicorn main:app --reload --port 8000
 ```
 
-## Usage
+In a second shell, start the frontend:
 
-**Search the index:**
 ```bash
-python search.py --keyword "technology"
-python search.py --recent 24      # Last 24 hours
-python search.py --source "BBC"   # Filter by source
-python search.py --test          # Test connection
+cd src/frontend
+npm install
+npm run dev
 ```
 
-**Web interface:**
+Then open `http://localhost:3000`.
+
+Useful manual checks:
+
 ```bash
-streamlit run web_app.py
+curl http://localhost:8000/api/articles
+
+curl --config - <<EOF
+url = "http://localhost:8000/api/refresh"
+request = POST
+header = "X-News-Api-Key: ${NEWS_API_KEY:?set NEWS_API_KEY in this shell first}"
+EOF
+
+curl http://localhost:8000/api/refresh/status
 ```
 
-## Tech Stack
+If cached browse is empty, seed deterministic local data first:
 
-- Python 3.9+
-- Azure OpenAI (gpt-35-turbo)
-- Azure AI Language
-- Azure AI Document Intelligence
-- Azure AI Search
-- NewsAPI
-- Streamlit (web UI)
+```bash
+source src/backend/.venv/bin/activate
+python -m src.backend.scripts.seed_manual_integration_data
+```
 
-## Files
+## Trusted-machine refresh evidence
 
-- `batch_processor.py` - Main batch processing with enhanced analysis
-- `run.py` - Simple single-run version
-- `search.py` - CLI tool for searching the index
-- `web_app.py` - Streamlit web interface
-- `azure_ai_language.py` - Sentiment and entity analysis
-- `azure_document_intelligence.py` - Content extraction from articles
-- `logger_config.py` - Logging and stats tracking
+Phase 3 trusted-machine refresh evidence was captured on 2026-03-12 and is
+stored in `logs/phase3_manual_integration_report.md`.
+
+If you need to refresh that artifact on a trusted local machine, export
+`NEWS_API_KEY` in the current shell, keep the backend on
+`http://localhost:8000` and the frontend on `http://localhost:3000`, then
+capture the backend report:
+
+```bash
+source src/backend/.venv/bin/activate
+export NEWS_API_KEY=your_real_key
+python -m src.backend.scripts.capture_manual_integration_evidence \
+  --output /tmp/phase3-manual-integration.md
+```
+
+The helper reads `NEWS_API_KEY` from the caller environment so the real key
+does not need to appear in argv. That shell variable is only a local helper
+input; the backend still does not read a server-side `NEWS_API_KEY`.
+
+With that same local app stack still running, exercise the documented
+refresh-path Playwright entrypoint from `src/frontend`:
+
+```bash
+cd src/frontend
+npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts
+```
+
+Then open `http://localhost:3000` and compare the cached-browse and refresh UI
+outcomes against `logs/phase3_manual_integration_report.md`, or update the
+artifact if you are intentionally replacing the recorded evidence.
+
+## Docker app flow
+
+The supported container workflow lives under `src/frontend/compose.yaml`. It starts a seeded backend and the frontend dev server together.
+
+Start the app stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml up --build app
+```
+
+Run the seeded Playwright cached-browse spec against that stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml run --rm playwright
+```
+
+Stop the stack:
+
+```bash
+docker compose -f src/frontend/compose.yaml down
+```
+
+If dependencies changed and you need a clean container `node_modules` volume:
+
+```bash
+docker compose -f src/frontend/compose.yaml down -v
+```
+
+## Validation commands
+
+Backend:
+
+```bash
+source src/backend/.venv/bin/activate
+python -m unittest src.backend.tests.test_api_smoke -v
+python -m unittest src.backend.tests.test_refresh_processing -v
+python -m unittest src.backend.tests.test_manual_integration_evidence -v
+```
+
+Frontend:
+
+```bash
+cd src/frontend
+npm run lint
+npm run typecheck
+npm run test:e2e
+```
+
+If `next build` is needed in this repo, prefer:
+
+```bash
+cd src/frontend
+npx next build --webpack
+```
+
+For Playwright specifically, `npm run test:e2e` owns `127.0.0.1:8000` and `127.0.0.1:3000` so it can seed a clean backend database and start both servers itself. If those ports are already occupied because you already launched the app, use the reuse path instead:
+
+```bash
+cd src/frontend
+npm run test:e2e:reuse
+```
+
+## Ralph loop
+
+Repo-local loop files:
+
+- `AGENTS.md`
+- `PROMPT_plan.md`
+- `PROMPT_build.md`
+- `IMPLEMENTATION_PLAN.md`
+- `loop.sh`
+
+Suggested workflow:
+
+```bash
+./loop.sh plan 1
+./loop.sh build 1
+```
+
+Add `coach` or `homer` to enable the corresponding explanation mode:
+
+```bash
+./loop.sh build 1 coach
+./loop.sh build 1 homer
+```
+
+On a trusted local machine, if Codex needs permission to write `.git` during build-mode commits:
+
+```bash
+RALPH_ALLOW_UNSAFE_SANDBOX=1 ./loop.sh build 1
+```
+
+## Legacy boundary
+
+`READMEOLD.md` is legacy reference material. The old root-level v1 runtime files were removed from the checked-out repo on 2026-03-10, so use git history or the archived legacy docs if older implementation details need to be recovered.
