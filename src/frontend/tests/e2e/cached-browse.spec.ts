@@ -77,7 +77,7 @@ test("shows seeded cached articles without a saved key", async ({ page }, testIn
     })
   ).toBeVisible();
   await expect(
-    page.getByText("Excludes sports and entertainment stories.")
+    page.getByText("Excludes sports, entertainment, and politics stories.")
   ).toBeVisible();
   await expect(page.getByText(/articles processed/)).toBeVisible();
 

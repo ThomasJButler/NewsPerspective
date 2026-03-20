@@ -20,13 +20,12 @@ Updated on 2026-03-20 (fourth pass, Claude Code Opus 4.6, `v2.0-UX` branch). Thi
 - All frontend components, hooks, types, and library files documented in `specs/FRONTEND.md` exist in the tree — plus 7 additional shipped files the spec omits (see review findings below).
 - **`specs/AI_PROMPTS.md` verified.** System prompt and user prompt template match the actual strings in `src/backend/services/ai_service.py` exactly, word-for-word. No drift.
 
-### Validation snapshot (2026-03-20, post PR #4 merge)
-After merging PR #4 (security dependency bump) into master and pulling into `v2.0-UX`:
+### Validation snapshot (2026-03-20, post Playwright e2e fix)
+After fixing a stale e2e assertion in `cached-browse.spec.ts` (Good News toggle description text):
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `node --test --experimental-strip-types lib/headlines.test.mjs lib/refresh-status.test.mjs` — **7 tests passed**.
+- `npx playwright test` — **11/11 passed** (both `cached-browse.spec.ts` and `refresh-path.spec.ts`).
 - Backend test suites not re-run (no backend changes in this slice).
-- Playwright e2e was not exercised in this pass (needs live ports).
 
 ### Worktree state
 `v2.0-UX` has merged `origin/master` (which now includes PR #4). Local branch is ahead of `origin/v2.0-UX` by 6 commits. The only uncommitted local change is `src/frontend/package-lock.json` (trivial `dev: true` metadata on `fsevents`, from a local `npm install` run — not a code change).
@@ -81,7 +80,7 @@ All correctness fixes, security bumps, spec alignment, and doc repairs are compl
 - [x] [P2] After spec edits land, validate with frontend lint/typecheck and frontend helper tests. Passed 2026-03-20 (lint, typecheck, 7/7 helper tests).
 - [x] [P3] **Update validation command docs.** Added `src.backend.tests.test_config` to backend validation commands in `README.md`, `CLAUDE.md`, and `AGENTS.md`. Done 2026-03-20.
 - [x] [P3] **Update GitHub repo description.** Replaced stale v1 language with v2 summary via `gh repo edit`. Verified 2026-03-20.
-- [ ] [P3] Run Playwright e2e on a machine that can bind ports 8000/3000, or use `npm run test:e2e:reuse` against an already-running local stack.
+- [x] [P3] Run Playwright e2e on a machine that can bind ports 8000/3000, or use `npm run test:e2e:reuse` against an already-running local stack. **Done 2026-03-20.** Initial run: 10/11 passed. One stale assertion in `cached-browse.spec.ts:81` expected "Excludes sports and entertainment stories." but the shipped Good News toggle text is "Excludes sports, entertainment, and politics stories." Fixed the test assertion; re-run: **11/11 passed.**
 - [ ] [P3] **Branch cleanup.** After the test fix commit lands and PR #4 merges: (a) delete `v2.0`, `v2.0-Codex`, and `v2.0-Security` (all fully merged or superseded); (b) evaluate whether `v2.0-UX` should be kept or merged to master and deleted; (c) evaluate whether legacy remote branches `v1.1`–`v1.4` should be kept for historical reference or removed.
 - [ ] [P3] Keep the legacy boundary explicit during doc cleanup. Use `READMEOLD.md` or git history for v1 reference, not new root-level files.
 
@@ -100,7 +99,7 @@ All correctness fixes, security bumps, spec alignment, and doc repairs are compl
 
 ## 5. Next recommended build slice
 
-**Playwright e2e validation, then branch cleanup.**
+**Branch cleanup.**
 
-1. [P3] Run Playwright e2e against a live local stack (`npm run test:e2e` or `npm run test:e2e:reuse`).
-2. [P3] Branch cleanup — delete fully-merged `v2.0`, `v2.0-Codex`, `v2.0-Security`; evaluate `v2.0-UX` and legacy `v1.*` branches.
+1. [P3] Branch cleanup — delete fully-merged `v2.0`, `v2.0-Codex`, `v2.0-Security`; evaluate `v2.0-UX` and legacy `v1.*` branches.
+2. [P3] Keep the legacy boundary explicit during doc cleanup.
