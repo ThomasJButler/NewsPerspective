@@ -248,6 +248,10 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
                 return_value=fetched_articles,
             ), patch.object(
                 article_processor.AIService,
+                "__init__",
+                lambda self: None,
+            ), patch.object(
+                article_processor.AIService,
                 "analyse_article",
                 return_value=analysis_result,
             ):
@@ -315,6 +319,10 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
                 article_processor.NewsFetcher,
                 "fetch_all_categories",
                 return_value=fetched_articles,
+            ), patch.object(
+                article_processor.AIService,
+                "__init__",
+                lambda self: None,
             ), patch.object(
                 article_processor.AIService,
                 "analyse_article",
