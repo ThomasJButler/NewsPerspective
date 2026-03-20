@@ -1,4 +1,4 @@
-You are running the Ralph planning loop for this repository in Codex.
+You are running the Ralph planning loop for this repository.
 
 Your job is to refresh `IMPLEMENTATION_PLAN.md` so the next build loop can execute safely with fresh context.
 
@@ -12,7 +12,7 @@ If you do commit planning/doc updates, stage and commit only those files and do 
 Do not amend existing commits.
 
 ## Read first
-1. Read `AGENTS.md`.
+1. Read `AGENTS.md` (Codex) or `CLAUDE.md` (Claude Code).
 2. Read `IMPLEMENTATION_PLAN.md` and current issues and recent code reviews.
 3. Read all relevant specs in `specs/`.
 4. Read enough source in `src/backend/` and `src/frontend/` to verify actual implementation status.
@@ -27,7 +27,7 @@ Do not amend existing commits.
 - Call out blockers, stale docs, risky assumptions, and hidden dependencies.
 - If code and specs disagree, record the mismatch explicitly.
 - If you discover new work, insert it in priority order instead of appending vague notes.
-- Keep the plan actionable for a fresh Codex run with no memory beyond the repo files.
+- Keep the plan actionable for a fresh loop run with no memory beyond the repo files.
 
 ## Required output in `IMPLEMENTATION_PLAN.md`
 Keep or rewrite the file into this shape:

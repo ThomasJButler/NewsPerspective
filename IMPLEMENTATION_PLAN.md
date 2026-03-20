@@ -1,65 +1,60 @@
 # IMPLEMENTATION_PLAN.md
 
 ## 1. Current status summary and code review
-- Updated on 2026-03-12 after the router exception-chaining cleanup in `src/backend/routers/sources.py`.
-- Priority guide:
-  - `P1`: correctness or validation regressions that block safe build work.
-  - `P2`: shipped-behavior or source-of-truth alignment that should land after `P1`.
-  - `P3`: smaller cleanup or remaining review follow-up once higher-risk items are closed.
-- GitHub / review state verified on 2026-03-12:
-  - `gh issue list --state open -L 20 --json number,title,state,url` returned `[]`.
-  - `gh pr status` shows PR `#3 V2.0` on branch `v2.0` with checks passing.
-  - `gh pr view 3 --comments` is still mostly stale CodeRabbit history.
-  - The last live router review item is now closed: refresh-validation failures in `src/backend/routers/sources.py` use explicit exception chaining, with direct regression coverage in `src/backend/tests/test_api_smoke.py`.
-  - Earlier review items already reflected in current code/specs include the SQLAlchemy boolean cleanup, the `curl --config -` refresh example in `README.md`, the `text` fence in `specs/OVERVIEW.md`, and the aggregated source/stats helpers in `src/frontend/tests/e2e/refresh-path.spec.ts`.
-- Validation snapshot from 2026-03-12:
-  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke.BackendApiSmokeTest.test_refresh_timeout_returns_structured_504_and_releases_claim src.backend.tests.test_api_smoke.BackendApiSmokeTest.test_refresh_timeout_chains_original_timeout_exception src.backend.tests.test_api_smoke.BackendApiSmokeTest.test_refresh_transport_failure_returns_structured_502_and_releases_claim src.backend.tests.test_api_smoke.BackendApiSmokeTest.test_refresh_transport_failure_chains_original_request_exception src.backend.tests.test_api_smoke.BackendApiSmokeTest.test_refresh_transport_failure_redacts_api_key_from_error_detail -v` passed (`5` tests).
-  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke -v` passed (`27` tests) with no SQLite `ResourceWarning` after the lifecycle fix.
-  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_refresh_processing -v` passed (`9` tests).
-  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke src.backend.tests.test_refresh_processing -v` passed (`36` tests) in one Python process after rebinding/disposal of the shared SQLAlchemy engine between suites.
-  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_manual_integration_evidence -v` passed (`14` tests).
+- Updated on 2026-03-20 after reading repo rules, active specs, `README.md` for context, recent local history, and the main backend/frontend runtime files.
+- No new `P1` correctness regression is proven by the current local evidence.
+- Verified runtime state:
+  - `POST /api/refresh` still requires a user-supplied `X-News-Api-Key`. The backend still does not read a server-side `NEWS_API_KEY`.
+  - Cached read-only endpoints still work without a key.
+  - `src/backend/services/article_processor.py` still does one AI call per new article and stores sentiment, rewrite output, TLDR, and Good News state together.
+  - Good News exclusions for `sports`, `entertainment`, and detected `politics` are still enforced in backend logic and reflected in frontend behavior.
+  - Refresh timeout resume behavior is still implemented in `src/frontend/app/page.tsx` and helper-covered in `src/frontend/lib/refresh-status.test.mjs`.
+  - The visible-headline fallback lives in `src/frontend/lib/headlines.ts`, not `src/frontend/lib/utils.ts`.
+  - Root-level v1 runtime files remain absent. Legacy reference still lives in `READMEOLD.md` and git history only.
+- Validation snapshot on 2026-03-20:
+  - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke src.backend.tests.test_refresh_processing src.backend.tests.test_manual_integration_evidence -v` passed (`52` tests).
   - `cd src/frontend && npm run lint` passed.
   - `cd src/frontend && npm run typecheck` passed.
-  - `cd src/frontend && npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts --grep "completes an accepted refresh and reloads cached data after polling"` passed against the already-running local app stack on `127.0.0.1:3000` / `127.0.0.1:8000`.
-  - `cd src/frontend && /Users/tombutler/.nvm/versions/node/v22.17.0/bin/node --test --experimental-strip-types lib/refresh-status.test.mjs` passed, with the expected experimental type-stripping and `MODULE_TYPELESS_PACKAGE_JSON` warnings.
-  - `git diff --check -- specs/FRONTEND.md IMPLEMENTATION_PLAN.md` passed for the earlier frontend-spec slice.
-  - `git diff --check -- specs/ROADMAP.md IMPLEMENTATION_PLAN.md` passed for the roadmap-spec cleanup slice.
-- Runtime regression discovered on 2026-03-12:
-  - Turbopack dev output for `src/frontend/lib/utils.ts` exported only `cn` and `formatDate`, leaving client imports of `getVisibleHeadline` undefined in `ArticleCard` and the article detail page until the helper was isolated into its own module.
-- Verified implementation status in current code:
-  - `logs/phase3_manual_integration_report.md` is present and records trusted-machine refresh evidence captured on 2026-03-12.
-  - Cached browse without a saved NewsAPI key still works by contract; refresh still requires `X-News-Api-Key`.
-  - The single OpenAI call per article contract remains intact in `src/backend/services/article_processor.py`.
-  - Resume-after-timeout handling for the same in-flight refresh is implemented in `src/frontend/app/page.tsx` and unit-covered in `src/frontend/lib/refresh-status.test.mjs`.
-  - Root-level v1 runtime files remain absent; legacy reference stays in `READMEOLD.md` and git history.
-- Confirmed mismatches and remaining follow-up:
-  - No review-driven backend/router follow-up remains open after the explicit chaining cleanup landed.
+  - `cd src/frontend && node --test --experimental-strip-types lib/headlines.test.mjs lib/refresh-status.test.mjs` passed (`7` tests) with the expected experimental warnings.
+  - `cd src/frontend && npm run test:e2e` did not reach browser assertions in this sandbox because the managed backend process could not bind `127.0.0.1:8000` (`operation not permitted`). Treat that as environment behavior, not a proven app regression.
+- Open review findings to carry forward:
+  - [P2] `specs/ROADMAP.md` is stale. Its `Near-Term Loop Order` still points at already-finished backend review cleanup.
+  - [P2] `specs/FRONTEND.md` is stale in more than one place. Its `Current Project Structure` omits shipped files such as `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, and the focused helper tests.
+  - [P3] The noisy `nvm` help banner appears before frontend `npm` commands in this shell, but repo search found only `.nvmrc` and README mentions. Treat it as local shell/environment behavior unless a future loop reproduces it from repo-managed scripts.
+- Review-state limits:
+  - Local git history after the old 2026-03-12 plan shows fresh commits for roadmap text, router exception chaining, frontend headline helper extraction, and focused helper tests.
+  - Live GitHub issue and PR comment state is still unverified in this sandbox on 2026-03-20 because `gh issue list`, `gh pr status`, and `gh pr view --comments` failed with `error connecting to api.github.com`.
+- Top-level docs check:
+  - `README.md` and `src/frontend/README.md` are broadly aligned with the current runtime. The active drift in this pass is mainly in `specs/ROADMAP.md` and `specs/FRONTEND.md`.
 
 ## 2. Active phase
-Phase 4 closeout is now complete: the backend validation-isolation and SQLite lifecycle warnings are closed, the refresh completion toast now distinguishes added-new count from processed count, `specs/FRONTEND.md` documents timeout-reset / same-refresh resume behavior, `specs/ROADMAP.md` no longer points the near-term order at completed frontend slices, and the remaining router review cleanup is resolved. Phase 3 trusted-machine evidence is current, and no new runtime contract break was found in the app flow.
+Phase 5 is documentation alignment and validation boundaries.
+
+The earlier correctness fixes still appear to be in place. The next safe loop should stop reopening completed backend/frontend regression work and instead repair the stale active specs. Keep the difference clear between seeded automated coverage, trusted-machine real-key evidence, and sandbox-only limits.
 
 ## 3. Ordered checklist with [ ] and [x]
-- [x] [P1] Re-read `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `README.md`, active specs, trusted-machine evidence, and relevant backend/frontend source before rewriting this plan.
-- [x] [P1] Reconfirm that Phase 3 evidence is still present at `logs/phase3_manual_integration_report.md` and still matches the current v2 boundary.
-- [x] [P1] Re-run the focused validation snapshot on 2026-03-12: backend suites individually, the combined backend invocation, manual integration evidence tests, frontend lint/typecheck, and `lib/refresh-status.test.mjs`.
-- [x] [P1] Fix backend test-harness isolation so `python -m unittest src.backend.tests.test_api_smoke src.backend.tests.test_refresh_processing -v` passes in one Python process.
-- [x] [P1] Eliminate or intentionally explain the unclosed SQLite `ResourceWarning` emitted by `python -m unittest src.backend.tests.test_api_smoke -v`, then revalidate that suite.
-- [x] [P2] Align refresh completion toast copy in `src/frontend/app/page.tsx` so it does not label `processed_articles` as `new articles`; update focused frontend coverage if the observable text changes.
-- [x] [P1] Fix the frontend runtime regression where `getVisibleHeadline` resolves as `undefined` in Turbopack client chunks by isolating the headline helper from `src/frontend/lib/utils.ts` and covering it with a focused test.
-- [x] [P2] Update `specs/FRONTEND.md` so the Refresh UX section documents the shipped timeout-reset / same-refresh resume behavior after a 120-second polling timeout.
-- [x] [P2] Update `specs/ROADMAP.md` so its near-term loop order matches the actual remaining priorities instead of already-finished slices.
-- [x] [P3] Make refresh-validation exception chaining explicit in `src/backend/routers/sources.py` (`from exc` or `from None`) so the last live router review finding is closed cleanly.
+- [x] [P1] Re-read `AGENTS.md`, the old `IMPLEMENTATION_PLAN.md`, `README.md`, the active specs, and trusted-machine evidence before rewriting the plan.
+- [x] [P1] Inspect enough backend/frontend source to verify the refresh contract, cached read-only contract, Good News exclusions, visible-headline helper path, and refresh timeout resume behavior.
+- [x] [P1] Re-run a focused validation snapshot: combined backend suites, frontend lint/typecheck, focused frontend helper tests, and a managed Playwright attempt.
+- [x] [P2] Review `README.md` and `src/frontend/README.md` against the runtime and active specs. No higher-priority blocker was found there.
+- [x] [P3] Check whether the noisy `nvm` banner is repo-managed. Current evidence says no: repo search found only `.nvmrc` and doc mentions.
+- [ ] [P2] Update `specs/ROADMAP.md` so `Near-Term Loop Order` stops pointing at the already-finished router exception-chaining cleanup and instead points at the real next doc-alignment work.
+- [ ] [P2] Update `specs/FRONTEND.md` so `Current Project Structure` lists the shipped helper/status files and the visible-headline helper path is explicit.
+- [ ] [P2] After the spec edits land, run `git diff --check -- specs/ROADMAP.md specs/FRONTEND.md IMPLEMENTATION_PLAN.md` plus frontend lint/typecheck and the focused frontend helper tests.
+- [ ] [P3] Rerun Playwright on a machine that can bind `127.0.0.1:8000` and `127.0.0.1:3000`, or use `npm run test:e2e:reuse` against an already-running local stack when validating the trusted-machine flow.
+- [ ] [P3] Keep the legacy boundary explicit during doc cleanup. If a future slice needs v1 reference behavior, use `READMEOLD.md` or git history instead of recreating deleted root-level runtime files.
 
 ## 4. Notes / discoveries that matter for the next loop
-- `src.backend.database` now exposes explicit engine lifecycle hooks for tests: `reconfigure_engine(database_url)` rebinds `engine` and `SessionLocal`, and `dispose_engine()` closes the current SQLite connection cleanly.
-- The combined-suite failure was deterministic, not flaky. `src.backend.tests.test_api_smoke` imports `src.backend.database` first, so `src.backend.tests.test_refresh_processing` must explicitly rebind that shared module to its own temp database before calling `create_all(...)`.
-- The smoke-suite `ResourceWarning` disappeared once the smoke path stopped creating a second same-path engine and instead disposed the original engine in `tearDownClass()`.
-- `README.md` and `src/frontend/README.md` are close to the shipped runtime. The main documentation gaps for this pass are in the active specs rather than the top-level docs.
-- The refresh success toast in `src/frontend/app/page.tsx` now uses `new_articles` for “Added X new articles.” and the focused refresh e2e path keeps `new_articles` and `processed_articles` different so that regression is covered.
-- `specs/FRONTEND.md` now describes the shipped timeout-reset / same-refresh resume behavior, and `specs/ROADMAP.md` now points the near-term order at the actual remaining cleanup instead of completed refresh-status / Good News slices.
-- The refresh router now uses explicit `raise ... from exc` chaining for timeout and transport validation failures, and `src/backend/tests/test_api_smoke.py` asserts the preserved `__cause__` directly without changing the HTTP response contract.
-- If a future slice changes refresh request/status behavior or user-visible refresh copy, refresh the trusted-machine evidence so `logs/phase3_manual_integration_report.md` does not drift.
-- Keep the legacy boundary strict. If a future slice needs v1 reference behavior, use `READMEOLD.md` or git history instead of recreating deleted root-level runtime files.
+- `logs/phase3_manual_integration_report.md` is still present and still matches the v2 boundary at a high level. Refresh it only if the refresh contract or visible refresh UI copy changes.
+- The manual evidence helper intentionally leaves human-fill `TODO` placeholders in generated report sections. That is part of the workflow, not a broken implementation.
+- `specs/FRONTEND.md` project structure is more stale than the old plan said. It misses `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, `lib/headlines.test.mjs`, and `lib/refresh-status.test.mjs`.
+- `npm run test:e2e` currently needs a machine that can open the managed backend/frontend ports. In this Codex sandbox it failed before assertions because binding `127.0.0.1:8000` was not permitted.
+- The frontend helper tests currently rely on `node --test --experimental-strip-types`. The experimental warnings are expected in the current setup and are not new regressions.
+- The noisy `nvm` help banner does not appear to come from repo-managed scripts. It most likely comes from the login-shell environment used in this Codex session.
+- The `gh` CLI could not reach GitHub from this environment on 2026-03-20, so do not claim live issue/review state is current unless a future loop reruns those commands with network access.
+- The recent local commit history is newer than the old plan. Treat the old 2026-03-12 planning text as historical context only, not as the current source of truth.
 
 ## 5. Next recommended build slice
-No review-driven cleanup remains. The next fresh loop should switch to plan mode and reseed `IMPLEMENTATION_PLAN.md` from `specs/ROADMAP.md`, choosing the next roadmap-backed implementation slice now that the Phase 4 closeout checklist is fully checked off.
+Update `specs/ROADMAP.md` first.
+
+That is the smallest high-value slice because the roadmap still tells the next build loop to work on a backend cleanup that is already complete. Keep that slice doc-only. Validate it with `git diff --check`. After that lands, take a second small doc-only slice for the broader `specs/FRONTEND.md` structure and helper-path alignment.

@@ -27,6 +27,7 @@ config.json
 /.claude
 /.codex
 .codex-run/
-CLAUDE.md
 RALPH_CODEX_MIGRATION_NOTES.md
+.claude-run/
 /CoachWiggum
+/CoachWiggumV3Learn
