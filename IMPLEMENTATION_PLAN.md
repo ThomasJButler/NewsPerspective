@@ -2,7 +2,7 @@
 
 ## 1. Current status summary and code review
 
-Updated on 2026-03-20 (fifth pass, Claude Code Opus 4.6, `v2.0-UX` branch). This pass corrected stale worktree/branch state descriptions and identified the natural next milestone: landing `v2.0-UX` work on `master`.
+Updated on 2026-03-20 (sixth pass, Claude Code Opus 4.6, `master` branch). This pass merged `v2.0-UX` into `master` via PR #5, deleted stale v2 branches, and transitioned to Phase 6.
 
 ### Verified runtime state
 - `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. The backend does not read a server-side `NEWS_API_KEY`.
@@ -28,40 +28,29 @@ Updated on 2026-03-20 (fifth pass, Claude Code Opus 4.6, `v2.0-UX` branch). This
 - Backend test suites not re-run this pass (no backend changes).
 
 ### Worktree state
-`v2.0-UX` working tree is **clean**. Branch is **up to date** with `origin/v2.0-UX`.
+`master` working tree is **clean**. Branch is **up to date** with `origin/master`.
 
 ### GitHub state (verified 2026-03-20)
+- ~~**PR #5**~~ Merged 2026-03-20. `v2.0-UX` → `master` (8 commits: test fix, security merge, spec alignment, e2e fix, package-lock, plan update). Fast-forward merge.
+- ~~**PR #4**~~ Merged 2026-03-20. Security dependency bump.
 - No open issues or PRs.
-- ~~**PR #4**~~ Merged 2026-03-20. Security dependency bump: `next` 16.1.6→16.1.7, `flatted` 3.3.4→3.4.2, `hono` 4.12.5→4.12.8.
 - GitHub repo description is current v2 language.
 
-### Branch state (corrected this pass)
-**`v2.0-UX` is 7 commits ahead of `master`** (`ce49ded` vs `323f594`). Master has no commits that are not in `v2.0-UX`. The 7 commits contain:
-1. `7190477` — Test isolation fix (mock `AIService.__init__` in Good News persistence tests)
-2. `69491dc` — Merge `origin/master` into `v2.0-UX` (pulled PR #4)
-3. `8fd50e3` — Merge PR #4 security bump and update specs/plan
-4. `fa24deb` — Align specs and validation docs with shipped codebase
-5. `2fa182a` — Update GitHub repo description to v2 and refresh plan
-6. `6dd1826` — Fix stale e2e assertion and run full Playwright validation (11/11)
-7. `ce49ded` — Update package-lock.json
+### Branch state
+**`master`** is the sole active branch. All v2 feature branches have been merged and deleted:
+- ~~`v2.0-UX`~~ — merged via PR #5, deleted (local + remote).
+- ~~`v2.0`~~ — deleted (local + remote). Content was in master via PR #3.
+- ~~`v2.0-Codex`~~ — deleted (local + remote). Superseded.
+- ~~`v2.0-Security`~~ — deleted (local + remote). Same as master.
 
-All of this work is validated and should land on `master`.
-
-Other local and remote v2 branches (all safe to delete after `v2.0-UX` lands):
-- `v2.0` → `d50943e` — Source branch for PR #3. All content in `master` via merge commit.
-- `v2.0-Codex` → `e83a153` — Far behind master (38+ commits). All content superseded.
-- `v2.0-Security` → `323f594` — Same as `master`.
-
-Legacy remote-only branches: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Consider removing after the merge.
+Legacy remote-only branches remain: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Kept for historical reference; safe to remove if desired.
 
 ### Open review findings
 All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in fifth-pass verification. Code-spec alignment is strong across all active specs.
 
 ## 2. Active phase
 
-**Phase 5 → Phase 6 transition.** Phase 5 (commit hygiene, security maintenance, documentation alignment, validation boundaries) is functionally complete. The only remaining Phase 5 items are landing `v2.0-UX` on `master` and cleaning up stale branches.
-
-After that, Phase 6 is **UX polish** per `specs/ROADMAP.md` Near-Term Loop Order: feed thumbnails, header alignment, headline rewrite visibility, and other visual refinements.
+**Phase 6 — UX polish.** Phase 5 is complete (`v2.0-UX` merged to `master` via PR #5, stale branches cleaned up). Phase 6 follows `specs/ROADMAP.md` Near-Term Loop Order: headline rewrite visibility investigation, feed thumbnails, header alignment, and other visual refinements.
 
 ## 3. Ordered checklist
 
@@ -74,12 +63,11 @@ After that, Phase 6 is **UX polish** per `specs/ROADMAP.md` Near-Term Loop Order
 - [x] Playwright e2e — 11/11 passed after fixing stale Good News toggle assertion.
 - [x] Package-lock.json committed (`ce49ded`).
 
-### Active
-- [ ] [P2] **Open PR to merge `v2.0-UX` → `master`.** The branch has 7 validated commits (test fix, security merge, spec alignment, e2e fix, package-lock update). Master has no divergent commits. This is a clean fast-forward-eligible merge. Steps: (a) push is already done; (b) open PR from `v2.0-UX` to `master`; (c) validate CI if configured; (d) merge.
-- [ ] [P3] **Branch cleanup.** After `v2.0-UX` merges to `master`: (a) delete local+remote `v2.0`, `v2.0-Codex`, `v2.0-Security`; (b) delete local+remote `v2.0-UX`; (c) evaluate whether legacy remote branches `v1.1`–`v1.4` should be kept for historical reference or removed.
-- [ ] [P3] **Keep the legacy boundary explicit.** Use `READMEOLD.md` or git history for v1 reference, not new root-level files.
+- [x] PR #5: merge `v2.0-UX` → `master` — merged 2026-03-20 (fast-forward, 8 commits).
+- [x] Branch cleanup: deleted local+remote `v2.0`, `v2.0-Codex`, `v2.0-Security`, `v2.0-UX`. Legacy `v1.*` remotes retained.
+- [x] Legacy boundary: `READMEOLD.md` and git history only; no new root-level v1 files.
 
-### Upcoming (Phase 6 — UX polish)
+### Active (Phase 6 — UX polish)
 - [ ] [P2] **Evaluate headline rewrite visibility.** Per `specs/ROADMAP.md`: "Investigate and fix the current-feed behavior where rewritten headlines are not always appearing as expected." Verify whether `getVisibleHeadline()` correctly surfaces rewrites in the article card list view, or if there is a display/data issue.
 - [ ] [P3] **Add article card thumbnails.** Per `specs/ROADMAP.md`: "Add a small thumbnail to article cards in the main feed." The backend already stores `image_url`; the frontend `article-card.tsx` needs to render it.
 - [ ] [P3] **Header/feed layout alignment.** Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined."
@@ -97,10 +85,11 @@ After that, Phase 6 is **UX polish** per `specs/ROADMAP.md` Near-Term Loop Order
 
 ## 5. Next recommended build slice
 
-**Open PR to merge `v2.0-UX` → `master`.**
+**Evaluate headline rewrite visibility.**
 
-1. Open a PR from `v2.0-UX` to `master` summarizing the 7 commits (test fix, security merge, spec/doc alignment, e2e fix, package-lock update).
-2. Merge the PR (fast-forward eligible — no conflicts expected).
-3. After merge, delete stale branches: `v2.0`, `v2.0-Codex`, `v2.0-Security`, `v2.0-UX` (local and remote).
-4. Evaluate legacy `v1.*` remote branches for deletion.
-5. Transition to Phase 6 (UX polish): start with headline rewrite visibility investigation.
+Per `specs/ROADMAP.md`: "Investigate and fix the current-feed behavior where rewritten headlines are not always appearing as expected."
+
+1. Read `src/frontend/lib/headlines.ts` (`getVisibleHeadline()`) and trace where it is called in article rendering.
+2. Read the backend article model to understand when `rewritten_headline` is populated vs null.
+3. Determine if this is a data issue (rewrites not stored), a display issue (rewrites not surfaced), or by-design (not all articles get rewrites).
+4. Document findings and fix if a bug is identified.
