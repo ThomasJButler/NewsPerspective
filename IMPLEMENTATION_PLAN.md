@@ -29,18 +29,12 @@ After merging PR #4 (security dependency bump) into master and pulling into `v2.
 - Playwright e2e was not exercised in this pass (needs live ports).
 
 ### Worktree state
-`v2.0-UX` has merged `origin/master` (which now includes PR #4). Local branch is ahead of `origin/v2.0-UX` by 4 commits (test isolation fix + PR #4 merge commit + merge of master). Uncommitted local changes pending commit:
-1. **`specs/ROADMAP.md`** — Near-Term Loop Order updated.
-2. **`specs/FRONTEND.md`** — Version string + Current Project Structure updated.
-3. **`README.md`** — Added `test_config` to backend validation commands.
-4. **`CLAUDE.md`** — Added backend test suite commands.
-5. **`AGENTS.md`** — Added backend test suite commands.
-6. **`IMPLEMENTATION_PLAN.md`** — This file (planning updates).
+`v2.0-UX` has merged `origin/master` (which now includes PR #4). Local branch is ahead of `origin/v2.0-UX` by 6 commits. The only uncommitted local change is `src/frontend/package-lock.json` (trivial `dev: true` metadata on `fsevents`, from a local `npm install` run — not a code change).
 
 ### GitHub state (verified 2026-03-20)
 - ~~**PR #4**~~ Merged 2026-03-20. Security dependency bump: `next` 16.1.6→16.1.7, `flatted` 3.3.4→3.4.2, `hono` 4.12.5→4.12.8. Validated locally (lint, typecheck, 7/7 helper tests) before merging. `specs/FRONTEND.md` version string updated to match.
 - No open issues or PRs.
-- **GitHub repo description is stale.** It still reads "A Python-based application designed to fetch news articles using the NewsAPI, rewrite headlines into a more positive tone using Azure OpenAI, and upload the rewritten content to Azure Search for indexing." This is v1 language (Azure OpenAI, Azure Search). Should be updated to reflect v2 architecture.
+- ~~**GitHub repo description is stale.**~~ Resolved 2026-03-20. Updated to: "FastAPI + Next.js app that fetches news via NewsAPI, rewrites headlines with OpenAI for balanced perspective, and provides sentiment analysis, TLDR summaries, source filtering, and a Good News mode."
 
 ### Branch state (corrected from prior pass)
 Local and remote v2 branches:
@@ -57,13 +51,13 @@ Legacy remote-only branches: `v1.1` (`b37a039`), `v1.2` (`986ba68`), `v1.3` (`55
 - ~~**[P2] `specs/ROADMAP.md` is stale.**~~ Resolved 2026-03-20. Near-Term Loop Order updated to reflect current sequence.
 - ~~**[P2] `specs/FRONTEND.md` is stale.**~~ Resolved 2026-03-20. Current Project Structure now lists all 7 previously omitted shipped files.
 - ~~**[P3] Validation command docs omit `test_config`.**~~ Resolved 2026-03-20. `test_config` added to backend validation commands in `README.md`, `CLAUDE.md`, and `AGENTS.md`.
-- **[P3] GitHub repo description is stale v1 language.** (See GitHub state above.)
+- ~~**[P3] GitHub repo description is stale v1 language.**~~ Resolved 2026-03-20. Updated via `gh repo edit`.
 
 ## 2. Active phase
 
 Phase 5: commit hygiene, security maintenance, documentation alignment, and validation boundaries.
 
-All earlier correctness fixes are in place. The immediate priorities are: (1) commit the orphaned test fix, (2) review/merge the security dependency PR, (3) repair stale specs and docs, (4) branch cleanup.
+All correctness fixes, security bumps, spec alignment, and doc repairs are complete. Remaining items: Playwright e2e validation and branch cleanup.
 
 ## 3. Ordered checklist
 
@@ -86,7 +80,7 @@ All earlier correctness fixes are in place. The immediate priorities are: (1) co
 - [x] [P2] **Update `specs/FRONTEND.md`** `Current Project Structure` to list shipped files: `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, `lib/headlines.test.mjs`, `lib/refresh-status.test.mjs`, `types/article.ts`. Done 2026-03-20.
 - [x] [P2] After spec edits land, validate with frontend lint/typecheck and frontend helper tests. Passed 2026-03-20 (lint, typecheck, 7/7 helper tests).
 - [x] [P3] **Update validation command docs.** Added `src.backend.tests.test_config` to backend validation commands in `README.md`, `CLAUDE.md`, and `AGENTS.md`. Done 2026-03-20.
-- [ ] [P3] **Update GitHub repo description.** Replace stale v1 language (Azure OpenAI, Azure Search) with a v2 summary (FastAPI + Next.js, OpenAI, SQLite).
+- [x] [P3] **Update GitHub repo description.** Replaced stale v1 language with v2 summary via `gh repo edit`. Verified 2026-03-20.
 - [ ] [P3] Run Playwright e2e on a machine that can bind ports 8000/3000, or use `npm run test:e2e:reuse` against an already-running local stack.
 - [ ] [P3] **Branch cleanup.** After the test fix commit lands and PR #4 merges: (a) delete `v2.0`, `v2.0-Codex`, and `v2.0-Security` (all fully merged or superseded); (b) evaluate whether `v2.0-UX` should be kept or merged to master and deleted; (c) evaluate whether legacy remote branches `v1.1`–`v1.4` should be kept for historical reference or removed.
 - [ ] [P3] Keep the legacy boundary explicit during doc cleanup. Use `READMEOLD.md` or git history for v1 reference, not new root-level files.
@@ -106,8 +100,7 @@ All earlier correctness fixes are in place. The immediate priorities are: (1) co
 
 ## 5. Next recommended build slice
 
-**GitHub repo description update, then Playwright e2e validation.**
+**Playwright e2e validation, then branch cleanup.**
 
-1. [P3] Update GitHub repo description — replace stale v1 language with v2 summary.
-2. [P3] Run Playwright e2e against a live local stack (`npm run test:e2e` or `npm run test:e2e:reuse`).
-3. [P3] Branch cleanup — delete fully-merged `v2.0`, `v2.0-Codex`, `v2.0-Security`; evaluate `v2.0-UX` and legacy `v1.*` branches.
+1. [P3] Run Playwright e2e against a live local stack (`npm run test:e2e` or `npm run test:e2e:reuse`).
+2. [P3] Branch cleanup — delete fully-merged `v2.0`, `v2.0-Codex`, `v2.0-Security`; evaluate `v2.0-UX` and legacy `v1.*` branches.
