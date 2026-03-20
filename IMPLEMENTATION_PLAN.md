@@ -50,7 +50,7 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 
 ## 2. Active phase
 
-**Phase 6 — UX polish.** Phase 5 is complete (`v2.0-UX` merged to `master` via PR #5, stale branches cleaned up). Phase 6 follows `specs/ROADMAP.md` Near-Term Loop Order: headline rewrite visibility investigation, feed thumbnails, header alignment, and other visual refinements.
+**Phase 7 — Feature buildout.** Phase 6 UX polish items are complete (headline rewrite visibility, feed thumbnails, header alignment, roadmap evaluation). Phase 7 promotes the highest-value roadmap items into active work based on the maturity assessment below.
 
 ## 3. Ordered checklist
 
@@ -71,7 +71,26 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 - [x] [P2] **Evaluate headline rewrite visibility.** Investigated end-to-end. No display bug: `getVisibleHeadline()` correctly surfaces rewrites. "Not always appearing" is by-design — the AI only rewrites sensationalized/misleading headlines; fair, factual headlines keep their original form. Fixed one robustness gap: `_validate_result` now normalizes `needs_rewrite` to `false` when `rewritten_title` is null/empty, preventing `rewritten_count` stat inflation. Added 3 unit tests.
 - [x] [P3] **Add article card thumbnails.** Per `specs/ROADMAP.md`: "Add a small thumbnail to article cards in the main feed." Added a 96×96 thumbnail on the right side of each article card using `next/image` with `unoptimized` (matching detail page pattern). Hidden on mobile (`hidden sm:block`), gracefully absent when `image_url` is null. Validated with `npm run lint` and `npm run typecheck`.
 - [x] [P3] **Header/feed layout alignment.** Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined." Added `max-w-3xl` to the header container div in `header.tsx` so the header content width matches the `max-w-3xl` main content area in `page.tsx`. Validated with `npm run lint` and `npm run typecheck`.
-- [ ] [P3] **Evaluate broader roadmap items** (content guardrails, country-aware reading, topic filtering, About modal, accessibility audit) against current codebase maturity before promoting any into active specs.
+- [x] [P3] **Evaluate broader roadmap items** (content guardrails, country-aware reading, topic filtering, About modal, accessibility audit, processing visibility, Fact Checker Mode) against current codebase maturity. Assessment complete — see §3a below for findings and promoted items.
+
+### Roadmap evaluation results (Phase 6 → Phase 7 gate)
+
+| Item | Complexity | Prerequisites | Recommendation |
+|------|-----------|---------------|----------------|
+| Content guardrails | **Small** | None — keyword exclusion mechanism in `good_news.py` is proven and extensible | **Promote** — expand existing keyword lists for war/suicide/depression/death/grief |
+| About modal | **Small** | None — ShadCN `Dialog` infrastructure proven via `settings-dialog.tsx` | **Promote** — pure UI, no backend changes, improves discoverability |
+| Accessibility pass | **Small–Medium** | None — good foundation exists (aria-labels, live regions); gaps are CSS focus states and `prefers-reduced-motion` | **Promote** — foundational; should land before large new features |
+| Topic filtering UI | **Medium–Small** | Backend `category` query param already works; need `/api/categories` endpoint + frontend `CategoryFilter` component | **Promote** — backend plumbing exists, mostly frontend UI work |
+| Country-aware reading | **Medium** | Requires new `country` DB column, pipeline changes, frontend selector, `/api/countries` endpoint. `news_fetcher.py` already accepts `country` param | **Defer** — multi-layer schema change; revisit after simpler items ship |
+| Processing visibility | **Medium–Large** | Requires in-flight article UI, skeleton states, progressive polling or SSE | **Defer** — heaviest lift; best done after simpler features prove the UX patterns |
+| Fact Checker Mode | **Large** | Requires cross-source article matching, country filtering, comparison UI — depends on country-aware reading | **Defer** — depends on country and topic infrastructure not yet built |
+
+### Active (Phase 7 — Feature buildout)
+Promoted items in priority order:
+- [ ] [P2] **Content guardrails.** Add keyword-based exclusions for war, suicide, depression, death, and grief to `good_news.py`. Expand `apply_good_news_rules()` and `good_news_filter_expression()`. Update frontend toggle hint. Add tests for new exclusions.
+- [ ] [P3] **About modal.** Create `about-modal.tsx` using ShadCN `Dialog`. Add About button to header near theme toggle. Include app explanation, GitHub link, Buy Me a Coffee link. Copy can be placeholder initially.
+- [ ] [P3] **Accessibility pass.** Add `prefers-reduced-motion` check to spinner animations. Ensure visible focus states via `focus-visible` utilities. Add semantic landmarks to main content area. Test keyboard navigation through all controls.
+- [ ] [P3] **Topic filtering UI.** Add `/api/categories` endpoint returning category names and counts. Create `CategoryFilter` component (pattern matches `SourceFilter`). Wire into page state and URL query params.
 
 ## 4. Notes / discoveries that matter for the next loop
 
@@ -85,10 +104,14 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 
 ## 5. Next recommended build slice
 
-**Evaluate broader roadmap items.**
+**Content guardrails.**
 
-Per the Phase 6 checklist: evaluate content guardrails, country-aware reading, topic filtering, About modal, and accessibility audit against current codebase maturity before promoting any into active specs.
+Expand the proven keyword exclusion mechanism in `src/backend/utils/good_news.py` to cover roadmap-specified content guardrails (war, suicide, depression, death, grief). Steps:
 
-1. Review each roadmap-only item in `specs/ROADMAP.md` against the current backend/frontend code.
-2. Assess implementation complexity and prerequisites for each.
-3. Recommend a prioritized subset to promote into active specs, or document why items should remain roadmap-only for now.
+1. Add keyword tuples for each guardrail category in `good_news.py`.
+2. Create helper functions matching the `is_politics_story()` pattern.
+3. Update `apply_good_news_rules()` to apply the new exclusions.
+4. Update `good_news_filter_expression()` SQL filter to include new keyword checks.
+5. Update frontend `good-news-toggle.tsx` hint text to reflect expanded exclusions.
+6. Add unit tests for each new exclusion category.
+7. Update `specs/BACKEND.md` and `specs/ROADMAP.md` to reflect that these guardrails are now shipped.
