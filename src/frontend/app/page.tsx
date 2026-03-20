@@ -18,10 +18,12 @@ import type {
   Source,
   StatsResponse,
 } from "@/types/article";
+import { AboutModal } from "@/components/about-modal";
 import { ApiKeySetup } from "@/components/api-key-setup";
 import { Header } from "@/components/header";
 import { GoodNewsToggle } from "@/components/good-news-toggle";
 import { RefreshStatusCard } from "@/components/refresh-status-card";
+import { CountryFilter } from "@/components/country-filter";
 import { SourceFilter } from "@/components/source-filter";
 import { StatsBar } from "@/components/stats-bar";
 import { ArticleFeed } from "@/components/article-feed";
@@ -44,6 +46,7 @@ interface ArticleQueryState {
   search?: string;
   good_news_only?: boolean;
   source?: string;
+  country?: string;
 }
 
 function articleQueryMatches(
@@ -53,7 +56,8 @@ function articleQueryMatches(
   return (
     left.search === right.search &&
     left.good_news_only === right.good_news_only &&
-    left.source === right.source
+    left.source === right.source &&
+    left.country === right.country
   );
 }
 
@@ -80,6 +84,7 @@ function HomeContent() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [apiKeyFeedback, setApiKeyFeedback] = useState<ApiKeyFeedback | null>(
     null
@@ -94,6 +99,9 @@ function HomeContent() {
   const [sourceFilter, setSourceFilter] = useState(
     searchParams.get("source") || "all"
   );
+  const [countryFilter, setCountryFilter] = useState(
+    searchParams.get("country") || "all"
+  );
 
   const debouncedSearch = useDebounce(searchValue);
   const effectiveSourceFilter =
@@ -106,6 +114,7 @@ function HomeContent() {
     search: debouncedSearch || undefined,
     good_news_only: goodNewsOnly || undefined,
     source: effectiveSourceFilter !== "all" ? effectiveSourceFilter : undefined,
+    country: countryFilter !== "all" ? countryFilter : undefined,
   };
   const currentArticleQueryKey = JSON.stringify(currentArticleQuery);
 
@@ -117,6 +126,7 @@ function HomeContent() {
     const nextSearchValue = searchParams.get("search") || "";
     const nextGoodNewsOnly = searchParams.get("good_news") === "true";
     const nextSourceFilter = searchParams.get("source") || "all";
+    const nextCountryFilter = searchParams.get("country") || "all";
 
     setSearchValue((currentValue) =>
       currentValue === nextSearchValue ? currentValue : nextSearchValue
@@ -126,6 +136,9 @@ function HomeContent() {
     );
     setSourceFilter((currentValue) =>
       currentValue === nextSourceFilter ? currentValue : nextSourceFilter
+    );
+    setCountryFilter((currentValue) =>
+      currentValue === nextCountryFilter ? currentValue : nextCountryFilter
     );
   }, [searchParams]);
 
@@ -140,6 +153,9 @@ function HomeContent() {
     if (effectiveSourceFilter !== "all") {
       params.set("source", effectiveSourceFilter);
     }
+    if (countryFilter !== "all") {
+      params.set("country", countryFilter);
+    }
     const nextQuery = params.toString();
 
     if (nextQuery === currentQueryRef.current) {
@@ -149,6 +165,7 @@ function HomeContent() {
     currentQueryRef.current = nextQuery;
     router.push(nextQuery ? `?${nextQuery}` : "/", { scroll: false });
   }, [
+    countryFilter,
     debouncedSearch,
     effectiveSourceFilter,
     goodNewsOnly,
@@ -489,6 +506,7 @@ function HomeContent() {
       <Header
         searchValue={searchValue}
         onSearchChange={setSearchValue}
+        onAboutClick={() => setAboutOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
         onRefreshClick={handleRefresh}
         refreshing={refreshing}
@@ -505,6 +523,10 @@ function HomeContent() {
           <GoodNewsToggle
             checked={goodNewsOnly}
             onCheckedChange={setGoodNewsOnly}
+          />
+          <CountryFilter
+            value={countryFilter}
+            onValueChange={setCountryFilter}
           />
           <SourceFilter
             sources={sources}
@@ -525,6 +547,8 @@ function HomeContent() {
           onLoadMore={handleLoadMore}
         />
       </main>
+
+      <AboutModal open={aboutOpen} onOpenChange={setAboutOpen} />
 
       <SettingsDialog
         open={settingsOpen}

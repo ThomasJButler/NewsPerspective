@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 
 if __package__ in (None, ""):
     repo_root = Path(__file__).resolve().parents[2]
@@ -21,6 +22,12 @@ else:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Migrate existing databases: add country column if missing
+    existing_columns = {col["name"] for col in inspect(engine).get_columns("articles")}
+    if "country" not in existing_columns:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN country VARCHAR NOT NULL DEFAULT 'us'"))
+            conn.commit()
     yield
 
 

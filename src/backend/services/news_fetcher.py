@@ -56,6 +56,7 @@ class NewsFetcher:
                 if url and url not in seen_urls:
                     seen_urls.add(url)
                     article["category"] = category
+                    article["country"] = country
                     all_articles.append(article)
 
         logger.info(f"Fetched {len(all_articles)} unique articles across {len(CATEGORIES)} categories")

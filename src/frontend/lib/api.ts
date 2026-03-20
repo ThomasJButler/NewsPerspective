@@ -15,6 +15,7 @@ interface FetchArticlesParams {
   good_news_only?: boolean;
   source?: string;
   category?: string;
+  country?: string;
   search?: string;
 }
 
@@ -89,6 +90,7 @@ export async function fetchArticles(
   if (params.good_news_only) searchParams.set("good_news_only", "true");
   if (params.source) searchParams.set("source", params.source);
   if (params.category) searchParams.set("category", params.category);
+  if (params.country) searchParams.set("country", params.country);
   if (params.search) searchParams.set("search", params.search);
 
   const res = await fetch(`/api/articles?${searchParams.toString()}`);

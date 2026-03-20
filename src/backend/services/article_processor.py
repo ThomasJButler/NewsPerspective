@@ -26,7 +26,9 @@ class ArticleProcessor:
     def process_new_articles(self, db: Session, api_key: str) -> dict[str, int]:
         """Fetch, deduplicate, analyse, and persist articles."""
         fetcher = NewsFetcher(api_key=api_key)
-        articles = fetcher.fetch_all_categories()
+        us_articles = fetcher.fetch_all_categories(country="us")
+        gb_articles = fetcher.fetch_all_categories(country="gb")
+        articles = us_articles + gb_articles
 
         if not articles:
             logger.info("No articles returned from NewsFetcher.")
@@ -64,6 +66,7 @@ class ArticleProcessor:
                 image_url=raw.get("image_url"),
                 published_at=_parse_datetime(raw.get("published_at")),
                 category=raw.get("category", "general"),
+                country=raw.get("country", "us"),
                 processing_status="pending",
             )
             db.add(article)

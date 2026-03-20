@@ -40,6 +40,7 @@ def get_articles(
     good_news_only: bool = Query(default=False),
     source: str | None = Query(default=None),
     category: str | None = Query(default=None),
+    country: str | None = Query(default=None),
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> ArticleListResponse:
@@ -54,6 +55,9 @@ def get_articles(
 
     if category is not None:
         query = query.filter(Article.category == category)
+
+    if country is not None:
+        query = query.filter(Article.country == country)
 
     if search is not None:
         pattern = f"%{search}%"

@@ -16,6 +16,7 @@ export interface Article {
   sentiment_score: number | null;
   is_good_news: boolean;
   category: string | null;
+  country: string;
   processing_status: string;
 }
 

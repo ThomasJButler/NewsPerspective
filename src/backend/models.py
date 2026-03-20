@@ -46,4 +46,5 @@ class Article(Base):
     sentiment_score = Column(Float, nullable=True)  # -1.0 to 1.0
     is_good_news = Column(Boolean, default=False)
     category = Column(String, nullable=True)
+    country = Column(String, default="us", nullable=False)
     processing_status = Column(String, default="pending")  # pending/processed/failed

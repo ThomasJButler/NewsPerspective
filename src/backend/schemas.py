@@ -23,6 +23,7 @@ class ArticleResponse(BaseModel):
     sentiment_score: float | None = None
     is_good_news: bool = False
     category: str | None = None
+    country: str = "us"
     processing_status: str = "pending"
 
     model_config = {"from_attributes": True}
