@@ -379,5 +379,55 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         self.assertTrue(session.closed)
 
 
+ai_service_module = importlib.import_module("src.backend.services.ai_service")
+
+
+class TestAIServiceValidation(unittest.TestCase):
+    """Tests for AIService._validate_result normalization."""
+
+    def _validate(self, result: dict) -> dict:
+        ai_service_module.AIService._validate_result(None, result)
+        return result
+
+    def test_needs_rewrite_cleared_when_rewritten_title_is_none(self) -> None:
+        result = self._validate({
+            "sentiment": "negative",
+            "sentiment_score": -0.5,
+            "needs_rewrite": True,
+            "rewritten_title": None,
+            "rewrite_reason": "Sensationalized",
+            "tldr": "Summary.",
+            "is_good_news": False,
+        })
+        self.assertFalse(result["needs_rewrite"])
+        self.assertIsNone(result["rewritten_title"])
+
+    def test_needs_rewrite_cleared_when_rewritten_title_is_empty(self) -> None:
+        result = self._validate({
+            "sentiment": "negative",
+            "sentiment_score": -0.5,
+            "needs_rewrite": True,
+            "rewritten_title": "   ",
+            "rewrite_reason": "Sensationalized",
+            "tldr": "Summary.",
+            "is_good_news": False,
+        })
+        self.assertFalse(result["needs_rewrite"])
+        self.assertIsNone(result["rewritten_title"])
+
+    def test_needs_rewrite_preserved_when_rewritten_title_present(self) -> None:
+        result = self._validate({
+            "sentiment": "negative",
+            "sentiment_score": -0.5,
+            "needs_rewrite": True,
+            "rewritten_title": "A calmer headline",
+            "rewrite_reason": "Sensationalized",
+            "tldr": "Summary.",
+            "is_good_news": False,
+        })
+        self.assertTrue(result["needs_rewrite"])
+        self.assertEqual(result["rewritten_title"], "A calmer headline")
+
+
 if __name__ == "__main__":
     unittest.main()

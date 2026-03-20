@@ -127,3 +127,9 @@ class AIService:
         # Ensure booleans
         result["needs_rewrite"] = bool(result.get("needs_rewrite"))
         result["is_good_news"] = bool(result.get("is_good_news"))
+
+        # Normalize rewrite consistency: needs_rewrite requires a non-empty title
+        rewritten = result.get("rewritten_title")
+        if result["needs_rewrite"] and (not rewritten or not rewritten.strip()):
+            result["needs_rewrite"] = False
+            result["rewritten_title"] = None

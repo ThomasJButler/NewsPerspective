@@ -21,11 +21,11 @@ Updated on 2026-03-20 (sixth pass, Claude Code Opus 4.6, `master` branch). This 
 - `specs/AI_PROMPTS.md` system prompt and user prompt template match actual strings in `src/backend/services/ai_service.py` exactly. No drift.
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
 
-### Validation snapshot (2026-03-20, post Playwright e2e fix)
+### Validation snapshot (2026-03-20, post headline rewrite visibility investigation)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
 - `npx playwright test` — **11/11 passed** (both `cached-browse.spec.ts` and `refresh-path.spec.ts`).
-- Backend test suites not re-run this pass (no backend changes).
+- Backend: `test_refresh_processing` **12/12 passed** (9 existing + 3 new validation tests). `test_api_smoke` 29, `test_config` 4, `test_manual_integration_evidence` 14 — all passed. Total: **59 backend tests**.
 
 ### Worktree state
 `master` working tree is **clean**. Branch is **up to date** with `origin/master`.
@@ -68,7 +68,7 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 - [x] Legacy boundary: `READMEOLD.md` and git history only; no new root-level v1 files.
 
 ### Active (Phase 6 — UX polish)
-- [ ] [P2] **Evaluate headline rewrite visibility.** Per `specs/ROADMAP.md`: "Investigate and fix the current-feed behavior where rewritten headlines are not always appearing as expected." Verify whether `getVisibleHeadline()` correctly surfaces rewrites in the article card list view, or if there is a display/data issue.
+- [x] [P2] **Evaluate headline rewrite visibility.** Investigated end-to-end. No display bug: `getVisibleHeadline()` correctly surfaces rewrites. "Not always appearing" is by-design — the AI only rewrites sensationalized/misleading headlines; fair, factual headlines keep their original form. Fixed one robustness gap: `_validate_result` now normalizes `needs_rewrite` to `false` when `rewritten_title` is null/empty, preventing `rewritten_count` stat inflation. Added 3 unit tests.
 - [ ] [P3] **Add article card thumbnails.** Per `specs/ROADMAP.md`: "Add a small thumbnail to article cards in the main feed." The backend already stores `image_url`; the frontend `article-card.tsx` needs to render it.
 - [ ] [P3] **Header/feed layout alignment.** Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined."
 - [ ] [P3] **Evaluate broader roadmap items** (content guardrails, country-aware reading, topic filtering, About modal, accessibility audit) against current codebase maturity before promoting any into active specs.
@@ -76,7 +76,7 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 ## 4. Notes / discoveries that matter for the next loop
 
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking into the test path. Root cause is environment proxy variables (`ALL_PROXY`), not a missing dependency. Do not install `socksio` or clear proxy vars as a workaround.
-- **Test count.** Full backend count is 56 tests across `test_api_smoke` (29), `test_refresh_processing` (9), `test_manual_integration_evidence` (14), and `test_config` (4).
+- **Test count.** Full backend count is 59 tests across `test_api_smoke` (29), `test_refresh_processing` (12), `test_manual_integration_evidence` (14), and `test_config` (4).
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected and not regressions.
 - **`logs/phase3_manual_integration_report.md`** is present and matches the v2 boundary. Refresh only if the refresh contract or visible refresh UI copy changes.
 - **Manual evidence helper** intentionally leaves human-fill `TODO` placeholders. That is the design, not a broken implementation.
@@ -85,11 +85,11 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 
 ## 5. Next recommended build slice
 
-**Evaluate headline rewrite visibility.**
+**Add article card thumbnails.**
 
-Per `specs/ROADMAP.md`: "Investigate and fix the current-feed behavior where rewritten headlines are not always appearing as expected."
+Per `specs/ROADMAP.md`: "Add a small thumbnail to article cards in the main feed."
 
-1. Read `src/frontend/lib/headlines.ts` (`getVisibleHeadline()`) and trace where it is called in article rendering.
-2. Read the backend article model to understand when `rewritten_headline` is populated vs null.
-3. Determine if this is a data issue (rewrites not stored), a display issue (rewrites not surfaced), or by-design (not all articles get rewrites).
-4. Document findings and fix if a bug is identified.
+1. The backend already stores `image_url` and the detail page (`article/[id]/page.tsx`) already renders it via `next/image`.
+2. Add a compact thumbnail to `src/frontend/components/article-card.tsx` using the same `image_url` field.
+3. Handle the null case (no image) gracefully — card should look fine without a thumbnail.
+4. Run `npm run lint`, `npm run typecheck`, and verify visually.
