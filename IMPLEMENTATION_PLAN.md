@@ -58,3 +58,63 @@ The earlier correctness fixes still appear to be in place. The next safe loop sh
 Update `specs/ROADMAP.md` first.
 
 That is the smallest high-value slice because the roadmap still tells the next build loop to work on a backend cleanup that is already complete. Keep that slice doc-only. Validate it with `git diff --check`. After that lands, take a second small doc-only slice for the broader `specs/FRONTEND.md` structure and helper-path alignment.
+
+
+# New updates from Ralph Plan
+
+## 1. Current status summary and code review
+- Updated on 2026-03-20 from Claude Code after reading repo rules, active specs, recent local history, and the main backend/frontend runtime files.
+- **P1 test isolation regression discovered**: Two `test_refresh_processing` tests fail on developer machines with a SOCKS proxy configured (`ALL_PROXY=socks5h://...`). The tests mock `AIService.analyse_article` but not the `AIService.__init__` constructor, so the `OpenAI()` client instantiation crashes before the method mock takes effect. These same tests pass in environments without proxy configuration (e.g., the Codex sandbox).
+- Verified runtime state:
+  - `POST /api/refresh` still requires a user-supplied `X-News-Api-Key`. The backend still does not read a server-side `NEWS_API_KEY`.
+  - Cached read-only endpoints still work without a key.
+  - `src/backend/services/article_processor.py` still does one AI call per new article and stores sentiment, rewrite output, TLDR, and Good News state together.
+  - Good News exclusions for `sports`, `entertainment`, and detected `politics` are still enforced in backend logic and reflected in frontend behavior.
+  - Exception chaining (`raise ... from exc`) is correctly used in `src/backend/routers/sources.py` lines 166 and 174.
+  - Refresh timeout resume behavior is still implemented in `src/frontend/app/page.tsx` and helper-covered in `src/frontend/lib/refresh-status.test.mjs`.
+  - The visible-headline fallback lives in `src/frontend/lib/headlines.ts`, not `src/frontend/lib/utils.ts`.
+  - Root-level v1 runtime files remain absent. Legacy reference still lives in `READMEOLD.md` and git history only.
+- Validation snapshot on 2026-03-20:
+  - Backend: `56` tests total, `54` passed, `2` errored (SOCKS proxy test isolation — see P1 above).
+  - `cd src/frontend && npm run lint` passed.
+  - `cd src/frontend && npm run typecheck` passed.
+  - `cd src/frontend && node --test --experimental-strip-types lib/headlines.test.mjs lib/refresh-status.test.mjs` passed (`7` tests).
+  - Playwright e2e was not exercised in this pass. See notes for caveats.
+- Open review findings to carry forward:
+  - [P2] `specs/ROADMAP.md` is stale. Its `Near-Term Loop Order` still points at already-finished backend review cleanup (exception chaining in `sources.py`).
+  - [P2] `specs/FRONTEND.md` is stale. Its `Current Project Structure` omits shipped files: `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, `lib/headlines.test.mjs`, `lib/refresh-status.test.mjs`, and the `types/article.ts` type definitions.
+- Top-level docs check:
+  - `README.md` and `src/frontend/README.md` are broadly aligned with the current runtime.
+  - Active spec drift is in `specs/ROADMAP.md` and `specs/FRONTEND.md`.
+
+## 2. Active phase
+Phase 5: documentation alignment, validation boundaries, and test resilience.
+
+The P1 test isolation fix is the new highest-priority item. After that, the stale spec updates remain the next doc-only work.
+
+## 3. Ordered checklist with [ ] and [x]
+- [x] [P1] Re-read `AGENTS.md`, `CLAUDE.md`, the old `IMPLEMENTATION_PLAN.md`, `README.md`, the active specs, and source code before rewriting the plan.
+- [x] [P1] Inspect enough backend/frontend source to verify the refresh contract, cached read-only contract, Good News exclusions, visible-headline helper path, and refresh timeout resume behavior.
+- [x] [P1] Re-run a focused validation snapshot: combined backend suites, frontend lint/typecheck, and focused frontend helper tests.
+- [x] [P2] Review `README.md` and `src/frontend/README.md` against the runtime and active specs. No higher-priority blocker was found there.
+- [ ] **[P1] Fix test isolation in `src/backend/tests/test_refresh_processing.py`**: Add `AIService.__init__` mock (no-op `lambda self: None`) alongside the existing `analyse_article` mock in `test_process_new_articles_excludes_sports_from_persisted_good_news` and `test_process_new_articles_excludes_detected_politics_from_persisted_good_news`. Validate with: `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_refresh_processing -v` (all 9 tests should pass, including in SOCKS proxy environments).
+- [ ] [P2] Update `specs/ROADMAP.md` so `Near-Term Loop Order` stops pointing at the already-finished router exception-chaining cleanup and instead points at the real next work (test resilience fix, then doc alignment).
+- [ ] [P2] Update `specs/FRONTEND.md` so `Current Project Structure` lists the shipped files: `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, `lib/headlines.test.mjs`, `lib/refresh-status.test.mjs`, and `types/article.ts`.
+- [ ] [P2] After the spec edits land, run `git diff --check -- specs/ROADMAP.md specs/FRONTEND.md IMPLEMENTATION_PLAN.md` plus frontend lint/typecheck and the focused frontend helper tests.
+- [ ] [P3] Rerun Playwright on a machine that can bind `127.0.0.1:8000` and `127.0.0.1:3000`, or use `npm run test:e2e:reuse` against an already-running local stack. Examine playwright screenshots and use the /frontend-design skill to improve the UI and UX.
+- [ ] [P3] Keep the legacy boundary explicit during doc cleanup. If a future slice needs v1 reference behavior, use `READMEOLD.md` or git history instead of recreating deleted root-level runtime files.
+
+## 4. Notes / discoveries that matter for the next loop
+- The SOCKS proxy test failure is caused by local environment variables (`ALL_PROXY=socks5h://localhost:56157`). The fix is to mock `AIService.__init__`, not to install `socksio` or clear proxy vars.
+- `logs/phase3_manual_integration_report.md` is still present and still matches the v2 boundary. Refresh it only if the refresh contract or visible refresh UI copy changes.
+- The manual evidence helper intentionally leaves human-fill `TODO` placeholders in generated report sections. That is part of the workflow, not a broken implementation.
+- `specs/FRONTEND.md` project structure is more stale than the old plan said. It also misses `types/article.ts` (the shared type definitions used across components).
+- `npm run test:e2e` currently needs a machine that can open the managed backend/frontend ports.
+- The frontend helper tests currently rely on `node --test --experimental-strip-types`. The experimental warnings are expected.
+- The `gh` CLI may not reach GitHub from all environments. Do not claim live issue/review state is current unless a future loop reruns those commands with network access.
+- Test count rose from 52 (last validated Codex pass) to 56 (this pass). The additional tests are likely from the Claude loop scripts commit (`80b9421`).
+
+## 5. Next recommended build slice
+Fix the P1 test isolation bug in `src/backend/tests/test_refresh_processing.py`.
+
+This is the smallest high-value slice because it restores a green test suite on developer machines. The fix is two lines per test (add `__init__` mock alongside the `analyse_article` mock). Validate with the full backend test suite. After that passes, take the P2 doc-only slices for `specs/ROADMAP.md` and `specs/FRONTEND.md`.
