@@ -27,6 +27,7 @@ src/frontend/
 │   ├── article-feed.tsx
 │   ├── good-news-toggle.tsx
 │   ├── header.tsx
+│   ├── refresh-status-card.tsx
 │   ├── search-bar.tsx
 │   ├── settings-dialog.tsx
 │   ├── source-filter.tsx
@@ -34,6 +35,7 @@ src/frontend/
 │   ├── theme-provider.tsx
 │   ├── theme-toggle.tsx
 │   ├── tldr-section.tsx
+│   ├── toaster.tsx
 │   └── ui/
 ├── hooks/
 │   ├── use-api-key.ts
@@ -41,7 +43,13 @@ src/frontend/
 │   └── use-toast.ts
 ├── lib/
 │   ├── api.ts
+│   ├── headlines.ts
+│   ├── headlines.test.mjs
+│   ├── refresh-status.ts
+│   ├── refresh-status.test.mjs
 │   └── utils.ts
+├── types/
+│   └── article.ts
 ├── tests/e2e/
 │   ├── cached-browse.spec.ts
 │   └── refresh-path.spec.ts

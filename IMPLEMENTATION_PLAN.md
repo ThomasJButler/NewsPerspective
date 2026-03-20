@@ -29,9 +29,13 @@ After merging PR #4 (security dependency bump) into master and pulling into `v2.
 - Playwright e2e was not exercised in this pass (needs live ports).
 
 ### Worktree state
-`v2.0-UX` has merged `origin/master` (which now includes PR #4). Local branch is ahead of `origin/v2.0-UX` by 4 commits (test isolation fix + PR #4 merge commit + merge of master). Uncommitted local changes:
-1. **`IMPLEMENTATION_PLAN.md`** — This file (planning updates).
-2. **`specs/FRONTEND.md`** — Version string updated from `16.1.6` to `16.1.7`.
+`v2.0-UX` has merged `origin/master` (which now includes PR #4). Local branch is ahead of `origin/v2.0-UX` by 4 commits (test isolation fix + PR #4 merge commit + merge of master). Uncommitted local changes pending commit:
+1. **`specs/ROADMAP.md`** — Near-Term Loop Order updated.
+2. **`specs/FRONTEND.md`** — Version string + Current Project Structure updated.
+3. **`README.md`** — Added `test_config` to backend validation commands.
+4. **`CLAUDE.md`** — Added backend test suite commands.
+5. **`AGENTS.md`** — Added backend test suite commands.
+6. **`IMPLEMENTATION_PLAN.md`** — This file (planning updates).
 
 ### GitHub state (verified 2026-03-20)
 - ~~**PR #4**~~ Merged 2026-03-20. Security dependency bump: `next` 16.1.6→16.1.7, `flatted` 3.3.4→3.4.2, `hono` 4.12.5→4.12.8. Validated locally (lint, typecheck, 7/7 helper tests) before merging. `specs/FRONTEND.md` version string updated to match.
@@ -50,9 +54,9 @@ Legacy remote-only branches: `v1.1` (`b37a039`), `v1.2` (`986ba68`), `v1.3` (`55
 ### Open review findings
 - ~~**[P1] Uncommitted test fix.**~~ Resolved — committed as `7190477` on `v2.0-UX`.
 - ~~**[P1] Security dependency bump.**~~ Resolved — PR #4 merged 2026-03-20. `specs/FRONTEND.md` version string updated.
-- **[P2] `specs/ROADMAP.md` is stale.** Its `Near-Term Loop Order` (lines 182-188) still says the next loop should make exception chaining explicit in `sources.py` — but that work is already done (lines 166, 174).
-- **[P2] `specs/FRONTEND.md` is stale.** Its `Current Project Structure` (lines 17-52) omits 7 shipped files: `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, `lib/headlines.test.mjs`, `lib/refresh-status.test.mjs`, and `types/article.ts`.
-- **[P3] Validation command docs omit `test_config`.** `README.md`, `CLAUDE.md`, and `AGENTS.md` all list only 3 of 4 backend test suites in their validation commands, omitting `src.backend.tests.test_config`. The suite exists and passes (4 tests) but a fresh loop runner following the docs would not discover it.
+- ~~**[P2] `specs/ROADMAP.md` is stale.**~~ Resolved 2026-03-20. Near-Term Loop Order updated to reflect current sequence.
+- ~~**[P2] `specs/FRONTEND.md` is stale.**~~ Resolved 2026-03-20. Current Project Structure now lists all 7 previously omitted shipped files.
+- ~~**[P3] Validation command docs omit `test_config`.**~~ Resolved 2026-03-20. `test_config` added to backend validation commands in `README.md`, `CLAUDE.md`, and `AGENTS.md`.
 - **[P3] GitHub repo description is stale v1 language.** (See GitHub state above.)
 
 ## 2. Active phase
@@ -78,10 +82,10 @@ All earlier correctness fixes are in place. The immediate priorities are: (1) co
 - [x] [P1] **Commit the test isolation fix.** Committed as `7190477` on `v2.0-UX`. All 9 `test_refresh_processing` tests pass. Only the test file was staged; `IMPLEMENTATION_PLAN.md` excluded.
 - [x] [P1] **Review and merge PR #4** (dependabot security bump: `next`, `flatted`, `hono`). Validated on PR branch (lint, typecheck, 7/7 helper tests). Merged 2026-03-20. Master pulled into `v2.0-UX`. Post-merge validation passed (lint, typecheck, 7/7 helper tests).
 - [x] [P2] After PR #4 merges, update `specs/FRONTEND.md` line 7 version string from `16.1.6` to `16.1.7`. Done.
-- [ ] [P2] **Update `specs/ROADMAP.md`** `Near-Term Loop Order` section. Remove the stale reference to exception-chaining cleanup (already done). Replace with the actual current sequence: spec alignment → Playwright validation → UX polish.
-- [ ] [P2] **Update `specs/FRONTEND.md`** `Current Project Structure` to list shipped files: `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, `lib/headlines.test.mjs`, `lib/refresh-status.test.mjs`, `types/article.ts`.
-- [ ] [P2] After spec edits land, validate with frontend lint/typecheck and frontend helper tests.
-- [ ] [P3] **Update validation command docs.** Add `src.backend.tests.test_config` to the backend validation commands in `README.md`, `CLAUDE.md`, and `AGENTS.md`.
+- [x] [P2] **Update `specs/ROADMAP.md`** `Near-Term Loop Order` section. Removed stale exception-chaining reference, replaced with current sequence: spec alignment → Playwright validation → UX polish. Done 2026-03-20.
+- [x] [P2] **Update `specs/FRONTEND.md`** `Current Project Structure` to list shipped files: `components/refresh-status-card.tsx`, `components/toaster.tsx`, `lib/headlines.ts`, `lib/refresh-status.ts`, `lib/headlines.test.mjs`, `lib/refresh-status.test.mjs`, `types/article.ts`. Done 2026-03-20.
+- [x] [P2] After spec edits land, validate with frontend lint/typecheck and frontend helper tests. Passed 2026-03-20 (lint, typecheck, 7/7 helper tests).
+- [x] [P3] **Update validation command docs.** Added `src.backend.tests.test_config` to backend validation commands in `README.md`, `CLAUDE.md`, and `AGENTS.md`. Done 2026-03-20.
 - [ ] [P3] **Update GitHub repo description.** Replace stale v1 language (Azure OpenAI, Azure Search) with a v2 summary (FastAPI + Next.js, OpenAI, SQLite).
 - [ ] [P3] Run Playwright e2e on a machine that can bind ports 8000/3000, or use `npm run test:e2e:reuse` against an already-running local stack.
 - [ ] [P3] **Branch cleanup.** After the test fix commit lands and PR #4 merges: (a) delete `v2.0`, `v2.0-Codex`, and `v2.0-Security` (all fully merged or superseded); (b) evaluate whether `v2.0-UX` should be kept or merged to master and deleted; (c) evaluate whether legacy remote branches `v1.1`–`v1.4` should be kept for historical reference or removed.
@@ -98,13 +102,12 @@ All earlier correctness fixes are in place. The immediate priorities are: (1) co
 - **`logs/phase3_manual_integration_report.md`** is still present and matches the v2 boundary. Refresh only if the refresh contract or visible refresh UI copy changes.
 - **Manual evidence helper** intentionally leaves human-fill `TODO` placeholders. That is the design, not a broken implementation.
 - **Branch convergence (corrected).** `v2.0-Security` and `v2.0-UX` are at `323f594` (same as master). `v2.0` is at `d50943e` (its pre-merge head; all content in master via merge commit). `v2.0-Codex` is at `e83a153` ("Set up docker configuration"), 38+ commits behind master — all its content has been superseded. Legacy remote branches `v1.1`–`v1.4` also exist on origin. All non-UX v2 branches are safe to delete; `v2.0-UX` should be evaluated once its uncommitted work lands.
-- **Code-spec alignment is strong.** Fourth-pass full source verification (including AI_PROMPTS.md) found zero mismatches between active specs and running code. The only spec issues are the omissions documented in the review findings (stale ROADMAP loop order, missing FRONTEND.md file listings).
+- **Code-spec alignment is strong.** Fourth-pass full source verification (including AI_PROMPTS.md) found zero mismatches between active specs and running code. All previously documented spec omissions (stale ROADMAP loop order, missing FRONTEND.md file listings, missing test_config in validation docs) have been resolved.
 
 ## 5. Next recommended build slice
 
-**Spec alignment: update `specs/ROADMAP.md` and `specs/FRONTEND.md`.**
+**GitHub repo description update, then Playwright e2e validation.**
 
-1. Update `specs/ROADMAP.md` Near-Term Loop Order — remove stale exception-chaining reference, replace with current sequence.
-2. Update `specs/FRONTEND.md` Current Project Structure — add the 7 shipped files the spec omits.
-3. Update validation command docs (`README.md`, `CLAUDE.md`, `AGENTS.md`) — add `test_config` to the backend test suite list.
-4. Validate with frontend lint/typecheck and helper tests after spec edits.
+1. [P3] Update GitHub repo description — replace stale v1 language with v2 summary.
+2. [P3] Run Playwright e2e against a live local stack (`npm run test:e2e` or `npm run test:e2e:reuse`).
+3. [P3] Branch cleanup — delete fully-merged `v2.0`, `v2.0-Codex`, `v2.0-Security`; evaluate `v2.0-UX` and legacy `v1.*` branches.
