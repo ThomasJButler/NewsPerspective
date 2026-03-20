@@ -49,6 +49,10 @@ Run the smallest meaningful validation that proves the changed slice works.
 ```bash
 source src/backend/.venv/bin/activate
 python -m pip install -r src/backend/requirements.txt
+python -m unittest src.backend.tests.test_api_smoke -v
+python -m unittest src.backend.tests.test_refresh_processing -v
+python -m unittest src.backend.tests.test_manual_integration_evidence -v
+python -m unittest src.backend.tests.test_config -v
 uvicorn src.backend.main:app --reload --port 8000
 ```
 

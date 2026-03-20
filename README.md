@@ -156,6 +156,7 @@ source src/backend/.venv/bin/activate
 python -m unittest src.backend.tests.test_api_smoke -v
 python -m unittest src.backend.tests.test_refresh_processing -v
 python -m unittest src.backend.tests.test_manual_integration_evidence -v
+python -m unittest src.backend.tests.test_config -v
 ```
 
 Frontend:

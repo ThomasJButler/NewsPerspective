@@ -4,7 +4,7 @@
 
 The v2 frontend lives in `src/frontend/` and is the user-facing reader for cached and refreshed articles.
 
-- **Framework**: Next.js `16.1.6` with the App Router
+- **Framework**: Next.js `16.1.7` with the App Router
 - **Runtime**: React `19.2.3`
 - **UI stack**: ShadCN/ui primitives, Tailwind CSS 4, `next-themes`
 - **Backend integration**: `next.config.ts` rewrites `/api/:path*` to `BACKEND_ORIGIN` (default `http://localhost:8000`)
@@ -27,6 +27,7 @@ src/frontend/
 │   ├── article-feed.tsx
 │   ├── good-news-toggle.tsx
 │   ├── header.tsx
+│   ├── refresh-status-card.tsx
 │   ├── search-bar.tsx
 │   ├── settings-dialog.tsx
 │   ├── source-filter.tsx
@@ -34,6 +35,7 @@ src/frontend/
 │   ├── theme-provider.tsx
 │   ├── theme-toggle.tsx
 │   ├── tldr-section.tsx
+│   ├── toaster.tsx
 │   └── ui/
 ├── hooks/
 │   ├── use-api-key.ts
@@ -41,7 +43,13 @@ src/frontend/
 │   └── use-toast.ts
 ├── lib/
 │   ├── api.ts
+│   ├── headlines.ts
+│   ├── headlines.test.mjs
+│   ├── refresh-status.ts
+│   ├── refresh-status.test.mjs
 │   └── utils.ts
+├── types/
+│   └── article.ts
 ├── tests/e2e/
 │   ├── cached-browse.spec.ts
 │   └── refresh-path.spec.ts
