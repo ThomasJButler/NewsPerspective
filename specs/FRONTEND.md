@@ -4,7 +4,7 @@
 
 The v2 frontend lives in `src/frontend/` and is the user-facing reader for cached and refreshed articles.
 
-- **Framework**: Next.js `16.1.6` with the App Router
+- **Framework**: Next.js `16.1.7` with the App Router
 - **Runtime**: React `19.2.3`
 - **UI stack**: ShadCN/ui primitives, Tailwind CSS 4, `next-themes`
 - **Backend integration**: `next.config.ts` rewrites `/api/:path*` to `BACKEND_ORIGIN` (default `http://localhost:8000`)
