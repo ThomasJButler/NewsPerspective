@@ -21,7 +21,7 @@ export function Header({
 }: HeaderProps) {
   return (
     <header className="border-b">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 py-4 max-w-3xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">NewsPerspective</h1>

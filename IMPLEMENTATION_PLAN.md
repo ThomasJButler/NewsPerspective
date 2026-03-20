@@ -70,7 +70,7 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 ### Active (Phase 6 — UX polish)
 - [x] [P2] **Evaluate headline rewrite visibility.** Investigated end-to-end. No display bug: `getVisibleHeadline()` correctly surfaces rewrites. "Not always appearing" is by-design — the AI only rewrites sensationalized/misleading headlines; fair, factual headlines keep their original form. Fixed one robustness gap: `_validate_result` now normalizes `needs_rewrite` to `false` when `rewritten_title` is null/empty, preventing `rewritten_count` stat inflation. Added 3 unit tests.
 - [x] [P3] **Add article card thumbnails.** Per `specs/ROADMAP.md`: "Add a small thumbnail to article cards in the main feed." Added a 96×96 thumbnail on the right side of each article card using `next/image` with `unoptimized` (matching detail page pattern). Hidden on mobile (`hidden sm:block`), gracefully absent when `image_url` is null. Validated with `npm run lint` and `npm run typecheck`.
-- [ ] [P3] **Header/feed layout alignment.** Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined."
+- [x] [P3] **Header/feed layout alignment.** Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined." Added `max-w-3xl` to the header container div in `header.tsx` so the header content width matches the `max-w-3xl` main content area in `page.tsx`. Validated with `npm run lint` and `npm run typecheck`.
 - [ ] [P3] **Evaluate broader roadmap items** (content guardrails, country-aware reading, topic filtering, About modal, accessibility audit) against current codebase maturity before promoting any into active specs.
 
 ## 4. Notes / discoveries that matter for the next loop
@@ -85,10 +85,10 @@ All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in f
 
 ## 5. Next recommended build slice
 
-**Header/feed layout alignment.**
+**Evaluate broader roadmap items.**
 
-Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined."
+Per the Phase 6 checklist: evaluate content guardrails, country-aware reading, topic filtering, About modal, and accessibility audit against current codebase maturity before promoting any into active specs.
 
-1. Audit the current header layout in `src/frontend/components/` and the feed container in `src/frontend/app/page.tsx`.
-2. Ensure the header content width matches the article card stack width.
-3. Run `npm run lint`, `npm run typecheck`, and verify visually.
+1. Review each roadmap-only item in `specs/ROADMAP.md` against the current backend/frontend code.
+2. Assess implementation complexity and prerequisites for each.
+3. Recommend a prioritized subset to promote into active specs, or document why items should remain roadmap-only for now.
