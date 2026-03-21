@@ -25,7 +25,7 @@ export function ArticleFeed({
       <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="rounded-xl border overflow-hidden">
-            {i === 0 && <Skeleton className="aspect-video w-full" />}
+            <Skeleton className="aspect-video w-full" />
             <div className="p-6 space-y-3">
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-6 w-full" />
