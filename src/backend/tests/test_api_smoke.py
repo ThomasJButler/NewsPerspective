@@ -602,6 +602,40 @@ class BackendApiSmokeTest(unittest.TestCase):
             },
         )
 
+    def test_categories_returns_processed_category_counts(self) -> None:
+        response = self.client.get("/api/categories")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        categories = {cat["name"]: cat["count"] for cat in body["categories"]}
+
+        # Only processed articles: general (2), business (1), science (1), health (1)
+        self.assertEqual(categories, {
+            "general": 2,
+            "business": 1,
+            "science": 1,
+            "health": 1,
+        })
+
+    def test_categories_ordered_by_count_desc_then_name_asc(self) -> None:
+        response = self.client.get("/api/categories")
+
+        self.assertEqual(response.status_code, 200)
+        names = [cat["name"] for cat in response.json()["categories"]]
+
+        # general has 2, then business/health/science each have 1 (alpha order)
+        self.assertEqual(names, ["general", "business", "health", "science"])
+
+    def test_categories_excludes_pending_and_failed(self) -> None:
+        response = self.client.get("/api/categories")
+
+        self.assertEqual(response.status_code, 200)
+        names = [cat["name"] for cat in response.json()["categories"]]
+
+        # article-3 (pending) has category=technology, article-7 (failed) has category=science
+        # technology should not appear; science count should only include processed rows
+        self.assertNotIn("technology", names)
+
     def test_stats_counts_processed_articles_and_normalized_sources_only(self) -> None:
         response = self.client.get("/api/stats")
 

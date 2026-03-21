@@ -1,6 +1,7 @@
 import type {
   ArticleListResponse,
   Article,
+  CategoriesResponse,
   SourcesResponse,
   StatsResponse,
   RefreshErrorCode,
@@ -112,6 +113,12 @@ export async function fetchArticle(id: string): Promise<Article> {
 export async function fetchSources(): Promise<SourcesResponse> {
   const res = await fetch("/api/sources");
   if (!res.ok) throw new Error(`Failed to fetch sources: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchCategories(): Promise<CategoriesResponse> {
+  const res = await fetch("/api/categories");
+  if (!res.ok) throw new Error(`Failed to fetch categories: ${res.status}`);
   return res.json();
 }
 

@@ -38,6 +38,15 @@ export interface SourcesResponse {
   sources: Source[];
 }
 
+export interface Category {
+  name: string;
+  count: number;
+}
+
+export interface CategoriesResponse {
+  categories: Category[];
+}
+
 export interface StatsResponse {
   total_articles: number;
   rewritten_count: number;

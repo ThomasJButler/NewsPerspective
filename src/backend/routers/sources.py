@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Article
 from ..schemas import (
+    CategoriesResponse,
+    CategoryItem,
     RefreshErrorCode,
     RefreshErrorDetail,
     RefreshErrorResponse,
@@ -69,6 +71,29 @@ def get_sources(db: Session = Depends(get_db)):
     ]
 
     return SourcesResponse(sources=sources)
+
+
+@router.get("/categories", response_model=CategoriesResponse)
+def get_categories(db: Session = Depends(get_db)):
+    rows = (
+        db.query(
+            Article.category.label("name"),
+            func.count(Article.id).label("count"),
+        )
+        .filter(
+            Article.processing_status == "processed",
+            Article.category.isnot(None),
+        )
+        .group_by(Article.category)
+        .order_by(func.count(Article.id).desc(), Article.category.asc())
+        .all()
+    )
+
+    return CategoriesResponse(
+        categories=[
+            CategoryItem(name=row.name, count=row.count) for row in rows
+        ]
+    )
 
 
 @router.get("/stats", response_model=StatsResponse)

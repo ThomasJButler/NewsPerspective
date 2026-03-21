@@ -47,6 +47,15 @@ class SourcesResponse(BaseModel):
     sources: list[SourceItem]
 
 
+class CategoryItem(BaseModel):
+    name: str
+    count: int
+
+
+class CategoriesResponse(BaseModel):
+    categories: list[CategoryItem]
+
+
 class StatsResponse(BaseModel):
     total_articles: int
     rewritten_count: int
