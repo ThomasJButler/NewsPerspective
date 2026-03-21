@@ -345,7 +345,7 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
   ).toBeVisible();
   await expect(page.getByText("3 articles processed · 1 headline improved")).toBeVisible();
 
-  await page.getByRole("combobox").click();
+  await page.getByRole("combobox", { name: "Filter by source" }).click();
   await expect(page.getByRole("option", { name: "Fresh News (2)" })).toBeVisible();
   await expect(page.getByRole("option", { name: "Wire Daily (1)" })).toBeVisible();
   await page.keyboard.press("Escape");

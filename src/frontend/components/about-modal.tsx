@@ -26,8 +26,8 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
         <div className="space-y-4 text-sm text-muted-foreground">
           <p>
             NewsPerspective uses AI to rewrite sensationalised headlines, provide
-            TLDR summaries, and analyse sentiment — so you can stay informed
-            without the fear-mongering, exaggeration, and ad clutter.
+            TLDR summaries, and analyse sentiment. Stay informed without the
+            fear-mongering, exaggeration, and ad clutter.
           </p>
 
           <Separator />
@@ -46,7 +46,7 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
 
           <div className="flex flex-col gap-2">
             <a
-              href="https://github.com/tombutler/NewsPerspective"
+              href="https://github.com/ThomasJButler/NewsPerspective"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
@@ -54,7 +54,7 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
               GitHub Repository
             </a>
             <a
-              href="https://buymeacoffee.com/tombutler"
+              href="https://buymeacoffee.com/ojrwoqkgmv"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
@@ -66,7 +66,7 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
           <Separator />
 
           <p className="text-xs">
-            v3.0.0 &middot; Built by Tom Butler &middot; License: Coming soon
+            v3.0.0 &middot; Built by Tom Butler &middot; AGPLv3
           </p>
         </div>
       </DialogContent>
