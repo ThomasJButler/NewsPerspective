@@ -40,6 +40,7 @@ The backend stores fetched articles in a single SQLite `articles` table with the
 | `sentiment_score` | REAL nullable | Clamped to `[-1.0, 1.0]` |
 | `is_good_news` | BOOLEAN | Positive-story flag |
 | `category` | TEXT nullable | Current NewsAPI category label |
+| `country` | TEXT | Source country code (`us` or `gb`), default `us` |
 | `processing_status` | TEXT | `pending`, `processed`, or `failed` |
 
 ## Article visibility rules
@@ -59,6 +60,7 @@ Query params:
 - `good_news_only` boolean, default `false`
 - `source` optional string; compared against the normalized source label
 - `category` optional string
+- `country` optional string; filters by source country (`us` or `gb`)
 - `search` optional string; matches `original_title` or `rewritten_title` with `ILIKE`
 
 Current `good_news_only` semantics:
@@ -173,7 +175,7 @@ Current tracker semantics:
 `src/backend/services/news_fetcher.py` currently:
 
 - Calls NewsAPI `GET /v2/top-headlines`
-- Uses `country=us`
+- Fetches for both `country=us` and `country=gb`, tagging each article with its source country
 - Iterates these categories: `general`, `sports`, `technology`, `science`, `health`, `business`, `entertainment`
 - Requests up to `pageSize=100` per category
 - Deduplicates fetched articles by URL across categories
@@ -191,7 +193,7 @@ Retry behavior:
 
 `src/backend/services/article_processor.py` currently:
 
-1. Fetches all categories from NewsAPI
+1. Fetches all categories from NewsAPI for both US and GB
 2. Skips URLs already present in the database
 3. Inserts each new article first with `processing_status="pending"`
 4. Calls OpenAI once per new article for:

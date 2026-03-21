@@ -26,6 +26,8 @@ src/frontend/
 │   ├── article-card.tsx
 │   ├── article-feed.tsx
 │   ├── good-news-toggle.tsx
+│   ├── country-filter.tsx
+│   ├── about-modal.tsx
 │   ├── header.tsx
 │   ├── refresh-status-card.tsx
 │   ├── search-bar.tsx
@@ -63,8 +65,8 @@ src/frontend/
 
 `/` is the primary screen for both first-time and returning users.
 
-- The header shows the product title and tagline, a search field, refresh button, theme toggle, and settings button.
-- The search box, source filter, and good-news toggle are synchronized with the URL query string.
+- The header shows the product title and tagline, a search field, refresh button, about button, theme toggle, and settings button.
+- The search box, source filter, country filter, and good-news toggle are synchronized with the URL query string.
 - Browser back/forward restores those controls from the current URL instead of leaving stale client state behind.
 - The article feed is always allowed to render cached backend data, even when no NewsAPI key has been stored.
 - The good-news toggle mirrors the backend `good_news_only` filter only.
@@ -133,7 +135,7 @@ The refresh button in the header is the only frontend action that requires the u
 
 ### Article cards
 
-- Cards render source and publication time, the visible headline, TLDR text when available, and an external source link.
+- Cards render a full-width 16:9 banner image (when available, with graceful error fallback), country badge (US/UK), source and publication time, sentiment badge, the visible headline, TLDR text when available, and an external source link.
 - Headline rendering uses `getVisibleHeadline(...)`, which falls back to the original title if a rewritten title is blank or missing.
 - The original headline is only shown in a disclosure block when the article was rewritten and the visible headline differs from the original.
 - If an article is in the `sports` or `entertainment` category, or matches the backend's politics-topic detection rule, the backend suppresses its Good News flag in list/detail responses and in the `good_news_only` filter.
