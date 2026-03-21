@@ -108,14 +108,16 @@ def get_article(
     article_id: str,
     db: Session = Depends(get_db),
 ) -> ArticleResponse:
-    article = (
-        db.query(Article)
-        .filter(
-            Article.id == article_id,
-            Article.processing_status == "processed",
-        )
-        .first()
-    )
+    custom_keywords = load_custom_guardrail_keywords(db)
+    filters = [
+        Article.id == article_id,
+        Article.processing_status == "processed",
+        not_(content_guardrail_expression(Article)),
+    ]
+    if custom_keywords:
+        filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))
+
+    article = db.query(Article).filter(*filters).first()
 
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")

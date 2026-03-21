@@ -89,6 +89,22 @@ class CustomGuardrailsTest(unittest.TestCase):
                         processing_status="processed",
                     ),
                     models.Article(
+                        id="art-builtin-guardrail",
+                        original_title="Bombing reported in distant region",
+                        original_description="Military offensive continues.",
+                        source_name="AP News",
+                        source_id="ap-news",
+                        url="https://example.com/art-guardrail",
+                        published_at=now - timedelta(hours=4),
+                        fetched_at=now,
+                        was_rewritten=False,
+                        original_sentiment="negative",
+                        sentiment_score=-0.8,
+                        is_good_news=False,
+                        category="world",
+                        processing_status="processed",
+                    ),
+                    models.Article(
                         id="art-pending",
                         original_title="Pending article about bitcoin",
                         original_description="Should not appear.",
@@ -247,6 +263,101 @@ class CustomGuardrailsTest(unittest.TestCase):
         good_news_after = response2.json()["good_news_count"]
 
         self.assertGreater(good_news_before, good_news_after)
+
+    # ---- Single-article endpoint guardrails ----
+
+    def test_single_article_returns_normal_article(self) -> None:
+        response = self.client.get("/api/articles/art-normal")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["id"], "art-normal")
+
+    def test_single_article_hides_builtin_guardrailed(self) -> None:
+        response = self.client.get("/api/articles/art-builtin-guardrail")
+        self.assertEqual(response.status_code, 404)
+
+    def test_single_article_hides_custom_guardrailed(self) -> None:
+        self.client.put(
+            "/api/settings/guardrails",
+            json={"keywords": ["bitcoin"]},
+        )
+        response = self.client.get("/api/articles/art-crypto")
+        self.assertEqual(response.status_code, 404)
+
+    def test_single_article_accessible_after_clearing_custom_guardrail(self) -> None:
+        self.client.put(
+            "/api/settings/guardrails",
+            json={"keywords": ["bitcoin"]},
+        )
+        self.assertEqual(self.client.get("/api/articles/art-crypto").status_code, 404)
+
+        self.client.put("/api/settings/guardrails", json={"keywords": []})
+        self.assertEqual(self.client.get("/api/articles/art-crypto").status_code, 200)
+
+    # ---- Categories endpoint guardrails ----
+
+    def test_categories_excludes_builtin_guardrailed(self) -> None:
+        response = self.client.get("/api/categories")
+        self.assertEqual(response.status_code, 200)
+        categories = {c["name"]: c["count"] for c in response.json()["categories"]}
+        # "world" category only has the guardrailed article, so it should be absent.
+        self.assertNotIn("world", categories)
+
+    def test_categories_excludes_custom_guardrailed(self) -> None:
+        response_before = self.client.get("/api/categories")
+        counts_before = {c["name"]: c["count"] for c in response_before.json()["categories"]}
+
+        self.client.put(
+            "/api/settings/guardrails",
+            json={"keywords": ["bitcoin"]},
+        )
+        response_after = self.client.get("/api/categories")
+        counts_after = {c["name"]: c["count"] for c in response_after.json()["categories"]}
+
+        # business category had art-crypto; should now be absent.
+        self.assertIn("business", counts_before)
+        self.assertNotIn("business", counts_after)
+
+    # ---- Sources endpoint guardrails ----
+
+    def test_sources_excludes_builtin_guardrailed(self) -> None:
+        response = self.client.get("/api/sources")
+        source_names = [s["source_name"] for s in response.json()["sources"]]
+        # AP News only has the guardrailed article, so it should be absent.
+        self.assertNotIn("AP News", source_names)
+
+    def test_sources_excludes_custom_guardrailed(self) -> None:
+        response_before = self.client.get("/api/sources")
+        names_before = [s["source_name"] for s in response_before.json()["sources"]]
+
+        self.client.put(
+            "/api/settings/guardrails",
+            json={"keywords": ["bitcoin"]},
+        )
+        response_after = self.client.get("/api/sources")
+        names_after = [s["source_name"] for s in response_after.json()["sources"]]
+
+        # Reuters only has art-crypto; should now be absent.
+        self.assertIn("Reuters", names_before)
+        self.assertNotIn("Reuters", names_after)
+
+    # ---- Stats endpoint guardrails ----
+
+    def test_stats_total_excludes_builtin_guardrailed(self) -> None:
+        response = self.client.get("/api/stats")
+        data = response.json()
+        # 3 non-guardrailed processed articles (normal, crypto, election).
+        # art-builtin-guardrail should be excluded.
+        self.assertEqual(data["total_articles"], 3)
+
+    def test_stats_total_excludes_custom_guardrailed(self) -> None:
+        self.client.put(
+            "/api/settings/guardrails",
+            json={"keywords": ["bitcoin"]},
+        )
+        response = self.client.get("/api/stats")
+        data = response.json()
+        # art-crypto excluded by custom guardrail → 2 remain.
+        self.assertEqual(data["total_articles"], 2)
 
 
 if __name__ == "__main__":

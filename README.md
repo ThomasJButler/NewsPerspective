@@ -129,7 +129,7 @@ docker compose -f src/frontend/compose.yaml down
 
 ### Validation
 
-Backend tests (98 tests across 6 modules):
+Backend tests (108 tests across 6 modules):
 
 ```bash
 source src/backend/.venv/bin/activate

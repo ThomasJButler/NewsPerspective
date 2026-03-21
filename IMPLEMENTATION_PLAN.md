@@ -2,7 +2,7 @@
 
 ## 1. Current status summary and code review
 
-Updated on 2026-03-21 (thirteenth pass, Claude Code Opus 4.6, `v3.0` branch).
+Updated on 2026-03-21 (fifteenth pass, Claude Code Opus 4.6, `v3.0` branch).
 
 ### Verified runtime state
 - `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. The backend does not read a server-side `NEWS_API_KEY`.
@@ -28,18 +28,18 @@ Updated on 2026-03-21 (thirteenth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Article Comparison fully shipped: `GET /api/comparison`, `POST /api/comparison/analyse`, frontend `/comparison` route.
 - Pluggable `NewsSource` protocol shipped with DI in `ArticleProcessor`.
 - User-configurable content guardrails shipped: `GET/PUT /api/settings/guardrails`, frontend "Blocked topics" in settings dialog.
+- Content guardrails enforced consistently across all read endpoints: article list, single-article, categories, sources, and stats.
 
-### Validation snapshot (2026-03-21, thirteenth pass)
+### Validation snapshot (2026-03-21, fifteenth pass)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
 - `npx playwright test` — **11/11 passed** (run 2026-03-21).
-- Backend: **98 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 11). All pass both per-module and in a single unified run (`python -m unittest` with all 6 modules). Cross-module DB isolation fixed.
+- Backend: **108 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 21). All pass both per-module and in a single unified run.
 
 ### Branch and worktree state
-- **Active branch:** `v3.0` (**21 commits** ahead of `master`).
-- Working tree is **clean**.
+- **Active branch:** `v3.0` (**22 commits** ahead of `master`).
 - `master` remains at the Phase 6→7 gate (commit `8b54903`).
-- **PR status unknown.** v3.0 → master merge PR was opened previously. GitHub CLI TLS cert issue persists; cannot verify merge status programmatically. Check via web UI.
+- **PR #6 is open** (v3.0 → master). Confirmed via GitHub API. Ready to merge after push.
 - Legacy remote-only branches remain: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Kept for historical reference.
 
 ### v3.0 commits (not yet on master)
@@ -86,6 +86,8 @@ b10a31c Add country support, banner images, About modal
 **[RESOLVED] Accessibility gaps.** Core gaps addressed. Remaining foundation: `aria-describedby` on good-news toggle, `prefers-reduced-motion` in CSS, `focus-visible` utilities.
 
 **[RESOLVED] No `/api/categories` endpoint.** Shipped.
+
+**[RESOLVED] Inconsistent guardrail enforcement across read endpoints (CodeRabbit PR #6).** Single-article, categories, sources, and stats endpoints now apply both built-in and custom content guardrails. 10 new tests added. 108/108 pass unified.
 
 ## 2. Active phase
 
@@ -135,6 +137,7 @@ b10a31c Add country support, banner images, About modal
 - [x] [P2] **Update README test count.** Changed `README.md` from "66 tests across 4 modules" to "98 tests across 6 modules" and added `test_comparison` and `test_custom_guardrails` to the module list.
 - [ ] [P2] **Merge v3.0 → master.** Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes.
 - [x] [P3] **Cross-module test isolation.** Fixed: added `database.reconfigure_engine()` calls to `setUpClass` in `test_api_smoke`, `test_comparison`, and `test_custom_guardrails`. Changed `main.py` to use `database.engine` (module attribute) instead of a direct import so the lifespan function sees the reconfigured engine. All 98 tests pass in a single unified run.
+- [x] [P1] **Fix inconsistent guardrail enforcement (CodeRabbit PR #6).** Applied content guardrails to `GET /api/articles/{id}`, `GET /api/categories`, `GET /api/sources`, and `GET /api/stats`. 10 new tests. 108/108 pass.
 - [ ] [P3] **Demo video.** Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
 
 ### Roadmap evaluation results (Phase 6 → Phase 7 gate)
@@ -153,10 +156,12 @@ b10a31c Add country support, banner images, About modal
 
 ## 4. Notes / discoveries that matter for the next loop
 
-- **All code features are shipped.** No pending implementation work. The remaining tasks are documentation alignment and merge.
-- **Spec text drift is the highest-priority fix.** Three spec files at five locations claim shipped features are "future work" or "planned". This is the most confusing mismatch for any new contributor reading the specs.
-- **GitHub CLI TLS cert issue persists.** PR creation, issue checks, and merge operations need the web UI or a retry when the cert chain resolves.
-- **Validation current.** Backend 98 tests (6 modules, all pass per-module and unified), frontend lint + typecheck pass. Playwright 11/11.
+- **All code features and documentation alignment are complete.** The only remaining tasks (merge + demo video) are human-only.
+- **[RESOLVED] Spec text drift.** All spec files updated to reflect shipped features.
+- **[RESOLVED] CodeRabbit PR #6 review findings.** Inconsistent guardrail enforcement fixed across all read endpoints.
+- **GitHub CLI TLS cert issue persists.** GitHub API via curl works; gh CLI does not.
+- **PR #6 is open and ready.** Confirmed via GitHub API (state: open, not merged). Push latest commit then merge.
+- **Validation current.** Backend 108 tests (6 modules, all pass per-module and unified), frontend lint + typecheck pass. Playwright 11/11.
 - **Cross-module test isolation fixed.** All 6 modules run cleanly in a single `python -m unittest` invocation.
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
@@ -165,4 +170,7 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Merge v3.0 → master [P2]** — Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes (98/98 unified). Human task.
+**Merge v3.0 → master [P2].** PR #6 is open and confirmed via GitHub API. Push latest commit, then merge. All validation passes (108/108 unified, lint + typecheck clean).
+
+After merge, the only remaining item is:
+- **Demo video [P3]** — Screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
