@@ -31,6 +31,7 @@ class CustomGuardrailsTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        database.reconfigure_engine(f"sqlite:///{_DB_PATH}")
         database.Base.metadata.drop_all(bind=database.engine)
         database.Base.metadata.create_all(bind=database.engine)
 

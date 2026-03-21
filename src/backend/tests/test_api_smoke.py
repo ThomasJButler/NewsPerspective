@@ -33,6 +33,7 @@ refresh_tracker_module = importlib.import_module("src.backend.services.refresh_t
 class BackendApiSmokeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        database.reconfigure_engine(f"sqlite:///{_DB_PATH}")
         database.Base.metadata.drop_all(bind=database.engine)
         database.Base.metadata.create_all(bind=database.engine)
 

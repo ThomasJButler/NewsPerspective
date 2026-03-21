@@ -2,7 +2,7 @@
 
 ## 1. Current status summary and code review
 
-Updated on 2026-03-21 (twelfth pass, Claude Code Opus 4.6, `v3.0` branch).
+Updated on 2026-03-21 (thirteenth pass, Claude Code Opus 4.6, `v3.0` branch).
 
 ### Verified runtime state
 - `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. The backend does not read a server-side `NEWS_API_KEY`.
@@ -29,11 +29,11 @@ Updated on 2026-03-21 (twelfth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Pluggable `NewsSource` protocol shipped with DI in `ArticleProcessor`.
 - User-configurable content guardrails shipped: `GET/PUT /api/settings/guardrails`, frontend "Blocked topics" in settings dialog.
 
-### Validation snapshot (2026-03-21, twelfth pass)
+### Validation snapshot (2026-03-21, thirteenth pass)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
 - `npx playwright test` — **11/11 passed** (run 2026-03-21).
-- Backend: **98 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 11). All pass when run per-module. Cross-module run shows **3** `setUpClass` errors due to temp DB isolation conflicts between `test_api_smoke`, `test_comparison`, and `test_custom_guardrails` — each module passes independently. Not a regression; the count grew from 2 to 3 when `test_custom_guardrails` was added.
+- Backend: **98 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 11). All pass both per-module and in a single unified run (`python -m unittest` with all 6 modules). Cross-module DB isolation fixed.
 
 ### Branch and worktree state
 - **Active branch:** `v3.0` (**21 commits** ahead of `master`).
@@ -134,7 +134,7 @@ b10a31c Add country support, banner images, About modal
 - [x] [P1] **Update validation commands.** Added `python -m unittest src.backend.tests.test_comparison -v` to `CLAUDE.md` and `AGENTS.md` validation sections.
 - [x] [P2] **Update README test count.** Changed `README.md` from "66 tests across 4 modules" to "98 tests across 6 modules" and added `test_comparison` and `test_custom_guardrails` to the module list.
 - [ ] [P2] **Merge v3.0 → master.** Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes.
-- [ ] [P3] **Cross-module test isolation.** Running all 6 test modules together causes 3 `setUpClass` errors (DB path conflicts between `test_api_smoke`, `test_comparison`, `test_custom_guardrails`). Each module passes independently. Fix: shared test DB fixture or per-module `DATABASE_URL` isolation. Not blocking but degrades CI confidence if a unified test runner is ever adopted.
+- [x] [P3] **Cross-module test isolation.** Fixed: added `database.reconfigure_engine()` calls to `setUpClass` in `test_api_smoke`, `test_comparison`, and `test_custom_guardrails`. Changed `main.py` to use `database.engine` (module attribute) instead of a direct import so the lifespan function sees the reconfigured engine. All 98 tests pass in a single unified run.
 - [ ] [P3] **Demo video.** Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
 
 ### Roadmap evaluation results (Phase 6 → Phase 7 gate)
@@ -156,8 +156,8 @@ b10a31c Add country support, banner images, About modal
 - **All code features are shipped.** No pending implementation work. The remaining tasks are documentation alignment and merge.
 - **Spec text drift is the highest-priority fix.** Three spec files at five locations claim shipped features are "future work" or "planned". This is the most confusing mismatch for any new contributor reading the specs.
 - **GitHub CLI TLS cert issue persists.** PR creation, issue checks, and merge operations need the web UI or a retry when the cert chain resolves.
-- **Validation current.** Backend 98 tests (6 modules, all pass per-module), frontend lint + typecheck pass. Playwright 11/11.
-- **Cross-module test errors: 3, not 2.** The addition of `test_custom_guardrails` introduced a third `setUpClass` conflict. Each module passes independently. A shared test DB fixture would fix this if unified CI is ever needed.
+- **Validation current.** Backend 98 tests (6 modules, all pass per-module and unified), frontend lint + typecheck pass. Playwright 11/11.
+- **Cross-module test isolation fixed.** All 6 modules run cleanly in a single `python -m unittest` invocation.
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
 - **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
@@ -165,4 +165,4 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Merge v3.0 → master [P2]** — Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes. Human task.
+**Merge v3.0 → master [P2]** — Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes (98/98 unified). Human task.
