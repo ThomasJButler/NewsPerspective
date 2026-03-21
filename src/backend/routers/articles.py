@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_, nulls_last
 from sqlalchemy.orm import Session
@@ -40,7 +42,7 @@ def get_articles(
     good_news_only: bool = Query(default=False),
     source: str | None = Query(default=None),
     category: str | None = Query(default=None),
-    country: str | None = Query(default=None),
+    country: Literal["us", "gb"] | None = Query(default=None),
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> ArticleListResponse:

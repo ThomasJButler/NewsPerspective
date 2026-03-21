@@ -140,4 +140,5 @@ class NewsFetcher:
             "image_url": article.get("urlToImage"),
             "published_at": article.get("publishedAt"),
             "category": article.get("category", "general"),
+            "country": article.get("country", "us"),
         }
