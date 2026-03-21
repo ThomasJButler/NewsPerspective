@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/search-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -33,6 +34,29 @@ export function Header({
           </div>
           <div className="flex items-center gap-2">
             <SearchBar value={searchValue} onChange={onSearchChange} />
+            <Button
+              variant="outline"
+              size="icon"
+              asChild
+              aria-label="Compare articles"
+            >
+              <Link href="/comparison">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="4" width="8" height="16" rx="1" />
+                  <rect x="14" y="4" width="8" height="16" rx="1" />
+                </svg>
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="icon"

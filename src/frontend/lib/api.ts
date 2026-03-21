@@ -2,6 +2,8 @@ import type {
   ArticleListResponse,
   Article,
   CategoriesResponse,
+  ComparisonAnalysis,
+  ComparisonResponse,
   SourcesResponse,
   StatsResponse,
   RefreshErrorCode,
@@ -144,5 +146,23 @@ export async function refreshArticles(
 export async function fetchRefreshStatus(): Promise<RefreshStatusResponse> {
   const res = await fetch("/api/refresh/status");
   if (!res.ok) throw new Error(`Failed to fetch refresh status: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchComparisonGroups(): Promise<ComparisonResponse> {
+  const res = await fetch("/api/comparison");
+  if (!res.ok) throw new Error(`Failed to fetch comparison groups: ${res.status}`);
+  return res.json();
+}
+
+export async function analyseComparisonGroup(
+  articleIds: string[]
+): Promise<ComparisonAnalysis> {
+  const res = await fetch("/api/comparison/analyse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ article_ids: articleIds }),
+  });
+  if (!res.ok) throw new Error(`Failed to analyse comparison group: ${res.status}`);
   return res.json();
 }

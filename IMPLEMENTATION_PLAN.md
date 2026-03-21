@@ -26,7 +26,7 @@ Updated on 2026-03-21 (tenth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
 - Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
 
-### Validation snapshot (2026-03-21, post-comparison analyse endpoint)
+### Validation snapshot (2026-03-21, post-comparison frontend page)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
 - `npx playwright test` — **11/11 passed** (run 2026-03-21). Fixed 4 broken tests: updated good-news hint text assertion to match new guardrails copy, and disambiguated `getByRole("combobox")` selectors to `getByRole("combobox", { name: "Filter by source" })` since CountryFilter and CategoryFilter added two more comboboxes.
@@ -120,7 +120,7 @@ b10a31c Add country support, banner images, About modal
 **Article Comparison feature:**
 - [x] [P3] **Article Comparison — backend grouping endpoint.** `GET /api/comparison` with fuzzy title matching (Jaccard similarity on normalized word sets). Returns groups of 2+ related articles with representative title, article summaries, sources, and countries. New files: `utils/title_similarity.py`, `routers/comparison.py`. Schemas: `ComparisonArticleSummary`, `ComparisonGroup`, `ComparisonResponse`. 12 new tests (8 unit + 3 integration + 1 field check). Content guardrails applied to comparison results.
 - [x] [P3] **Article Comparison — AI analysis endpoint.** `POST /api/comparison/analyse` accepting a group of article IDs, running one AI call per group to produce a framing analysis comparing how sources/countries frame the same story. Schemas: `ComparisonAnalyseRequest`, `ComparisonAnalysis`, `ComparisonSourceTone`. New `analyse_comparison_group` method on `AIService` with dedicated system/user prompts and validation. 9 new tests (4 validation/unit + 5 endpoint integration with mocked AI). Specs updated (`BACKEND.md`, `AI_PROMPTS.md`).
-- [ ] [P3] **Article Comparison — frontend page.** New `/comparison` page with side-by-side card layout and AI analysis panel. Navigation link from header. Spec updates for new route and components.
+- [x] [P3] **Article Comparison — frontend page.** New `/comparison` route (`app/comparison/page.tsx`) with comparison group cards, expandable side-by-side article view (responsive 2-col grid), on-demand AI analysis with framing differences and source tone cards. Compare icon button added to header linking to `/comparison`. Frontend types and API client functions (`fetchComparisonGroups`, `analyseComparisonGroup`) wired up. `specs/FRONTEND.md` updated with new route, project structure entry, and Article Comparison Route section.
 
 **Future considerations:**
 - [ ] [P4] **Pluggable news source architecture.** Abstract NewsAPI so alternatives can be swapped in.
@@ -144,4 +144,4 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Article Comparison — frontend page [P3]** — New `/comparison` page with side-by-side card layout and AI analysis panel. Navigation link from header. Spec updates for new route and components. Demo video [P3] is a human task (OBS recording + DaVinci Resolve edit + YouTube upload) and can be done in parallel.
+**Demo video [P3]** — Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. Article Comparison feature is now fully shipped (backend + frontend). Remaining automated work: pluggable news source architecture [P4] and user-configurable content guardrails [P4].

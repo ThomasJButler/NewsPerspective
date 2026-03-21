@@ -18,6 +18,7 @@ The frontend is intentionally minimal: no ads, no analytics, and no account syst
 src/frontend/
 ├── app/
 │   ├── article/[id]/page.tsx   # Article detail route
+│   ├── comparison/page.tsx     # Article comparison route
 │   ├── globals.css
 │   ├── layout.tsx
 │   └── page.tsx                # Home route with filters, refresh flow, and inline onboarding
@@ -153,6 +154,22 @@ The refresh button in the header is the only frontend action that requires the u
 - Non-`404` failures render an `Unable to load article` state with a `Retry` button.
 - Detail pages use the same visible-headline fallback logic as cards.
 - The page shows source, author, date, sentiment badge, optional image, TLDR, and the external article link.
+
+## Article Comparison Route
+
+`/comparison` lets users see how different sources and countries cover the same story side by side.
+
+- The header includes a compare icon button (two rectangles) that links to `/comparison`.
+- The page fetches `GET /api/comparison` on load and displays each article group as a card.
+- Each group card shows the representative title, country labels, and source badges.
+- A "Compare" button expands the card to show individual articles in a responsive two-column grid, with source, country, sentiment badge, headline, publication time, and external link.
+- An "AI Analysis" button calls `POST /api/comparison/analyse` with the group's article IDs and displays:
+  - A summary in a TLDR-style callout.
+  - A list of framing differences.
+  - Source tone cards in a two-column grid.
+- Empty state: "No comparison groups found. Related stories from different sources will appear here after a refresh."
+- Error handling: toast notifications for both group-load and analysis failures.
+- The page has its own header with a "Back to feed" link and uses `max-w-4xl` to accommodate the wider side-by-side layout.
 
 ## Accessibility and Interaction Baseline
 
