@@ -37,13 +37,17 @@ Updated on 2026-03-21 (fifteenth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Backend: **108 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 21). All pass both per-module and in a single unified run.
 
 ### Branch and worktree state
-- **Active branch:** `v3.0` (**22 commits** ahead of `master`).
+- **Active branch:** `v3.0` (**25 commits** ahead of `master`).
 - `master` remains at the Phase 6→7 gate (commit `8b54903`).
 - **PR #6 is open** (v3.0 → master). Confirmed via GitHub API. Ready to merge after push.
 - Legacy remote-only branches remain: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Kept for historical reference.
 
 ### v3.0 commits (not yet on master)
 ```
+de0344d Enforce content guardrails consistently across all read endpoints
+a4a23b2 Fix cross-module test isolation for unified test runner
+6b08328 Update README test count from 66/4 to 98/6 modules
+81bc4c9 Fix spec text drift and add missing test_comparison validation command
 d90370a Add user-configurable content guardrails frontend
 c3ab0cf Add user-configurable content guardrails backend
 26bffa8 Add pluggable NewsSource protocol with dependency injection
@@ -135,7 +139,7 @@ b10a31c Add country support, banner images, About modal
 - [x] [P1] **Fix spec text drift — remove "future work" claims for shipped features.** Updated `specs/OVERVIEW.md:11,59`, `specs/FRONTEND.md:76`, and `specs/ROADMAP.md:85,89` to reflect that content guardrails and Article Comparison are shipped.
 - [x] [P1] **Update validation commands.** Added `python -m unittest src.backend.tests.test_comparison -v` to `CLAUDE.md` and `AGENTS.md` validation sections.
 - [x] [P2] **Update README test count.** Changed `README.md` from "66 tests across 4 modules" to "98 tests across 6 modules" and added `test_comparison` and `test_custom_guardrails` to the module list.
-- [ ] [P2] **Merge v3.0 → master.** Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes.
+- [ ] [P2] **Merge v3.0 → master.** Human task: local branch is 1 commit ahead of `origin/v3.0` (commit `de0344d`). Push that commit, then merge PR #6. Both `git push` (HTTPS tunnel 403, SSH DNS failure) and GitHub MCP API push are blocked by the current network environment. All validation passes (108/108 backend, lint + typecheck clean).
 - [x] [P3] **Cross-module test isolation.** Fixed: added `database.reconfigure_engine()` calls to `setUpClass` in `test_api_smoke`, `test_comparison`, and `test_custom_guardrails`. Changed `main.py` to use `database.engine` (module attribute) instead of a direct import so the lifespan function sees the reconfigured engine. All 98 tests pass in a single unified run.
 - [x] [P1] **Fix inconsistent guardrail enforcement (CodeRabbit PR #6).** Applied content guardrails to `GET /api/articles/{id}`, `GET /api/categories`, `GET /api/sources`, and `GET /api/stats`. 10 new tests. 108/108 pass.
 - [ ] [P3] **Demo video.** Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
@@ -159,8 +163,8 @@ b10a31c Add country support, banner images, About modal
 - **All code features and documentation alignment are complete.** The only remaining tasks (merge + demo video) are human-only.
 - **[RESOLVED] Spec text drift.** All spec files updated to reflect shipped features.
 - **[RESOLVED] CodeRabbit PR #6 review findings.** Inconsistent guardrail enforcement fixed across all read endpoints.
-- **GitHub CLI TLS cert issue persists.** GitHub API via curl works; gh CLI does not.
-- **PR #6 is open and ready.** Confirmed via GitHub API (state: open, not merged). Push latest commit then merge.
+- **Network access fully blocked.** HTTPS tunnel returns 403, SSH DNS fails (`-65563`). Neither `git push` nor GitHub MCP API push works in this environment. Push + merge must be done manually by the user.
+- **PR #6 is open and ready.** Local `v3.0` is 1 commit (`de0344d`) ahead of `origin/v3.0`. Push, then merge PR #6.
 - **Validation current.** Backend 108 tests (6 modules, all pass per-module and unified), frontend lint + typecheck pass. Playwright 11/11.
 - **Cross-module test isolation fixed.** All 6 modules run cleanly in a single `python -m unittest` invocation.
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables.
@@ -170,7 +174,9 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Merge v3.0 → master [P2].** PR #6 is open and confirmed via GitHub API. Push latest commit, then merge. All validation passes (108/108 unified, lint + typecheck clean).
+**Merge v3.0 → master [P2] — human task.** Network access is blocked in this environment. The user needs to:
+1. `git push origin v3.0` — pushes commit `de0344d` (guardrail enforcement fix + 10 new tests)
+2. Merge PR #6 on GitHub (v3.0 → master)
 
-After merge, the only remaining item is:
+All validation passes (108/108 backend, lint + typecheck clean). After merge, the only remaining item is:
 - **Demo video [P3]** — Screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
