@@ -49,24 +49,21 @@ Shipped rules:
 
 The current `politics` exclusion uses app-level topic detection in the backend Good News path because NewsAPI does not provide a dedicated `politics` category in the existing fetch loop. Those exclusions should stay enforced consistently in the backend classification/filtering path and reflected clearly in the frontend UX.
 
-## Feed And Filtering Roadmap
+## Feed And Filtering
 
-### Country-aware reading
+### Country-aware reading (Shipped)
 
-- Users should be able to browse articles by country.
-- Country should matter in both the normal feed and future comparison workflows.
-- Country-specific framing differences are part of the product value, not just an implementation detail.
+Users can browse articles by country using the CountryFilter component. Dual US+GB fetch is implemented in the backend. Country badges appear on article cards. Country-specific framing differences are part of the product value, not just an implementation detail.
 
-### Topic-aware reading
+### Category filtering (Shipped)
 
-- Users should be able to filter by broad topics such as `general`, `sports`, `entertainment`, `politics`, `technology`, and other supported categories.
+Users can filter by broad topics such as `general`, `sports`, `entertainment`, `technology`, and other NewsAPI categories via the CategoryFilter component. The backend exposes `GET /api/categories` for dynamic category counts.
+
+### Future filtering work
+
 - Users should be able to hide certain topics entirely to reduce emotional triggering.
 - Users should be able to choose up to 10 preferred topics in Settings, and refresh should fetch only those selected topics when possible.
-
-### Topic analysis
-
-- Articles should be analysed for topic, not just passed through with the source category.
-- Over time the app should distinguish between source-provided category labels and app-derived topic classification.
+- Articles should be analysed for topic, not just passed through with the source category. Over time the app should distinguish between source-provided category labels and app-derived topic classification.
 
 ## Feed UX Direction
 
@@ -77,64 +74,47 @@ The current `politics` exclusion uses app-level topic detection in the backend G
 - The UI should make the background work visible with polished animations, loading states, and clear status messaging.
 - Users should understand what is happening behind the scenes during refresh without reading technical logs.
 
-### Visual refinements
+### Visual refinements (Shipped)
 
-- Add a small thumbnail to article cards in the main feed.
-- Align the header content with the article stack so the layout feels tidy and streamlined.
-- Improve the overall polish of the feed and loading transitions.
+Article cards use full-width 16:9 banner images with error fallback. Header content is aligned with the article feed via `max-w-3xl`. Remaining polish: loading transition animations.
 
-### Headline rewrite visibility
+### Headline rewrite visibility (Shipped)
 
-- When an article has a rewritten headline, the feed should clearly show that rewritten version in the list experience instead of silently falling back to the original.
-- Investigate and fix the current-feed behavior where rewritten headlines are not always appearing as expected.
+`getVisibleHeadline()` ensures rewritten headlines are displayed when available, with fallback to the original. `_validate_result` normalisation ensures blank rewrites are cleaned up at processing time.
 
-## Fact Checker Mode
+## Article Comparison (Planned)
 
-### Core idea
+Evolved from the original "Fact Checker Mode" concept. A dedicated `/comparison` page showing how the same story is framed differently across sources and countries.
 
-Add a separate mode called `Fact Checker`.
+Planned scope:
 
-This mode should:
+- Backend: `GET /api/comparison` (fuzzy title matching to group related articles), `POST /api/comparison/analyse` (one AI call per group)
+- Frontend: side-by-side card layout with AI analysis panel
+- One story group at a time for the initial version
+- Optimise for thoughtful comparison rather than bulk processing
 
-- take one article story at a time, not the whole feed
-- compare how that story is published across different sites
-- compare the framing across countries when country filtering is available
-- help surface whether ownership, incentives, or editorial framing appear to push doom-heavy or misleading interpretations
-
-### Scope guardrails
-
-- Only one story at a time for the initial version.
-- Optimize for thoughtful comparison rather than bulk processing.
-- Treat this as a deliberate research mode, not a background feed refresh.
-
-## Accessibility
+## Accessibility (Partially Shipped)
 
 Accessibility is a product requirement, not a polish-only task.
 
-Planned expectations:
+Shipped:
 
-- strong keyboard support
-- meaningful focus states
-- accessible modals, toggles, and filter controls
-- clear loading and status messaging for screen readers
-- motion that respects reduced-motion preferences
+- `aria-label` on CountryFilter, SourceFilter, and CategoryFilter select triggers
+- `<nav>` landmark wrapping the filter bar
+- `aria-live="polite"` on StatsBar for article count announcements
+- `aria-busy` on refresh button during processing
+- ShadCN Dialog focus trapping (Radix UI built-in)
+- Search input, refresh, and settings buttons have explicit `aria-label`s
 
-## About Modal
+Remaining:
 
-Add an About toggle/button near the theme toggle.
+- `aria-describedby` on good-news toggle
+- `prefers-reduced-motion` in CSS
+- `focus-visible` utilities
 
-The modal should explain:
+## About Modal (Shipped)
 
-- what the app is
-- why it was built
-- how to use it
-
-It should also include:
-
-- a GitHub button
-- a Buy Me a Coffee button
-
-Links can be filled manually later.
+The About modal (`about-modal.tsx`) is accessible via a header button. It explains the app, shows how it works, and includes links to the GitHub repository and Buy Me a Coffee. Footer shows v3.0.0, attribution, and AGPLv3 license.
 
 ## Developer Note To Users
 
@@ -175,13 +155,4 @@ If a paid tier ever exists, it should remain aligned with the core mission:
 
 ## Near-Term Loop Order
 
-Do not let roadmap work scramble the immediate execution order.
-
-Recently completed loops already landed the refresh-status surface, the Good News exclusions for `sports`, `entertainment`, and `politics`, the timeout-resume frontend spec alignment, the visible-headline runtime fix, exception chaining in `sources.py`, and test isolation and security dependency updates.
-
-The current intended sequence is now:
-
-1. Spec and doc alignment — bring `specs/FRONTEND.md`, `specs/ROADMAP.md`, and validation command docs in sync with the shipped codebase.
-2. Playwright e2e validation — run the full browser suite against a live local stack and confirm coverage.
-3. UX polish — evaluate feed thumbnails, header alignment, headline rewrite visibility, and other visual refinements listed in this roadmap.
-4. Re-evaluate roadmap-only product-direction items against `IMPLEMENTATION_PLAN.md` before promoting any new work into the active specs.
+The immediate execution sequence is tracked in `IMPLEMENTATION_PLAN.md`. This roadmap captures product direction only; it does not own the build queue.

@@ -26,11 +26,11 @@ Updated on 2026-03-21 (ninth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
 - Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
 
-### Validation snapshot (2026-03-21, post-topic-filtering)
+### Validation snapshot (2026-03-21, post-LICENSE and e2e fix)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `npx playwright test` — **11/11 passed** (last run 2026-03-20; sandbox prevents re-run due to port binding. Topic filtering adds a new filter component but does not affect existing e2e scenarios).
-- Backend: all 4 test modules run together — **66/66 passed** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4). 3 new tests for `GET /api/categories`.
+- `npx playwright test` — **11/11 passed** (run 2026-03-21). Fixed 4 broken tests: updated good-news hint text assertion to match new guardrails copy, and disambiguated `getByRole("combobox")` selectors to `getByRole("combobox", { name: "Filter by source" })` since CountryFilter and CategoryFilter added two more comboboxes.
+- Backend: all 4 test modules run together — **66/66 passed** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4).
 
 ### Branch and worktree state
 - **Active branch:** `v3.0` (8 commits ahead of `master`).
@@ -113,8 +113,8 @@ b10a31c Add country support, banner images, About modal
 ### Planned (Phase 8 — Open source launch + Article Comparison)
 
 **Open source packaging:**
-- [ ] [P2] **AGPLv3 LICENSE file.** Add to repo root. Update `package.json` license field.
-- [ ] [P2] **README overhaul.** Rewrite for open-source audience: hero section, quick-start guide (< 5 min), personalisation section, Claude prompt template for customising preferences/triggers, architecture overview, premium API note, contributing guidelines with CLA mention.
+- [x] [P2] **AGPLv3 LICENSE file.** Added canonical AGPLv3 text to repo root `LICENSE`. Updated `package.json` license field to `"AGPL-3.0-only"`. Updated About modal from "Coming soon" to "AGPLv3". Also fixed broken GitHub URL (`tombutler` -> `ThomasJButler`) and Buy Me a Coffee URL in About modal.
+- [x] [P2] **README overhaul.** Rewrote for open-source audience: hero section with tagline, quick-start guide (5 steps), personalisation section with Claude prompt template, architecture diagram, NewsAPI free tier note with premium mention, contributing guidelines with CLA mention, Docker section, development/validation section. Also cleaned up stale `specs/ROADMAP.md` sections (marked shipped features, updated Fact Checker → Article Comparison, trimmed stale loop order).
 - [ ] [P3] **Demo video.** Screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal.
 
 **Article Comparison feature:**
@@ -134,10 +134,11 @@ b10a31c Add country support, banner images, About modal
 - **Test count.** 66 backend tests across 4 test modules. 11 Playwright e2e tests.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
 - **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
-- **Code-spec alignment is strong** for shipped features. Only drift is version naming (v2 in specs vs v3.0 in runtime).
+- **Code-spec alignment is strong** for shipped features. Version naming is now consistent across all specs and runtime.
+- **specs/ROADMAP.md cleaned up.** Shipped features (country filter, category filter, visual refinements, headline rewrite visibility, about modal, accessibility pass) now marked as shipped. Stale near-term loop order removed. Fact Checker Mode replaced with Article Comparison (Planned).
 - **Dual US+GB fetch doubles API usage** from ~7 to ~14 requests per refresh. Within 100/day free limit (~7 refreshes/day).
 - **`package.json` version** now `3.0.0`, matching the About modal display version.
 
 ## 5. Next recommended build slice
 
-**AGPLv3 LICENSE file [P2]** — add `LICENSE` file to repo root with the full AGPLv3 text. Update `package.json` `license` field from `"UNLICENSED"` to `"AGPL-3.0-only"`. Update About modal license line from "Coming soon" to the actual license.
+**Demo video [P3]** — screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. This is the final open-source packaging item before Article Comparison feature work.
