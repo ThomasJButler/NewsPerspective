@@ -93,6 +93,26 @@ class ComparisonResponse(BaseModel):
     total_groups: int
 
 
+class ComparisonAnalyseRequest(BaseModel):
+    """Request body for POST /api/comparison/analyse."""
+    article_ids: list[str]
+
+
+class ComparisonSourceTone(BaseModel):
+    """Per-source tone summary within a comparison analysis."""
+    source_name: str
+    country: str
+    tone: str
+
+
+class ComparisonAnalysis(BaseModel):
+    """AI-generated framing analysis for a group of related articles."""
+    representative_title: str
+    summary: str
+    framing_differences: list[str]
+    source_tones: list[ComparisonSourceTone]
+
+
 class RefreshResponse(BaseModel):
     status: str
     message: str

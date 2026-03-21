@@ -13,6 +13,7 @@
 - App entrypoint: `src/backend/main.py`
 - API routers:
   - `src/backend/routers/articles.py`
+  - `src/backend/routers/comparison.py`
   - `src/backend/routers/sources.py`
 - Refresh work is currently exposed from `sources.py`; there is no separate refresh router.
 - CORS currently allows `http://localhost:3000`.
@@ -119,6 +120,77 @@ Response shape:
 ```
 
 Ordering: highest count first, then alphabetical by category name.
+
+### `GET /api/comparison`
+
+Returns groups of related articles for side-by-side comparison. Uses fuzzy title matching (Jaccard similarity on normalized word sets) to group articles covering the same story from different sources or countries. Only includes articles with `processing_status = "processed"` and excludes content-guardrailed stories.
+
+Response shape:
+
+```json
+{
+  "groups": [
+    {
+      "representative_title": "Earthquake hits coastal city",
+      "articles": [
+        {
+          "id": "abc-123",
+          "original_title": "Major earthquake strikes coastal city",
+          "rewritten_title": "Earthquake hits coastal city",
+          "source_name": "BBC News",
+          "country": "gb",
+          "original_sentiment": "negative",
+          "sentiment_score": -0.5,
+          "url": "https://...",
+          "image_url": "https://...",
+          "published_at": "2026-03-21T10:00:00Z"
+        }
+      ],
+      "sources": ["BBC News", "CNN"],
+      "countries": ["gb", "us"]
+    }
+  ],
+  "total_groups": 1
+}
+```
+
+### `POST /api/comparison/analyse`
+
+Runs AI framing analysis on a group of related articles. Accepts a list of article IDs and returns a structured comparison of how different sources and countries frame the same story.
+
+Request body:
+
+```json
+{
+  "article_ids": ["abc-123", "def-456"]
+}
+```
+
+Validation:
+- Requires at least 2 article IDs (returns `422` otherwise).
+- All referenced articles must exist with `processing_status = "processed"` (returns `404` if fewer than 2 processed articles found).
+
+Response shape:
+
+```json
+{
+  "representative_title": "Earthquake hits coastal city",
+  "summary": "An earthquake struck a coastal city causing major damage...",
+  "framing_differences": [
+    "BBC uses 'strikes' suggesting sudden impact while CNN uses 'hits'",
+    "CNN quantifies damage as 'major' while BBC describes it as 'widespread'"
+  ],
+  "source_tones": [
+    {"source_name": "BBC News", "country": "gb", "tone": "Measured and factual."},
+    {"source_name": "CNN", "country": "us", "tone": "More urgent, emphasising scale."}
+  ]
+}
+```
+
+AI behavior:
+- Uses one OpenAI chat completion call per group.
+- If `OPENAI_API_KEY` is missing, returns default empty analysis.
+- Malformed AI output falls back to defaults.
 
 ### `GET /api/stats`
 

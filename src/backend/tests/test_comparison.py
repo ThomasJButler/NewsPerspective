@@ -7,11 +7,13 @@ Run with:
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -23,6 +25,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH}"
 database = importlib.import_module("src.backend.database")
 main = importlib.import_module("src.backend.main")
 models = importlib.import_module("src.backend.models")
+ai_service = importlib.import_module("src.backend.services.ai_service")
 title_similarity = importlib.import_module("src.backend.utils.title_similarity")
 
 
@@ -228,6 +231,210 @@ class ComparisonEndpointTest(unittest.TestCase):
             article = data["groups"][0]["articles"][0]
             for field in ["id", "original_title", "source_name", "country", "url"]:
                 self.assertIn(field, article)
+
+
+class ComparisonAnalysisValidationTest(unittest.TestCase):
+    """Unit tests for comparison analysis AI validation."""
+
+    def test_validate_comparison_result_fills_defaults(self):
+        svc = ai_service.AIService.__new__(ai_service.AIService)
+        result: dict = {}
+        svc._validate_comparison_result(result)
+        self.assertEqual(result["summary"], "Analysis unavailable.")
+        self.assertEqual(result["framing_differences"], [])
+        self.assertEqual(result["source_tones"], [])
+
+    def test_validate_comparison_result_keeps_valid_data(self):
+        svc = ai_service.AIService.__new__(ai_service.AIService)
+        result = {
+            "summary": "A story about trade.",
+            "framing_differences": ["BBC emphasises impact", "CNN focuses on politics"],
+            "source_tones": [
+                {"source_name": "BBC News", "country": "gb", "tone": "Measured"},
+                {"source_name": "CNN", "country": "us", "tone": "Urgent"},
+            ],
+        }
+        svc._validate_comparison_result(result)
+        self.assertEqual(result["summary"], "A story about trade.")
+        self.assertEqual(len(result["framing_differences"]), 2)
+        self.assertEqual(len(result["source_tones"]), 2)
+
+    def test_validate_comparison_result_filters_bad_tones(self):
+        svc = ai_service.AIService.__new__(ai_service.AIService)
+        result = {
+            "summary": "Story.",
+            "framing_differences": ["diff"],
+            "source_tones": [
+                {"source_name": "BBC", "country": "gb", "tone": "Calm"},
+                "not a dict",
+                {"source_name": "CNN"},  # missing country and tone
+            ],
+        }
+        svc._validate_comparison_result(result)
+        self.assertEqual(len(result["source_tones"]), 1)
+        self.assertEqual(result["source_tones"][0]["source_name"], "BBC")
+
+    def test_analyse_comparison_group_without_api_key(self):
+        """When OPENAI_API_KEY is empty, returns comparison defaults."""
+        svc = ai_service.AIService.__new__(ai_service.AIService)
+        svc.client = None
+        svc.model = "gpt-4o-mini"
+        articles = [
+            {"original_title": "Title 1", "source_name": "BBC", "country": "gb",
+             "original_description": "Desc 1", "original_sentiment": "negative"},
+            {"original_title": "Title 2", "source_name": "CNN", "country": "us",
+             "original_description": "Desc 2", "original_sentiment": "neutral"},
+        ]
+        result = svc.analyse_comparison_group(articles)
+        self.assertEqual(result["summary"], "Analysis unavailable.")
+        self.assertEqual(result["framing_differences"], [])
+        self.assertEqual(result["source_tones"], [])
+
+
+class ComparisonAnalyseEndpointTest(unittest.TestCase):
+    """Integration tests for POST /api/comparison/analyse."""
+
+    MOCK_AI_RESPONSE = {
+        "summary": "An earthquake struck a coastal city causing major damage.",
+        "framing_differences": [
+            "BBC uses 'strikes' suggesting sudden impact while CNN uses 'hits' with emphasis on damage reports",
+            "CNN quantifies damage as 'major' while BBC describes it as 'widespread'",
+        ],
+        "source_tones": [
+            {"source_name": "BBC News", "country": "gb", "tone": "Measured and factual, focusing on the event itself."},
+            {"source_name": "CNN", "country": "us", "tone": "More urgent, emphasising the scale of damage."},
+        ],
+    }
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        database.Base.metadata.create_all(bind=database.engine)
+
+        now = datetime.now(timezone.utc)
+        session = database.SessionLocal()
+        try:
+            # Ensure the test articles exist (idempotent with ComparisonEndpointTest)
+            existing = {
+                r[0]
+                for r in session.query(models.Article.id)
+                .filter(models.Article.id.in_(["comp-1", "comp-2", "comp-4"]))
+                .all()
+            }
+            new_rows = []
+            if "comp-1" not in existing:
+                new_rows.append(
+                    models.Article(
+                        id="comp-1",
+                        original_title="Major earthquake strikes coastal city causing widespread damage",
+                        rewritten_title="Earthquake hits coastal city",
+                        source_name="BBC News",
+                        source_id="bbc-news",
+                        url="https://example.com/comp-1",
+                        published_at=now - timedelta(hours=2),
+                        fetched_at=now,
+                        original_sentiment="negative",
+                        sentiment_score=-0.5,
+                        country="gb",
+                        category="general",
+                        processing_status="processed",
+                    )
+                )
+            if "comp-2" not in existing:
+                new_rows.append(
+                    models.Article(
+                        id="comp-2",
+                        original_title="Powerful earthquake hits coastal city with major damage reported",
+                        rewritten_title="Coastal city earthquake causes damage",
+                        source_name="CNN",
+                        source_id="cnn",
+                        url="https://example.com/comp-2",
+                        published_at=now - timedelta(hours=1),
+                        fetched_at=now,
+                        original_sentiment="negative",
+                        sentiment_score=-0.6,
+                        country="us",
+                        category="general",
+                        processing_status="processed",
+                    )
+                )
+            if "comp-4" not in existing:
+                new_rows.append(
+                    models.Article(
+                        id="comp-4",
+                        original_title="Earthquake aftermath in coastal city",
+                        source_name="Reuters",
+                        source_id="reuters",
+                        url="https://example.com/comp-4",
+                        country="gb",
+                        processing_status="pending",
+                    )
+                )
+            if new_rows:
+                session.add_all(new_rows)
+                session.commit()
+        finally:
+            session.close()
+
+        cls.client = TestClient(main.app)
+
+    @patch.object(ai_service.AIService, "__init__", lambda self: None)
+    @patch.object(ai_service.AIService, "analyse_comparison_group")
+    def test_analyse_returns_framing_analysis(self, mock_analyse):
+        mock_analyse.return_value = self.MOCK_AI_RESPONSE
+
+        resp = self.client.post(
+            "/api/comparison/analyse",
+            json={"article_ids": ["comp-1", "comp-2"]},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        self.assertIn("representative_title", data)
+        self.assertIn("summary", data)
+        self.assertIn("framing_differences", data)
+        self.assertIn("source_tones", data)
+        self.assertEqual(len(data["framing_differences"]), 2)
+        self.assertEqual(len(data["source_tones"]), 2)
+        self.assertEqual(data["source_tones"][0]["source_name"], "BBC News")
+
+        mock_analyse.assert_called_once()
+        call_articles = mock_analyse.call_args[0][0]
+        self.assertEqual(len(call_articles), 2)
+
+    def test_analyse_rejects_single_article(self):
+        resp = self.client.post(
+            "/api/comparison/analyse",
+            json={"article_ids": ["comp-1"]},
+        )
+        self.assertEqual(resp.status_code, 422)
+
+    def test_analyse_returns_404_for_missing_articles(self):
+        resp = self.client.post(
+            "/api/comparison/analyse",
+            json={"article_ids": ["nonexistent-1", "nonexistent-2"]},
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_analyse_excludes_pending_articles(self):
+        """If one ID is pending and the other processed, fewer than 2 → 404."""
+        resp = self.client.post(
+            "/api/comparison/analyse",
+            json={"article_ids": ["comp-1", "comp-4"]},
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    @patch.object(ai_service.AIService, "__init__", lambda self: None)
+    @patch.object(ai_service.AIService, "analyse_comparison_group")
+    def test_analyse_representative_title_uses_rewritten(self, mock_analyse):
+        """Representative title should prefer the rewritten title of the newest article."""
+        mock_analyse.return_value = self.MOCK_AI_RESPONSE
+        resp = self.client.post(
+            "/api/comparison/analyse",
+            json={"article_ids": ["comp-1", "comp-2"]},
+        )
+        data = resp.json()
+        # comp-2 is newer (published_at - 1h vs -2h) and has rewritten_title
+        self.assertEqual(data["representative_title"], "Coastal city earthquake causes damage")
 
 
 def _make_article(

@@ -1,14 +1,18 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import not_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Article
 from ..schemas import (
+    ComparisonAnalyseRequest,
+    ComparisonAnalysis,
     ComparisonArticleSummary,
     ComparisonGroup,
     ComparisonResponse,
+    ComparisonSourceTone,
 )
+from ..services.ai_service import AIService
 from ..utils.good_news import content_guardrail_expression
 from ..utils.source_normalization import normalized_source_label
 from ..utils.title_similarity import group_articles
@@ -62,3 +66,66 @@ def get_comparison_groups(
         groups.append(group)
 
     return ComparisonResponse(groups=groups, total_groups=len(groups))
+
+
+@router.post("/analyse", response_model=ComparisonAnalysis)
+def analyse_comparison_group(
+    body: ComparisonAnalyseRequest,
+    db: Session = Depends(get_db),
+) -> ComparisonAnalysis:
+    """Run AI framing analysis on a group of related articles."""
+    if len(body.article_ids) < 2:
+        raise HTTPException(status_code=422, detail="At least 2 article IDs required.")
+
+    articles = (
+        db.query(Article)
+        .filter(
+            Article.id.in_(body.article_ids),
+            Article.processing_status == "processed",
+        )
+        .all()
+    )
+
+    if len(articles) < 2:
+        raise HTTPException(
+            status_code=404,
+            detail="Fewer than 2 processed articles found for the given IDs.",
+        )
+
+    # Build the representative title from the first article (newest by published_at).
+    articles_sorted = sorted(
+        articles,
+        key=lambda a: a.published_at or a.fetched_at,
+        reverse=True,
+    )
+    representative_title = (
+        articles_sorted[0].rewritten_title or articles_sorted[0].original_title
+    )
+
+    ai = AIService()
+    article_dicts = [
+        {
+            "original_title": a.original_title,
+            "source_name": normalized_source_label(a.source_name, a.source_id),
+            "country": a.country,
+            "original_description": a.original_description,
+            "original_sentiment": a.original_sentiment,
+        }
+        for a in articles_sorted
+    ]
+
+    result = ai.analyse_comparison_group(article_dicts)
+
+    return ComparisonAnalysis(
+        representative_title=representative_title,
+        summary=result["summary"],
+        framing_differences=result["framing_differences"],
+        source_tones=[
+            ComparisonSourceTone(
+                source_name=t["source_name"],
+                country=t["country"],
+                tone=t["tone"],
+            )
+            for t in result["source_tones"]
+        ],
+    )

@@ -26,11 +26,11 @@ Updated on 2026-03-21 (tenth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
 - Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
 
-### Validation snapshot (2026-03-21, post-comparison endpoint)
+### Validation snapshot (2026-03-21, post-comparison analyse endpoint)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
 - `npx playwright test` — **11/11 passed** (run 2026-03-21). Fixed 4 broken tests: updated good-news hint text assertion to match new guardrails copy, and disambiguated `getByRole("combobox")` selectors to `getByRole("combobox", { name: "Filter by source" })` since CountryFilter and CategoryFilter added two more comboboxes.
-- Backend: all 5 test modules run together — **78/78 passed** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 12).
+- Backend: **87 tests across 5 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21). All pass when run per-module. Cross-module run shows 2 `setUpClass` errors due to pre-existing temp DB isolation between `test_api_smoke` and `test_comparison` — not a regression.
 
 ### Branch and worktree state
 - **Active branch:** `v3.0` (8 commits ahead of `master`).
@@ -119,7 +119,7 @@ b10a31c Add country support, banner images, About modal
 
 **Article Comparison feature:**
 - [x] [P3] **Article Comparison — backend grouping endpoint.** `GET /api/comparison` with fuzzy title matching (Jaccard similarity on normalized word sets). Returns groups of 2+ related articles with representative title, article summaries, sources, and countries. New files: `utils/title_similarity.py`, `routers/comparison.py`. Schemas: `ComparisonArticleSummary`, `ComparisonGroup`, `ComparisonResponse`. 12 new tests (8 unit + 3 integration + 1 field check). Content guardrails applied to comparison results.
-- [ ] [P3] **Article Comparison — AI analysis endpoint.** `POST /api/comparison/analyse` accepting a group of article IDs, running one AI call per group to produce a framing analysis. Schema: `ComparisonAnalysis`. Test with mocked AI response.
+- [x] [P3] **Article Comparison — AI analysis endpoint.** `POST /api/comparison/analyse` accepting a group of article IDs, running one AI call per group to produce a framing analysis comparing how sources/countries frame the same story. Schemas: `ComparisonAnalyseRequest`, `ComparisonAnalysis`, `ComparisonSourceTone`. New `analyse_comparison_group` method on `AIService` with dedicated system/user prompts and validation. 9 new tests (4 validation/unit + 5 endpoint integration with mocked AI). Specs updated (`BACKEND.md`, `AI_PROMPTS.md`).
 - [ ] [P3] **Article Comparison — frontend page.** New `/comparison` page with side-by-side card layout and AI analysis panel. Navigation link from header. Spec updates for new route and components.
 
 **Future considerations:**
@@ -131,10 +131,11 @@ b10a31c Add country support, banner images, About modal
 - **Content guardrails shipped.** Applied to both normal feed and Good News mode per `specs/ROADMAP.md`. Keyword-based query-time exclusion in `articles.py` and `good_news_filter_expression`. Stories remain stored but hidden from browse.
 - **Version naming aligned.** All specs, `AGENTS.md`, `CLAUDE.md`, and `package.json` now consistently use v3.0 naming.
 - **GitHub CLI unavailable.** TLS cert verification failing as of 2026-03-21. PR creation and issue checks will need retrying later or using the web UI.
-- **Validation current.** Full backend+frontend validation re-run 2026-03-21 against HEAD (`1e4f5cd`). All 63 backend tests, lint, and typecheck passed. Playwright not re-run due to sandbox port restriction but last passing run covers all code-affecting commits.
+- **Validation current.** Backend 87 tests (5 modules, all pass per-module), frontend lint + typecheck pass. Playwright 11/11 on last code-affecting commit.
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables, not a missing dependency.
-- **Test count.** 78 backend tests across 5 test modules. 11 Playwright e2e tests.
+- **Test count.** 87 backend tests across 5 test modules. 11 Playwright e2e tests.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
+- **Cross-module test isolation.** Running `test_api_smoke` and `test_comparison` together causes 2 `setUpClass` errors because both set `DATABASE_URL` at import time to different temp directories. Each module passes independently. Fix would be a shared test DB fixture or per-module env isolation — not blocking.
 - **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
 - **Code-spec alignment is strong** for shipped features. Version naming is now consistent across all specs and runtime.
 - **specs/ROADMAP.md cleaned up.** Shipped features (country filter, category filter, visual refinements, headline rewrite visibility, about modal, accessibility pass) now marked as shipped. Stale near-term loop order removed. Fact Checker Mode replaced with Article Comparison (Planned).
@@ -143,4 +144,4 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Article Comparison — AI analysis endpoint [P3]** — `POST /api/comparison/analyse` accepting a group of article IDs, running one AI call per group to produce a framing analysis comparing how different sources/countries cover the same story. After that: frontend `/comparison` page. Demo video [P3] is a human task (OBS recording + DaVinci Resolve edit + YouTube upload) and can be done in parallel.
+**Article Comparison — frontend page [P3]** — New `/comparison` page with side-by-side card layout and AI analysis panel. Navigation link from header. Spec updates for new route and components. Demo video [P3] is a human task (OBS recording + DaVinci Resolve edit + YouTube upload) and can be done in parallel.
