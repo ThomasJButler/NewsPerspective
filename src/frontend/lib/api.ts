@@ -4,6 +4,7 @@ import type {
   CategoriesResponse,
   ComparisonAnalysis,
   ComparisonResponse,
+  GuardrailsResponse,
   SourcesResponse,
   StatsResponse,
   RefreshErrorCode,
@@ -164,5 +165,23 @@ export async function analyseComparisonGroup(
     body: JSON.stringify({ article_ids: articleIds }),
   });
   if (!res.ok) throw new Error(`Failed to analyse comparison group: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchGuardrails(): Promise<GuardrailsResponse> {
+  const res = await fetch("/api/settings/guardrails");
+  if (!res.ok) throw new Error(`Failed to fetch guardrails: ${res.status}`);
+  return res.json();
+}
+
+export async function updateGuardrails(
+  keywords: string[]
+): Promise<GuardrailsResponse> {
+  const res = await fetch("/api/settings/guardrails", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keywords }),
+  });
+  if (!res.ok) throw new Error(`Failed to update guardrails: ${res.status}`);
   return res.json();
 }

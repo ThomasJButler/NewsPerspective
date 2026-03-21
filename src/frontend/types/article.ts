@@ -124,3 +124,7 @@ export interface ComparisonAnalysis {
   framing_differences: string[];
   source_tones: ComparisonSourceTone[];
 }
+
+export interface GuardrailsResponse {
+  keywords: string[];
+}

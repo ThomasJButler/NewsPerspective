@@ -96,6 +96,17 @@ The frontend stores the NewsAPI key in browser `localStorage` under `newsperspec
 - Saving a key in settings does **not** validate it immediately. Validation happens when the user triggers refresh.
 - Removing the key keeps cached articles available and resets the UI back to the inline onboarding guidance.
 
+## Content Guardrails
+
+The settings dialog includes a "Blocked topics" section for managing custom content guardrail keywords.
+
+- On dialog open, the component fetches `GET /api/settings/guardrails` to load the current keyword list.
+- Keywords are displayed as removable badge chips. Clicking the X button on a badge removes the keyword and immediately saves via `PUT /api/settings/guardrails`.
+- An input field with an "Add" button allows adding new keywords. Adding a keyword immediately saves the updated list.
+- The backend normalizes keywords (lowercase, trimmed, deduplicated) and enforces a maximum of 50 keywords, each up to 100 characters.
+- Articles matching blocked keywords are hidden from the feed and comparison view at query time.
+- Error and loading states are shown inline within the blocked topics section.
+
 ## Refresh UX
 
 The refresh button in the header is the only frontend action that requires the user-provided NewsAPI key.
