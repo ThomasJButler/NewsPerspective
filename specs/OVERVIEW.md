@@ -1,4 +1,4 @@
-# NewsPerspective v2.0 - Overview
+# NewsPerspective v3.0 - Overview
 
 ## Mission
 
@@ -40,7 +40,7 @@ For future-facing product direction, content guardrails, and roadmap items that 
         ┌───────▼────────┐      ┌───────▼─────────────────┐
         │ NewsAPI        │      │ OpenAI chat completions │
         │ /v2/top-headlines      │ Single analysis call    │
-        │ country=us             │ per article             │
+        │ country=us, country=gb │ per article             │
         └────────┬───────┘      └────────┬─────────────────┘
                  │                        │
                  └──────────────┬─────────┘
@@ -57,7 +57,7 @@ For future-facing product direction, content guardrails, and roadmap items that 
 - The shipped good-news filter now excludes `sports`, `entertainment`, and detected `politics` stories in addition to the backend `is_good_news` signal.
 - The current `politics` exclusion is app-derived from the article title/description/source text because the existing NewsAPI fetch categories do not include a dedicated `politics` feed.
 - The broader roadmap-only content guardrails remain future work until they are promoted into the active specs and implemented.
-- SQLite is the active persistence layer for v2.
+- SQLite is the active persistence layer for v3.
 
 ## What Changed From v1
 

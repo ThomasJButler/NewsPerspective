@@ -2,7 +2,7 @@
 
 ## Scope
 
-The v2 frontend lives in `src/frontend/` and is the user-facing reader for cached and refreshed articles.
+The v3 frontend lives in `src/frontend/` and is the user-facing reader for cached and refreshed articles.
 
 - **Framework**: Next.js `16.1.7` with the App Router
 - **Runtime**: React `19.2.3`

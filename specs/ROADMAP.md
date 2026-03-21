@@ -4,7 +4,7 @@
 
 This file captures future-facing product direction, content guardrails, and design intent that should survive implementation churn. It is not a promise that every item ships immediately. The immediate next-loop sequence still comes from `IMPLEMENTATION_PLAN.md`.
 
-Anything here becomes part of the active v2 runtime contract only after it is promoted into `specs/OVERVIEW.md`, `specs/BACKEND.md`, or `specs/FRONTEND.md`.
+Anything here becomes part of the active v3 runtime contract only after it is promoted into `specs/OVERVIEW.md`, `specs/BACKEND.md`, or `specs/FRONTEND.md`.
 
 ## Product Intent
 
@@ -19,7 +19,7 @@ The app should make it easier to:
 
 ## Planned Content Guardrails
 
-These are product-direction guardrails for a future implementation phase. They are not enforced by the current v2 runtime yet, and the active specs should not imply that they already ship. Once implemented, they should apply to both the normal feed and Good News mode unless a later active spec explicitly narrows them:
+These are product-direction guardrails for a future implementation phase. They are not enforced by the current v3 runtime yet, and the active specs should not imply that they already ship. Once implemented, they should apply to both the normal feed and Good News mode unless a later active spec explicitly narrows them:
 
 - Exclude war stories for now.
 - Exclude suicide stories.
@@ -37,7 +37,7 @@ Rationale:
 
 Good News should be opinionated, not just a generic positive sentiment toggle.
 
-Current v2 behavior now excludes `sports`, `entertainment`, and `politics` in the shipped backend/frontend flow.
+Current v3 behavior now excludes `sports`, `entertainment`, and `politics` in the shipped backend/frontend flow.
 
 Shipped rules:
 

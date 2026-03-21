@@ -229,7 +229,7 @@ DATABASE_URL=sqlite:///./newsperspective.db
 ```
 
 Notes:
-- `NEWS_API_KEY` is intentionally not a backend environment variable in v2.
+- `NEWS_API_KEY` is intentionally not a backend environment variable in v3.
 - Read-only browse endpoints should continue working from cached SQLite data without any user key.
 
 ## Known limitations
