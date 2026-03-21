@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## Repo purpose
-NewsPerspective v2.0 is a two-part app:
+NewsPerspective v3.0 is a two-part app:
 - `src/backend/` is a FastAPI service that fetches headlines from NewsAPI, processes them with OpenAI, and stores article data in SQLite.
 - `src/frontend/` is a Next.js + ShadCN UI for browsing rewritten headlines, summaries, source filters, search, and settings.
 
@@ -33,7 +33,7 @@ Legacy v1 runtime files were removed from the repo root on 2026-03-10. Use git h
 - Refresh requests must send the user key via the `X-News-Api-Key` header.
 - Read-only article endpoints should keep working without a key by serving cached data.
 - Single AI call per article should produce sentiment, rewrite decision/output, TLDR, and good-news flag.
-- SQLite is the current persistence layer. Avoid introducing Azure Search into v2 work unless the task explicitly says so.
+- SQLite is the current persistence layer. Avoid introducing Azure Search into v3 work unless the task explicitly says so.
 
 ## Working agreements
 - Keep changes scoped to the active plan item.
@@ -53,6 +53,8 @@ python -m unittest src.backend.tests.test_api_smoke -v
 python -m unittest src.backend.tests.test_refresh_processing -v
 python -m unittest src.backend.tests.test_manual_integration_evidence -v
 python -m unittest src.backend.tests.test_config -v
+python -m unittest src.backend.tests.test_comparison -v
+python -m unittest src.backend.tests.test_custom_guardrails -v
 uvicorn src.backend.main:app --reload --port 8000
 ```
 

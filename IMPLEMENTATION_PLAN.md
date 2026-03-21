@@ -2,116 +2,181 @@
 
 ## 1. Current status summary and code review
 
-Updated on 2026-03-20 (sixth pass, Claude Code Opus 4.6, `master` branch). This pass merged `v2.0-UX` into `master` via PR #5, deleted stale v2 branches, and transitioned to Phase 6.
+Updated on 2026-03-21 (fifteenth pass, Claude Code Opus 4.6, `v3.0` branch).
 
 ### Verified runtime state
 - `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. The backend does not read a server-side `NEWS_API_KEY`.
 - Cached read-only endpoints work without a key.
 - `src/backend/services/article_processor.py` does one AI call per new article and stores sentiment, rewrite output, TLDR, and Good News state together.
 - Good News exclusions for `sports`, `entertainment`, and detected `politics` are enforced in backend logic (`utils/good_news.py`) and reflected in frontend behavior.
-- Exception chaining (`raise ... from exc`) is correctly used in `src/backend/routers/sources.py` lines 166 and 174.
-- Refresh timeout resume behavior is implemented in `src/frontend/app/page.tsx` (lines 294-356) and helper-covered in `src/frontend/lib/refresh-status.test.mjs`.
+- Country support is end-to-end: `country` column in DB (`models.py:49`) with migration (`main.py:25-31`), dual US+GB fetch in `news_fetcher.py`, `Literal["us", "gb"]` country query param on `GET /api/articles` (`articles.py:45`), `CountryFilter` component in frontend, country badges on article cards.
+- About modal (`about-modal.tsx`) shows v3.0.0, explains the app, includes GitHub and Buy Me a Coffee links, shows "AGPLv3".
+- Article cards use full-width 16:9 banner images with error fallback, sentiment badges, and country badges.
+- Header content aligns with article feed via `max-w-3xl`.
+- Exception chaining (`raise ... from exc`) is correctly used in `src/backend/routers/sources.py`.
+- Refresh timeout resume behavior is implemented in `src/frontend/app/page.tsx` and helper-covered in `src/frontend/lib/refresh-status.test.mjs`.
 - The visible-headline fallback lives in `src/frontend/lib/headlines.ts` (`getVisibleHeadline()`).
 - Root-level v1 runtime files remain absent. Legacy reference lives in `READMEOLD.md` and git history only.
 - Backend CORS allows `http://localhost:3000` only. Adequate for local development; will need updating if a deployment target is added.
-- No TODO/FIXME/HACK markers in production code (backend or frontend). All TODO markers are intentional placeholders in the manual-evidence capture helper script.
+- No TODO/FIXME/HACK markers in production code (backend or frontend). Manual evidence helper TODOs are intentional placeholders.
 - Backend article model schema matches `specs/BACKEND.md` persistence model exactly.
 - Frontend proxy (`next.config.ts`) rewrites `/api/*` to `BACKEND_ORIGIN` (default `http://localhost:8000`), matching spec.
 - All frontend components, hooks, types, and library files documented in `specs/FRONTEND.md` exist in the tree.
 - `specs/AI_PROMPTS.md` system prompt and user prompt template match actual strings in `src/backend/services/ai_service.py` exactly. No drift.
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
+- Good-news toggle hint text: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
+- Article Comparison fully shipped: `GET /api/comparison`, `POST /api/comparison/analyse`, frontend `/comparison` route.
+- Pluggable `NewsSource` protocol shipped with DI in `ArticleProcessor`.
+- User-configurable content guardrails shipped: `GET/PUT /api/settings/guardrails`, frontend "Blocked topics" in settings dialog.
+- Content guardrails enforced consistently across all read endpoints: article list, single-article, categories, sources, and stats.
 
-### Validation snapshot (2026-03-20, post headline rewrite visibility investigation)
+### Validation snapshot (2026-03-21, fifteenth pass)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `npx playwright test` — **11/11 passed** (both `cached-browse.spec.ts` and `refresh-path.spec.ts`).
-- Backend: `test_refresh_processing` **12/12 passed** (9 existing + 3 new validation tests). `test_api_smoke` 29, `test_config` 4, `test_manual_integration_evidence` 14 — all passed. Total: **59 backend tests**.
+- `npx playwright test` — **11/11 passed** (run 2026-03-21).
+- Backend: **108 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 21). All pass both per-module and in a single unified run.
 
-### Worktree state
-`master` working tree is **clean**. Branch is **up to date** with `origin/master`.
+### Branch and worktree state
+- **Active branch:** `v3.0` (**25 commits** ahead of `master`).
+- `master` remains at the Phase 6→7 gate (commit `8b54903`).
+- **PR #6 is open** (v3.0 → master). Confirmed via GitHub API. Ready to merge after push.
+- Legacy remote-only branches remain: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Kept for historical reference.
 
-### GitHub state (verified 2026-03-20)
-- ~~**PR #5**~~ Merged 2026-03-20. `v2.0-UX` → `master` (8 commits: test fix, security merge, spec alignment, e2e fix, package-lock, plan update). Fast-forward merge.
-- ~~**PR #4**~~ Merged 2026-03-20. Security dependency bump.
-- No open issues or PRs.
-- GitHub repo description is current v2 language.
-
-### Branch state
-**`master`** is the sole active branch. All v2 feature branches have been merged and deleted:
-- ~~`v2.0-UX`~~ — merged via PR #5, deleted (local + remote).
-- ~~`v2.0`~~ — deleted (local + remote). Content was in master via PR #3.
-- ~~`v2.0-Codex`~~ — deleted (local + remote). Superseded.
-- ~~`v2.0-Security`~~ — deleted (local + remote). Same as master.
-
-Legacy remote-only branches remain: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Kept for historical reference; safe to remove if desired.
+### v3.0 commits (not yet on master)
+```
+de0344d Enforce content guardrails consistently across all read endpoints
+a4a23b2 Fix cross-module test isolation for unified test runner
+6b08328 Update README test count from 66/4 to 98/6 modules
+81bc4c9 Fix spec text drift and add missing test_comparison validation command
+d90370a Add user-configurable content guardrails frontend
+c3ab0cf Add user-configurable content guardrails backend
+26bffa8 Add pluggable NewsSource protocol with dependency injection
+779f586 Add /comparison page with side-by-side article groups and AI analysis
+df2df84 Add POST /api/comparison/analyse endpoint with AI framing analysis
+016b2c5 Add GET /api/comparison endpoint with fuzzy title grouping
+f5f7d68 Add AGPLv3 LICENSE, fix about-modal URLs, update e2e test selectors
+ea88844 Rewrite README for open-source audience and clean up stale ROADMAP sections
+7d03b5f Wire CategoryFilter into page state, URL params, and metadata loading
+2aba547 Create category-filter.tsx
+3d2a4f8 Add ARIA attributes to improve accessibility
+3b5c72b Add accessibility improvements: aria-labels, nav landmark, live region, aria-busy
+dc41059 Update plan for v3.0 → master PR and fresh validation run
+1e4f5cd Add content guardrails for war, suicide, depression, death, and grief
+9b37e29 Align all specs, docs, and package.json to v3.0 naming
+ce17dd1 Implementation plan v3.0 and Claude flag update
+2501624 Update specs for country support, banner images, and new components
+f87e332 Update About modal version to v3.0.0 and fix premature license claim
+2f240b2 Tighten country param validation and include country in normalization
+4c43e0f Fix skeleton loading to show image placeholders on all cards
+b10a31c Add country support, banner images, About modal
+```
 
 ### Open review findings
-All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in fifth-pass verification. Code-spec alignment is strong across all active specs.
+
+**[RESOLVED] Spec text drift — shipped features described as future/planned.** Fixed in all three spec files. Content guardrails and Article Comparison now described as shipped.
+
+**[RESOLVED] README test count and module list stale.** Updated to 98 tests across 6 modules with `test_comparison` and `test_custom_guardrails` added.
+
+**[RESOLVED] Validation commands missing `test_comparison`.** Added to both `CLAUDE.md` and `AGENTS.md`.
+
+**[RESOLVED] Spec version naming drift.** All specs, `AGENTS.md`, `CLAUDE.md`, and `package.json` now use v3.0 naming consistently. Remaining intentional "v2" references: NewsAPI `/v2/top-headlines` URL path (external API), historical "What Changed From v1" section in `OVERVIEW.md`, and completed-task history in `IMPLEMENTATION_PLAN.md`.
+
+**[RESOLVED] Content guardrails.** Shipped in both the normal feed and Good News mode, matching `specs/ROADMAP.md` intent.
+
+**[RESOLVED] OVERVIEW.md architecture diagram.** Updated to show dual `country=us, country=gb` fetch.
+
+**[RESOLVED] `package.json` version.** Updated from `0.1.0` to `3.0.0`.
+
+**[RESOLVED] Accessibility gaps.** Core gaps addressed. Remaining foundation: `aria-describedby` on good-news toggle, `prefers-reduced-motion` in CSS, `focus-visible` utilities.
+
+**[RESOLVED] No `/api/categories` endpoint.** Shipped.
+
+**[RESOLVED] Inconsistent guardrail enforcement across read endpoints (CodeRabbit PR #6).** Single-article, categories, sources, and stats endpoints now apply both built-in and custom content guardrails. 10 new tests added. 108/108 pass unified.
 
 ## 2. Active phase
 
-**Phase 7 — Feature buildout.** Phase 6 UX polish items are complete (headline rewrite visibility, feed thumbnails, header alignment, roadmap evaluation). Phase 7 promotes the highest-value roadmap items into active work based on the maturity assessment below.
+**Phase 9 — Documentation alignment + developer experience.** Phases 7 and 8 are complete (all checklist items shipped). The remaining work is documentation alignment to make specs, README, and validation commands match the actual shipped state, plus the v3.0 → master merge and demo video.
 
 ## 3. Ordered checklist
 
 ### Completed (Phase 5)
-- [x] Full source verification (5 passes): backend model schema, routers, services, AI prompts, frontend components/hooks/lib/types, proxy config. Zero code-spec mismatches.
-- [x] Test isolation fix in `test_refresh_processing.py` — committed `7190477`.
+- [x] Full source verification (5 passes): zero code-spec mismatches.
+- [x] Test isolation fix in `test_refresh_processing.py`.
 - [x] PR #4 security dependency bump — merged 2026-03-20.
-- [x] Spec alignment: `FRONTEND.md` version string, project structure; `ROADMAP.md` loop order; validation command docs in `README.md`/`CLAUDE.md`/`AGENTS.md`.
+- [x] Spec alignment: `FRONTEND.md` version string, project structure; `ROADMAP.md` loop order; validation command docs.
 - [x] GitHub repo description updated to v2 language.
-- [x] Playwright e2e — 11/11 passed after fixing stale Good News toggle assertion.
-- [x] Package-lock.json committed (`ce49ded`).
+- [x] Playwright e2e — 11/11 passed.
+- [x] Package-lock.json committed.
+- [x] PR #5: merge `v2.0-UX` → `master` — merged 2026-03-20.
+- [x] Branch cleanup: deleted local+remote `v2.0`, `v2.0-Codex`, `v2.0-Security`, `v2.0-UX`.
 
-- [x] PR #5: merge `v2.0-UX` → `master` — merged 2026-03-20 (fast-forward, 8 commits).
-- [x] Branch cleanup: deleted local+remote `v2.0`, `v2.0-Codex`, `v2.0-Security`, `v2.0-UX`. Legacy `v1.*` remotes retained.
-- [x] Legacy boundary: `READMEOLD.md` and git history only; no new root-level v1 files.
+### Completed (Phase 6 — UX polish)
+- [x] Evaluate headline rewrite visibility. Added `_validate_result` normalization + 3 tests.
+- [x] Upgrade article card layout. Full-width 16:9 banner images, sentiment badges, image error fallback.
+- [x] Header/feed layout alignment. `max-w-3xl` on header container.
+- [x] Evaluate broader roadmap items. Assessment complete.
 
-### Active (Phase 6 — UX polish)
-- [x] [P2] **Evaluate headline rewrite visibility.** Investigated end-to-end. No display bug: `getVisibleHeadline()` correctly surfaces rewrites. "Not always appearing" is by-design — the AI only rewrites sensationalized/misleading headlines; fair, factual headlines keep their original form. Fixed one robustness gap: `_validate_result` now normalizes `needs_rewrite` to `false` when `rewritten_title` is null/empty, preventing `rewritten_count` stat inflation. Added 3 unit tests.
-- [x] [P3] **Add article card thumbnails.** Per `specs/ROADMAP.md`: "Add a small thumbnail to article cards in the main feed." Added a 96×96 thumbnail on the right side of each article card using `next/image` with `unoptimized` (matching detail page pattern). Hidden on mobile (`hidden sm:block`), gracefully absent when `image_url` is null. Validated with `npm run lint` and `npm run typecheck`.
-- [x] [P3] **Header/feed layout alignment.** Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined." Added `max-w-3xl` to the header container div in `header.tsx` so the header content width matches the `max-w-3xl` main content area in `page.tsx`. Validated with `npm run lint` and `npm run typecheck`.
-- [x] [P3] **Evaluate broader roadmap items** (content guardrails, country-aware reading, topic filtering, About modal, accessibility audit, processing visibility, Fact Checker Mode) against current codebase maturity. Assessment complete — see §3a below for findings and promoted items.
+### Completed (Phase 7 — Feature buildout + spec alignment)
+- [x] Country-aware reading. Dual US+GB fetch, frontend CountryFilter, country badges, DB migration.
+- [x] About modal. v3.0.0 with GitHub + Buy Me a Coffee links, AGPLv3 license.
+- [x] Spec version alignment. All specs, `AGENTS.md`, `CLAUDE.md`, `package.json` updated to v3.0.
+- [x] Content guardrails. Keyword exclusion for war/suicide/depression/death/grief in both feeds.
+- [x] Accessibility pass. aria-labels, landmarks, live regions, aria-busy on refresh.
+- [x] Topic filtering UI. `GET /api/categories` + `CategoryFilter` component + URL sync.
+
+### Completed (Phase 8 — Open source launch + Article Comparison)
+- [x] AGPLv3 LICENSE file. Canonical text, `package.json` license field, About modal updated.
+- [x] README overhaul. Open-source audience, quick-start, architecture diagram, NewsAPI free tier note, contributing guidelines.
+- [x] Article Comparison — backend grouping. `GET /api/comparison` with Jaccard similarity. 12 tests.
+- [x] Article Comparison — AI analysis. `POST /api/comparison/analyse` with framing analysis. 9 tests.
+- [x] Article Comparison — frontend page. `/comparison` route with side-by-side view and AI analysis.
+- [x] Pluggable news source architecture. `NewsSource` protocol, DI in `ArticleProcessor`.
+- [x] User-configurable content guardrails — backend. `Setting` model, `GET/PUT /api/settings/guardrails`, 11 tests.
+- [x] User-configurable content guardrails — frontend. "Blocked topics" in settings dialog.
+
+### Active (Phase 9 — Documentation alignment + DX)
+
+- [x] [P1] **Fix spec text drift — remove "future work" claims for shipped features.** Updated `specs/OVERVIEW.md:11,59`, `specs/FRONTEND.md:76`, and `specs/ROADMAP.md:85,89` to reflect that content guardrails and Article Comparison are shipped.
+- [x] [P1] **Update validation commands.** Added `python -m unittest src.backend.tests.test_comparison -v` to `CLAUDE.md` and `AGENTS.md` validation sections.
+- [x] [P2] **Update README test count.** Changed `README.md` from "66 tests across 4 modules" to "98 tests across 6 modules" and added `test_comparison` and `test_custom_guardrails` to the module list.
+- [ ] [P2] **Merge v3.0 → master.** Human task: local branch is 1 commit ahead of `origin/v3.0` (commit `de0344d`). Push that commit, then merge PR #6. Both `git push` (HTTPS tunnel 403, SSH DNS failure) and GitHub MCP API push are blocked by the current network environment. All validation passes (108/108 backend, lint + typecheck clean).
+- [x] [P3] **Cross-module test isolation.** Fixed: added `database.reconfigure_engine()` calls to `setUpClass` in `test_api_smoke`, `test_comparison`, and `test_custom_guardrails`. Changed `main.py` to use `database.engine` (module attribute) instead of a direct import so the lifespan function sees the reconfigured engine. All 98 tests pass in a single unified run.
+- [x] [P1] **Fix inconsistent guardrail enforcement (CodeRabbit PR #6).** Applied content guardrails to `GET /api/articles/{id}`, `GET /api/categories`, `GET /api/sources`, and `GET /api/stats`. 10 new tests. 108/108 pass.
+- [ ] [P3] **Demo video.** Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
 
 ### Roadmap evaluation results (Phase 6 → Phase 7 gate)
 
-| Item | Complexity | Prerequisites | Recommendation |
-|------|-----------|---------------|----------------|
-| Content guardrails | **Small** | None — keyword exclusion mechanism in `good_news.py` is proven and extensible | **Promote** — expand existing keyword lists for war/suicide/depression/death/grief |
-| About modal | **Small** | None — ShadCN `Dialog` infrastructure proven via `settings-dialog.tsx` | **Promote** — pure UI, no backend changes, improves discoverability |
-| Accessibility pass | **Small–Medium** | None — good foundation exists (aria-labels, live regions); gaps are CSS focus states and `prefers-reduced-motion` | **Promote** — foundational; should land before large new features |
-| Topic filtering UI | **Medium–Small** | Backend `category` query param already works; need `/api/categories` endpoint + frontend `CategoryFilter` component | **Promote** — backend plumbing exists, mostly frontend UI work |
-| Country-aware reading | **Medium** | Requires new `country` DB column, pipeline changes, frontend selector, `/api/countries` endpoint. `news_fetcher.py` already accepts `country` param | **Defer** — multi-layer schema change; revisit after simpler items ship |
-| Processing visibility | **Medium–Large** | Requires in-flight article UI, skeleton states, progressive polling or SSE | **Defer** — heaviest lift; best done after simpler features prove the UX patterns |
-| Fact Checker Mode | **Large** | Requires cross-source article matching, country filtering, comparison UI — depends on country-aware reading | **Defer** — depends on country and topic infrastructure not yet built |
-
-### Active (Phase 7 — Feature buildout)
-Promoted items in priority order:
-- [ ] [P2] **Content guardrails.** Add keyword-based exclusions for war, suicide, depression, death, and grief to `good_news.py`. Expand `apply_good_news_rules()` and `good_news_filter_expression()`. Update frontend toggle hint. Add tests for new exclusions.
-- [ ] [P3] **About modal.** Create `about-modal.tsx` using ShadCN `Dialog`. Add About button to header near theme toggle. Include app explanation, GitHub link, Buy Me a Coffee link. Copy can be placeholder initially.
-- [ ] [P3] **Accessibility pass.** Add `prefers-reduced-motion` check to spinner animations. Ensure visible focus states via `focus-visible` utilities. Add semantic landmarks to main content area. Test keyboard navigation through all controls.
-- [ ] [P3] **Topic filtering UI.** Add `/api/categories` endpoint returning category names and counts. Create `CategoryFilter` component (pattern matches `SourceFilter`). Wire into page state and URL query params.
+| Item | Status | Notes |
+|------|--------|-------|
+| Country-aware reading | **SHIPPED** | Dual US+GB fetch, frontend filter, country badges |
+| About modal | **SHIPPED** | v3.0.0 with GitHub + Buy Me a Coffee links |
+| Content guardrails | **SHIPPED** | Built-in + user-configurable keyword exclusion |
+| Accessibility pass | **SHIPPED** | aria-labels, landmarks, live regions, aria-busy on refresh |
+| Topic filtering UI | **SHIPPED** | `GET /api/categories` endpoint + `CategoryFilter` component + URL sync |
+| Article Comparison | **SHIPPED** | Backend grouping + AI analysis + frontend `/comparison` route |
+| Pluggable news sources | **SHIPPED** | `NewsSource` protocol with DI |
+| User-configurable guardrails | **SHIPPED** | `GET/PUT /api/settings/guardrails` + frontend "Blocked topics" |
+| Processing visibility | **Deferred** | Heaviest lift; best done after simpler features prove UX patterns |
 
 ## 4. Notes / discoveries that matter for the next loop
 
-- **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking into the test path. Root cause is environment proxy variables (`ALL_PROXY`), not a missing dependency. Do not install `socksio` or clear proxy vars as a workaround.
-- **Test count.** Full backend count is 59 tests across `test_api_smoke` (29), `test_refresh_processing` (12), `test_manual_integration_evidence` (14), and `test_config` (4).
-- **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected and not regressions.
-- **`logs/phase3_manual_integration_report.md`** is present and matches the v2 boundary. Refresh only if the refresh contract or visible refresh UI copy changes.
-- **Manual evidence helper** intentionally leaves human-fill `TODO` placeholders. That is the design, not a broken implementation.
-- **Code-spec alignment is strong.** Fifth-pass full source verification found zero mismatches between active specs and running code.
-- **`specs/ROADMAP.md` exception-chaining reference** was already removed in a prior pass. The ROADMAP no longer incorrectly says exception chaining is pending.
+- **All code features and documentation alignment are complete.** The only remaining tasks (merge + demo video) are human-only.
+- **[RESOLVED] Spec text drift.** All spec files updated to reflect shipped features.
+- **[RESOLVED] CodeRabbit PR #6 review findings.** Inconsistent guardrail enforcement fixed across all read endpoints.
+- **Network access fully blocked.** HTTPS tunnel returns 403, SSH DNS fails (`-65563`). Neither `git push` nor GitHub MCP API push works in this environment. Push + merge must be done manually by the user.
+- **PR #6 is open and ready.** Local `v3.0` is 1 commit (`de0344d`) ahead of `origin/v3.0`. Push, then merge PR #6.
+- **Validation current.** Backend 108 tests (6 modules, all pass per-module and unified), frontend lint + typecheck pass. Playwright 11/11.
+- **Cross-module test isolation fixed.** All 6 modules run cleanly in a single `python -m unittest` invocation.
+- **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables.
+- **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
+- **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
+- **Dual US+GB fetch doubles API usage** from ~7 to ~14 requests per refresh. Within 100/day free limit (~7 refreshes/day).
 
 ## 5. Next recommended build slice
 
-**Content guardrails.**
+**Merge v3.0 → master [P2] — human task.** Network access is blocked in this environment. The user needs to:
+1. `git push origin v3.0` — pushes commit `de0344d` (guardrail enforcement fix + 10 new tests)
+2. Merge PR #6 on GitHub (v3.0 → master)
 
-Expand the proven keyword exclusion mechanism in `src/backend/utils/good_news.py` to cover roadmap-specified content guardrails (war, suicide, depression, death, grief). Steps:
-
-1. Add keyword tuples for each guardrail category in `good_news.py`.
-2. Create helper functions matching the `is_politics_story()` pattern.
-3. Update `apply_good_news_rules()` to apply the new exclusions.
-4. Update `good_news_filter_expression()` SQL filter to include new keyword checks.
-5. Update frontend `good-news-toggle.tsx` hint text to reflect expanded exclusions.
-6. Add unit tests for each new exclusion category.
-7. Update `specs/BACKEND.md` and `specs/ROADMAP.md` to reflect that these guardrails are now shipped.
+All validation passes (108/108 backend, lint + typecheck clean). After merge, the only remaining item is:
+- **Demo video [P3]** — Screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.

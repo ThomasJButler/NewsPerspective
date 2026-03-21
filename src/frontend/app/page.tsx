@@ -6,6 +6,7 @@ import { useApiKey } from "@/hooks/use-api-key";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   fetchArticles,
+  fetchCategories,
   fetchRefreshStatus,
   fetchSources,
   fetchStats,
@@ -14,14 +15,18 @@ import {
 } from "@/lib/api";
 import type {
   Article,
+  Category,
   RefreshStatusResponse,
   Source,
   StatsResponse,
 } from "@/types/article";
+import { AboutModal } from "@/components/about-modal";
 import { ApiKeySetup } from "@/components/api-key-setup";
 import { Header } from "@/components/header";
 import { GoodNewsToggle } from "@/components/good-news-toggle";
 import { RefreshStatusCard } from "@/components/refresh-status-card";
+import { CategoryFilter } from "@/components/category-filter";
+import { CountryFilter } from "@/components/country-filter";
 import { SourceFilter } from "@/components/source-filter";
 import { StatsBar } from "@/components/stats-bar";
 import { ArticleFeed } from "@/components/article-feed";
@@ -44,6 +49,8 @@ interface ArticleQueryState {
   search?: string;
   good_news_only?: boolean;
   source?: string;
+  category?: string;
+  country?: string;
 }
 
 function articleQueryMatches(
@@ -53,7 +60,9 @@ function articleQueryMatches(
   return (
     left.search === right.search &&
     left.good_news_only === right.good_news_only &&
-    left.source === right.source
+    left.source === right.source &&
+    left.category === right.category &&
+    left.country === right.country
   );
 }
 
@@ -72,6 +81,7 @@ function HomeContent() {
   );
 
   const [articles, setArticles] = useState<Article[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [refreshStatus, setRefreshStatus] =
@@ -80,6 +90,7 @@ function HomeContent() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [apiKeyFeedback, setApiKeyFeedback] = useState<ApiKeyFeedback | null>(
     null
@@ -94,6 +105,12 @@ function HomeContent() {
   const [sourceFilter, setSourceFilter] = useState(
     searchParams.get("source") || "all"
   );
+  const [countryFilter, setCountryFilter] = useState(
+    searchParams.get("country") || "all"
+  );
+  const [categoryFilter, setCategoryFilter] = useState(
+    searchParams.get("category") || "all"
+  );
 
   const debouncedSearch = useDebounce(searchValue);
   const effectiveSourceFilter =
@@ -102,10 +119,18 @@ function HomeContent() {
     sources.some((source) => source.source_name === sourceFilter)
       ? sourceFilter
       : "all";
+  const effectiveCategoryFilter =
+    categoryFilter === "all" ||
+    categories.length === 0 ||
+    categories.some((cat) => cat.name === categoryFilter)
+      ? categoryFilter
+      : "all";
   const currentArticleQuery: ArticleQueryState = {
     search: debouncedSearch || undefined,
     good_news_only: goodNewsOnly || undefined,
     source: effectiveSourceFilter !== "all" ? effectiveSourceFilter : undefined,
+    category: effectiveCategoryFilter !== "all" ? effectiveCategoryFilter : undefined,
+    country: countryFilter !== "all" ? countryFilter : undefined,
   };
   const currentArticleQueryKey = JSON.stringify(currentArticleQuery);
 
@@ -117,6 +142,8 @@ function HomeContent() {
     const nextSearchValue = searchParams.get("search") || "";
     const nextGoodNewsOnly = searchParams.get("good_news") === "true";
     const nextSourceFilter = searchParams.get("source") || "all";
+    const nextCountryFilter = searchParams.get("country") || "all";
+    const nextCategoryFilter = searchParams.get("category") || "all";
 
     setSearchValue((currentValue) =>
       currentValue === nextSearchValue ? currentValue : nextSearchValue
@@ -126,6 +153,12 @@ function HomeContent() {
     );
     setSourceFilter((currentValue) =>
       currentValue === nextSourceFilter ? currentValue : nextSourceFilter
+    );
+    setCountryFilter((currentValue) =>
+      currentValue === nextCountryFilter ? currentValue : nextCountryFilter
+    );
+    setCategoryFilter((currentValue) =>
+      currentValue === nextCategoryFilter ? currentValue : nextCategoryFilter
     );
   }, [searchParams]);
 
@@ -140,6 +173,12 @@ function HomeContent() {
     if (effectiveSourceFilter !== "all") {
       params.set("source", effectiveSourceFilter);
     }
+    if (countryFilter !== "all") {
+      params.set("country", countryFilter);
+    }
+    if (effectiveCategoryFilter !== "all") {
+      params.set("category", effectiveCategoryFilter);
+    }
     const nextQuery = params.toString();
 
     if (nextQuery === currentQueryRef.current) {
@@ -149,7 +188,9 @@ function HomeContent() {
     currentQueryRef.current = nextQuery;
     router.push(nextQuery ? `?${nextQuery}` : "/", { scroll: false });
   }, [
+    countryFilter,
     debouncedSearch,
+    effectiveCategoryFilter,
     effectiveSourceFilter,
     goodNewsOnly,
     router,
@@ -201,15 +242,20 @@ function HomeContent() {
   }, []);
 
   const loadMetadata = useCallback(async () => {
-    const [sourcesResult, statsResult, refreshStatusResult] =
+    const [sourcesResult, categoriesResult, statsResult, refreshStatusResult] =
       await Promise.allSettled([
         fetchSources(),
+        fetchCategories(),
         fetchStats(),
         fetchRefreshStatus(),
       ]);
 
     if (sourcesResult.status === "fulfilled") {
       setSources(sourcesResult.value.sources);
+    }
+
+    if (categoriesResult.status === "fulfilled") {
+      setCategories(categoriesResult.value.categories);
     }
 
     if (statsResult.status === "fulfilled") {
@@ -489,6 +535,7 @@ function HomeContent() {
       <Header
         searchValue={searchValue}
         onSearchChange={setSearchValue}
+        onAboutClick={() => setAboutOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
         onRefreshClick={handleRefresh}
         refreshing={refreshing}
@@ -501,17 +548,26 @@ function HomeContent() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-4 mb-4">
+        <nav aria-label="Article filters" className="flex flex-wrap items-center gap-4 mb-4">
           <GoodNewsToggle
             checked={goodNewsOnly}
             onCheckedChange={setGoodNewsOnly}
+          />
+          <CountryFilter
+            value={countryFilter}
+            onValueChange={setCountryFilter}
+          />
+          <CategoryFilter
+            categories={categories}
+            value={effectiveCategoryFilter}
+            onValueChange={setCategoryFilter}
           />
           <SourceFilter
             sources={sources}
             value={effectiveSourceFilter}
             onValueChange={setSourceFilter}
           />
-        </div>
+        </nav>
 
         <RefreshStatusCard refreshStatus={refreshStatus} stats={stats} />
 
@@ -525,6 +581,8 @@ function HomeContent() {
           onLoadMore={handleLoadMore}
         />
       </main>
+
+      <AboutModal open={aboutOpen} onOpenChange={setAboutOpen} />
 
       <SettingsDialog
         open={settingsOpen}

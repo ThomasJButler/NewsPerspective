@@ -6,7 +6,7 @@ from ..models import Article
 from ..utils.logger import setup_logger
 from ..utils.good_news import apply_good_news_rules
 from .ai_service import AIService
-from .news_fetcher import NewsFetchError, NewsFetcher
+from .news_source import NewsFetchError, NewsSource
 
 logger = setup_logger(__name__)
 
@@ -23,10 +23,11 @@ def _parse_datetime(value: str | None) -> datetime | None:
 
 
 class ArticleProcessor:
-    def process_new_articles(self, db: Session, api_key: str) -> dict[str, int]:
+    def process_new_articles(self, db: Session, news_source: NewsSource) -> dict[str, int]:
         """Fetch, deduplicate, analyse, and persist articles."""
-        fetcher = NewsFetcher(api_key=api_key)
-        articles = fetcher.fetch_all_categories()
+        us_articles = news_source.fetch_all_categories(country="us")
+        gb_articles = news_source.fetch_all_categories(country="gb")
+        articles = us_articles + gb_articles
 
         if not articles:
             logger.info("No articles returned from NewsFetcher.")
@@ -64,6 +65,7 @@ class ArticleProcessor:
                 image_url=raw.get("image_url"),
                 published_at=_parse_datetime(raw.get("published_at")),
                 category=raw.get("category", "general"),
+                country=raw.get("country", "us"),
                 processing_status="pending",
             )
             db.add(article)
@@ -120,12 +122,14 @@ class ArticleProcessor:
 def process_new_articles_background(api_key: str):
     """Entry point for BackgroundTasks — creates its own DB session."""
     from ..database import SessionLocal
+    from .news_fetcher import NewsFetcher
     from .refresh_tracker import refresh_tracker
 
     db = SessionLocal()
     try:
+        news_source = NewsFetcher(api_key=api_key)
         processor = ArticleProcessor()
-        summary = processor.process_new_articles(db, api_key)
+        summary = processor.process_new_articles(db, news_source)
         refresh_tracker.mark_completed(**summary)
     except NewsFetchError as exc:
         logger.error("Background refresh fetch failed: %s", exc, exc_info=True)

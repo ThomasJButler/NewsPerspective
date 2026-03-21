@@ -2,7 +2,7 @@
 
 ## Scope
 
-The v2 frontend lives in `src/frontend/` and is the user-facing reader for cached and refreshed articles.
+The v3 frontend lives in `src/frontend/` and is the user-facing reader for cached and refreshed articles.
 
 - **Framework**: Next.js `16.1.7` with the App Router
 - **Runtime**: React `19.2.3`
@@ -18,6 +18,7 @@ The frontend is intentionally minimal: no ads, no analytics, and no account syst
 src/frontend/
 ├── app/
 │   ├── article/[id]/page.tsx   # Article detail route
+│   ├── comparison/page.tsx     # Article comparison route
 │   ├── globals.css
 │   ├── layout.tsx
 │   └── page.tsx                # Home route with filters, refresh flow, and inline onboarding
@@ -25,7 +26,10 @@ src/frontend/
 │   ├── api-key-setup.tsx
 │   ├── article-card.tsx
 │   ├── article-feed.tsx
+│   ├── category-filter.tsx
 │   ├── good-news-toggle.tsx
+│   ├── country-filter.tsx
+│   ├── about-modal.tsx
 │   ├── header.tsx
 │   ├── refresh-status-card.tsx
 │   ├── search-bar.tsx
@@ -63,13 +67,13 @@ src/frontend/
 
 `/` is the primary screen for both first-time and returning users.
 
-- The header shows the product title and tagline, a search field, refresh button, theme toggle, and settings button.
-- The search box, source filter, and good-news toggle are synchronized with the URL query string.
+- The header shows the product title and tagline, a search field, refresh button, about button, theme toggle, and settings button.
+- The search box, source filter, category filter, country filter, and good-news toggle are synchronized with the URL query string.
 - Browser back/forward restores those controls from the current URL instead of leaving stale client state behind.
 - The article feed is always allowed to render cached backend data, even when no NewsAPI key has been stored.
 - The good-news toggle mirrors the backend `good_news_only` filter only.
 - The shipped backend filter excludes `sports`, `entertainment`, and detected `politics`; the frontend explains that scope in the toggle hint instead of adding a separate client-side rule.
-- The broader roadmap-only content guardrails are still future work.
+- Content guardrails are shipped: built-in keyword exclusions plus user-configurable blocked topics via the settings dialog.
 - A persistent refresh-status card sits above the stats bar and feed, so the latest known refresh state stays visible after any toast disappears.
 - The stats bar is only shown when `/api/stats` returns a non-zero article count.
 
@@ -91,6 +95,17 @@ The frontend stores the NewsAPI key in browser `localStorage` under `newsperspec
 - The settings dialog shows the saved key in masked form, allows add/update/remove, and makes clear that the key stays in the browser until the user requests refresh.
 - Saving a key in settings does **not** validate it immediately. Validation happens when the user triggers refresh.
 - Removing the key keeps cached articles available and resets the UI back to the inline onboarding guidance.
+
+## Content Guardrails
+
+The settings dialog includes a "Blocked topics" section for managing custom content guardrail keywords.
+
+- On dialog open, the component fetches `GET /api/settings/guardrails` to load the current keyword list.
+- Keywords are displayed as removable badge chips. Clicking the X button on a badge removes the keyword and immediately saves via `PUT /api/settings/guardrails`.
+- An input field with an "Add" button allows adding new keywords. Adding a keyword immediately saves the updated list.
+- The backend normalizes keywords (lowercase, trimmed, deduplicated) and enforces a maximum of 50 keywords, each up to 100 characters.
+- Articles matching blocked keywords are hidden from the feed and comparison view at query time.
+- Error and loading states are shown inline within the blocked topics section.
 
 ## Refresh UX
 
@@ -133,7 +148,7 @@ The refresh button in the header is the only frontend action that requires the u
 
 ### Article cards
 
-- Cards render source and publication time, the visible headline, TLDR text when available, and an external source link.
+- Cards render a full-width 16:9 banner image (when available, with graceful error fallback), country badge (US/UK), source and publication time, sentiment badge, the visible headline, TLDR text when available, and an external source link.
 - Headline rendering uses `getVisibleHeadline(...)`, which falls back to the original title if a rewritten title is blank or missing.
 - The original headline is only shown in a disclosure block when the article was rewritten and the visible headline differs from the original.
 - If an article is in the `sports` or `entertainment` category, or matches the backend's politics-topic detection rule, the backend suppresses its Good News flag in list/detail responses and in the `good_news_only` filter.
@@ -150,6 +165,22 @@ The refresh button in the header is the only frontend action that requires the u
 - Non-`404` failures render an `Unable to load article` state with a `Retry` button.
 - Detail pages use the same visible-headline fallback logic as cards.
 - The page shows source, author, date, sentiment badge, optional image, TLDR, and the external article link.
+
+## Article Comparison Route
+
+`/comparison` lets users see how different sources and countries cover the same story side by side.
+
+- The header includes a compare icon button (two rectangles) that links to `/comparison`.
+- The page fetches `GET /api/comparison` on load and displays each article group as a card.
+- Each group card shows the representative title, country labels, and source badges.
+- A "Compare" button expands the card to show individual articles in a responsive two-column grid, with source, country, sentiment badge, headline, publication time, and external link.
+- An "AI Analysis" button calls `POST /api/comparison/analyse` with the group's article IDs and displays:
+  - A summary in a TLDR-style callout.
+  - A list of framing differences.
+  - Source tone cards in a two-column grid.
+- Empty state: "No comparison groups found. Related stories from different sources will appear here after a refresh."
+- Error handling: toast notifications for both group-load and analysis failures.
+- The page has its own header with a "Back to feed" link and uses `max-w-4xl` to accommodate the wider side-by-side layout.
 
 ## Accessibility and Interaction Baseline
 

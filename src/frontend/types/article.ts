@@ -16,6 +16,7 @@ export interface Article {
   sentiment_score: number | null;
   is_good_news: boolean;
   category: string | null;
+  country: string;
   processing_status: string;
 }
 
@@ -35,6 +36,15 @@ export interface Source {
 
 export interface SourcesResponse {
   sources: Source[];
+}
+
+export interface Category {
+  name: string;
+  count: number;
+}
+
+export interface CategoriesResponse {
+  categories: Category[];
 }
 
 export interface StatsResponse {
@@ -75,4 +85,46 @@ export interface RefreshStatusResponse {
   new_articles: number;
   processed_articles: number;
   failed_articles: number;
+}
+
+export interface ComparisonArticleSummary {
+  id: string;
+  original_title: string;
+  rewritten_title: string | null;
+  source_name: string | null;
+  country: string;
+  original_sentiment: string | null;
+  sentiment_score: number | null;
+  url: string;
+  image_url: string | null;
+  published_at: string | null;
+}
+
+export interface ComparisonGroup {
+  representative_title: string;
+  articles: ComparisonArticleSummary[];
+  sources: string[];
+  countries: string[];
+}
+
+export interface ComparisonResponse {
+  groups: ComparisonGroup[];
+  total_groups: number;
+}
+
+export interface ComparisonSourceTone {
+  source_name: string;
+  country: string;
+  tone: string;
+}
+
+export interface ComparisonAnalysis {
+  representative_title: string;
+  summary: string;
+  framing_differences: string[];
+  source_tones: ComparisonSourceTone[];
+}
+
+export interface GuardrailsResponse {
+  keywords: string[];
 }

@@ -43,6 +43,41 @@ Respond with this exact JSON structure:
   "is_good_news": <boolean>
 }}"""
 
+COMPARISON_SYSTEM_PROMPT = """You are NewsPerspective, an AI that helps readers understand how the same news story is framed differently across sources and countries.
+
+Your job:
+1. Summarise what the story is about in 2-3 sentences
+2. Identify the key differences in how each source frames the story (tone, emphasis, word choice, what is highlighted or downplayed)
+3. Describe the tone each source uses
+
+Rules:
+- NEVER fabricate facts or add information not present in the articles
+- Focus on observable framing differences, not speculation about intent
+- Be specific — cite headline wording or emphasis differences, not vague generalities
+- If sources are largely aligned, say so honestly rather than inventing differences
+
+Respond with valid JSON only."""
+
+COMPARISON_USER_PROMPT_TEMPLATE = """Compare how these sources cover the same story:
+
+{articles_block}
+
+Respond with this exact JSON structure:
+{{
+  "summary": "<2-3 sentence summary of the underlying story>",
+  "framing_differences": ["<specific difference 1>", "<specific difference 2>", ...],
+  "source_tones": [
+    {{"source_name": "<source>", "country": "<country code>", "tone": "<1-2 sentence tone description>"}},
+    ...
+  ]
+}}"""
+
+COMPARISON_DEFAULTS = {
+    "summary": "Analysis unavailable.",
+    "framing_differences": [],
+    "source_tones": [],
+}
+
 NEUTRAL_DEFAULTS = {
     "sentiment": "neutral",
     "sentiment_score": 0.0,
@@ -106,6 +141,93 @@ class AIService:
         except Exception as e:
             logger.error(f"AI analysis failed for '{title[:60]}...': {e}")
             return dict(NEUTRAL_DEFAULTS)
+
+    def analyse_comparison_group(
+        self, articles: list[dict],
+    ) -> dict:
+        """Analyse a group of related articles to compare framing across sources.
+
+        *articles* is a list of dicts with keys: original_title, source_name,
+        country, original_description, original_sentiment.
+        Returns a dict with keys: summary, framing_differences, source_tones.
+        On failure returns comparison defaults.
+        """
+        lines: list[str] = []
+        for i, a in enumerate(articles, 1):
+            lines.append(
+                f"Article {i}:\n"
+                f"  Headline: \"{a['original_title']}\"\n"
+                f"  Source: \"{a['source_name']}\" ({a['country'].upper()})\n"
+                f"  Description: \"{a.get('original_description') or 'No description available'}\"\n"
+                f"  Sentiment: {a.get('original_sentiment', 'unknown')}"
+            )
+        articles_block = "\n\n".join(lines)
+
+        user_prompt = COMPARISON_USER_PROMPT_TEMPLATE.format(
+            articles_block=articles_block,
+        )
+
+        if self.client is None:
+            logger.warning(
+                "OPENAI_API_KEY is not configured; using defaults for comparison analysis"
+            )
+            return dict(COMPARISON_DEFAULTS)
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": COMPARISON_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.3,
+                max_tokens=1000,
+            )
+
+            content = response.choices[0].message.content.strip()
+            # Strip markdown code fences if present
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+
+            result = json.loads(content)
+            self._validate_comparison_result(result)
+            logger.info(f"Comparison analysis completed for {len(articles)} articles")
+            return result
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Malformed JSON from OpenAI for comparison: {e}")
+            return dict(COMPARISON_DEFAULTS)
+        except Exception as e:
+            logger.error(f"Comparison analysis failed: {e}")
+            return dict(COMPARISON_DEFAULTS)
+
+    def _validate_comparison_result(self, result: dict) -> None:
+        """Coerce types and fill missing keys for comparison results."""
+        if "summary" not in result or not isinstance(result["summary"], str):
+            result["summary"] = COMPARISON_DEFAULTS["summary"]
+        if "framing_differences" not in result or not isinstance(
+            result["framing_differences"], list
+        ):
+            result["framing_differences"] = []
+        else:
+            result["framing_differences"] = [
+                str(d) for d in result["framing_differences"] if d
+            ]
+        if "source_tones" not in result or not isinstance(
+            result["source_tones"], list
+        ):
+            result["source_tones"] = []
+        else:
+            result["source_tones"] = [
+                t for t in result["source_tones"]
+                if isinstance(t, dict)
+                and "source_name" in t
+                and "country" in t
+                and "tone" in t
+            ]
 
     def _validate_result(self, result: dict) -> None:
         """Coerce types and fill missing keys with defaults."""

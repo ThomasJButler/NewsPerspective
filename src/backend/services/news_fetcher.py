@@ -4,6 +4,7 @@ import re
 import requests
 
 from ..utils.logger import setup_logger
+from .news_source import NewsFetchError
 
 logger = setup_logger("NewsFetcher")
 
@@ -12,10 +13,6 @@ DEFAULT_NEWSAPI_COUNTRY = "us"
 CATEGORIES = ["general", "sports", "technology", "science", "health", "business", "entertainment"]
 DAILY_REQUEST_LIMIT = 100
 REQUEST_WARNING_THRESHOLD = 80
-
-
-class NewsFetchError(RuntimeError):
-    """Raised when NewsAPI fetching fails and the refresh should be marked failed."""
 
 
 def _redact_api_key(value: str, api_key: str) -> str:
@@ -56,6 +53,7 @@ class NewsFetcher:
                 if url and url not in seen_urls:
                     seen_urls.add(url)
                     article["category"] = category
+                    article["country"] = country
                     all_articles.append(article)
 
         logger.info(f"Fetched {len(all_articles)} unique articles across {len(CATEGORIES)} categories")
@@ -139,4 +137,5 @@ class NewsFetcher:
             "image_url": article.get("urlToImage"),
             "published_at": article.get("publishedAt"),
             "category": article.get("category", "general"),
+            "country": article.get("country", "us"),
         }

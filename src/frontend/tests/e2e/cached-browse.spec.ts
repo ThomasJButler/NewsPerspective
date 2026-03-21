@@ -77,7 +77,7 @@ test("shows seeded cached articles without a saved key", async ({ page }, testIn
     })
   ).toBeVisible();
   await expect(
-    page.getByText("Excludes sports, entertainment, and politics stories.")
+    page.getByText("Excludes sports, entertainment, politics, and distressing content.")
   ).toBeVisible();
   await expect(page.getByText(/articles processed/)).toBeVisible();
 
@@ -87,7 +87,7 @@ test("shows seeded cached articles without a saved key", async ({ page }, testIn
 test("filters seeded cached articles and opens article detail", async ({ page }, testInfo) => {
   await page.goto("/");
 
-  await page.getByRole("combobox").click();
+  await page.getByRole("combobox", { name: "Filter by source" }).click();
   await page.getByRole("option", { name: /Reuters/ }).click();
 
   await expect(page).toHaveURL(/source=Reuters/);
@@ -144,7 +144,7 @@ test("keeps home-page controls in sync when browser history changes", async ({ p
   await page.goto("/");
 
   const goodNewsSwitch = page.getByRole("switch", { name: "Good News Only" });
-  const sourceFilter = page.getByRole("combobox");
+  const sourceFilter = page.getByRole("combobox", { name: "Filter by source" });
   const searchBox = page.getByRole("searchbox", { name: "Search articles" });
 
   await goodNewsSwitch.click();

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/search-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -7,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 interface HeaderProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
+  onAboutClick: () => void;
   onSettingsClick: () => void;
   onRefreshClick: () => void;
   refreshing?: boolean;
@@ -15,6 +17,7 @@ interface HeaderProps {
 export function Header({
   searchValue,
   onSearchChange,
+  onAboutClick,
   onSettingsClick,
   onRefreshClick,
   refreshing = false,
@@ -34,9 +37,33 @@ export function Header({
             <Button
               variant="outline"
               size="icon"
+              asChild
+              aria-label="Compare articles"
+            >
+              <Link href="/comparison">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="4" width="8" height="16" rx="1" />
+                  <rect x="14" y="4" width="8" height="16" rx="1" />
+                </svg>
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={onRefreshClick}
               disabled={refreshing}
               aria-label="Refresh articles"
+              aria-busy={refreshing}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -52,6 +79,28 @@ export function Header({
               >
                 <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
                 <path d="M21 3v5h-5" />
+              </svg>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onAboutClick}
+              aria-label="About"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
               </svg>
             </Button>
             <ThemeToggle />
