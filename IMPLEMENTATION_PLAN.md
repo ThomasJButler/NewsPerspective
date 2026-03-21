@@ -2,7 +2,7 @@
 
 ## 1. Current status summary and code review
 
-Updated on 2026-03-21 (tenth pass, Claude Code Opus 4.6, `v3.0` branch).
+Updated on 2026-03-21 (twelfth pass, Claude Code Opus 4.6, `v3.0` branch).
 
 ### Verified runtime state
 - `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. The backend does not read a server-side `NEWS_API_KEY`.
@@ -18,29 +18,47 @@ Updated on 2026-03-21 (tenth pass, Claude Code Opus 4.6, `v3.0` branch).
 - The visible-headline fallback lives in `src/frontend/lib/headlines.ts` (`getVisibleHeadline()`).
 - Root-level v1 runtime files remain absent. Legacy reference lives in `READMEOLD.md` and git history only.
 - Backend CORS allows `http://localhost:3000` only. Adequate for local development; will need updating if a deployment target is added.
-- No TODO/FIXME/HACK markers in production code (backend or frontend).
+- No TODO/FIXME/HACK markers in production code (backend or frontend). Manual evidence helper TODOs are intentional placeholders.
 - Backend article model schema matches `specs/BACKEND.md` persistence model exactly.
 - Frontend proxy (`next.config.ts`) rewrites `/api/*` to `BACKEND_ORIGIN` (default `http://localhost:8000`), matching spec.
 - All frontend components, hooks, types, and library files documented in `specs/FRONTEND.md` exist in the tree.
 - `specs/AI_PROMPTS.md` system prompt and user prompt template match actual strings in `src/backend/services/ai_service.py` exactly. No drift.
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
-- Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
+- Good-news toggle hint text: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
+- Article Comparison fully shipped: `GET /api/comparison`, `POST /api/comparison/analyse`, frontend `/comparison` route.
+- Pluggable `NewsSource` protocol shipped with DI in `ArticleProcessor`.
+- User-configurable content guardrails shipped: `GET/PUT /api/settings/guardrails`, frontend "Blocked topics" in settings dialog.
 
-### Validation snapshot (2026-03-21, post-custom guardrails frontend)
+### Validation snapshot (2026-03-21, twelfth pass)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `npx playwright test` — **11/11 passed** (run 2026-03-21). Fixed 4 broken tests: updated good-news hint text assertion to match new guardrails copy, and disambiguated `getByRole("combobox")` selectors to `getByRole("combobox", { name: "Filter by source" })` since CountryFilter and CategoryFilter added two more comboboxes.
-- Backend: **98 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 11). All pass when run per-module. Cross-module run shows 2 `setUpClass` errors due to pre-existing temp DB isolation between `test_api_smoke` and `test_comparison` — not a regression.
+- `npx playwright test` — **11/11 passed** (run 2026-03-21).
+- Backend: **98 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 11). All pass when run per-module. Cross-module run shows **3** `setUpClass` errors due to temp DB isolation conflicts between `test_api_smoke`, `test_comparison`, and `test_custom_guardrails` — each module passes independently. Not a regression; the count grew from 2 to 3 when `test_custom_guardrails` was added.
 
 ### Branch and worktree state
-- **Active branch:** `v3.0` (8 commits ahead of `master`).
-- Working tree is **clean**. Branch is **up to date** with `origin/v3.0`.
+- **Active branch:** `v3.0` (**21 commits** ahead of `master`).
+- Working tree is **clean**.
 - `master` remains at the Phase 6→7 gate (commit `8b54903`).
-- **PR created:** v3.0 → master merge PR opened (pending — GitHub CLI TLS cert issue persists; MCP GitHub tool used instead).
+- **PR status unknown.** v3.0 → master merge PR was opened previously. GitHub CLI TLS cert issue persists; cannot verify merge status programmatically. Check via web UI.
 - Legacy remote-only branches remain: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Kept for historical reference.
 
 ### v3.0 commits (not yet on master)
 ```
+d90370a Add user-configurable content guardrails frontend
+c3ab0cf Add user-configurable content guardrails backend
+26bffa8 Add pluggable NewsSource protocol with dependency injection
+779f586 Add /comparison page with side-by-side article groups and AI analysis
+df2df84 Add POST /api/comparison/analyse endpoint with AI framing analysis
+016b2c5 Add GET /api/comparison endpoint with fuzzy title grouping
+f5f7d68 Add AGPLv3 LICENSE, fix about-modal URLs, update e2e test selectors
+ea88844 Rewrite README for open-source audience and clean up stale ROADMAP sections
+7d03b5f Wire CategoryFilter into page state, URL params, and metadata loading
+2aba547 Create category-filter.tsx
+3d2a4f8 Add ARIA attributes to improve accessibility
+3b5c72b Add accessibility improvements: aria-labels, nav landmark, live region, aria-busy
+dc41059 Update plan for v3.0 → master PR and fresh validation run
+1e4f5cd Add content guardrails for war, suicide, depression, death, and grief
+9b37e29 Align all specs, docs, and package.json to v3.0 naming
 ce17dd1 Implementation plan v3.0 and Claude flag update
 2501624 Update specs for country support, banner images, and new components
 f87e332 Update About modal version to v3.0.0 and fix premature license claim
@@ -51,21 +69,29 @@ b10a31c Add country support, banner images, About modal
 
 ### Open review findings
 
+**[RESOLVED] Spec text drift — shipped features described as future/planned.** Fixed in all three spec files. Content guardrails and Article Comparison now described as shipped.
+
+**[NEW] README test count and module list stale.**
+- `README.md:132` says "Backend tests (66 tests across 4 modules)". Actual: **98 tests across 6 modules**.
+- `README.md:133-139` lists only `test_api_smoke`, `test_refresh_processing`, `test_manual_integration_evidence`, `test_config`. Missing: `test_comparison`, `test_custom_guardrails`.
+
+**[RESOLVED] Validation commands missing `test_comparison`.** Added to both `CLAUDE.md` and `AGENTS.md`.
+
 **[RESOLVED] Spec version naming drift.** All specs, `AGENTS.md`, `CLAUDE.md`, and `package.json` now use v3.0 naming consistently. Remaining intentional "v2" references: NewsAPI `/v2/top-headlines` URL path (external API), historical "What Changed From v1" section in `OVERVIEW.md`, and completed-task history in `IMPLEMENTATION_PLAN.md`.
 
-**[RESOLVED] Content guardrails.** Shipped in both the normal feed and Good News mode, matching `specs/ROADMAP.md` intent. Keyword-based exclusion for war, suicide, depression, death, and grief topics applied at query time in `articles.py` and `good_news_filter_expression`. Stories remain in the database for audit but are hidden from browse results. 4 new tests cover processing-level and API-level guardrail behavior.
+**[RESOLVED] Content guardrails.** Shipped in both the normal feed and Good News mode, matching `specs/ROADMAP.md` intent.
 
 **[RESOLVED] OVERVIEW.md architecture diagram.** Updated to show dual `country=us, country=gb` fetch.
 
 **[RESOLVED] `package.json` version.** Updated from `0.1.0` to `3.0.0`.
 
-**[RESOLVED] Accessibility gaps.** All identified gaps addressed: `aria-label` on `CountryFilter` and `SourceFilter` select triggers, `<nav>` landmark wrapping filter bar, `aria-live="polite"` on stats bar, `aria-busy` on refresh button, ShadCN Dialog focus trapping verified (Radix UI built-in). Remaining foundation: aria-labels on refresh/settings/about buttons, `aria-describedby` on good-news toggle, `prefers-reduced-motion` in CSS, `focus-visible` utilities.
+**[RESOLVED] Accessibility gaps.** Core gaps addressed. Remaining foundation: `aria-describedby` on good-news toggle, `prefers-reduced-motion` in CSS, `focus-visible` utilities.
 
-**[RESOLVED] No `/api/categories` endpoint.** Shipped `GET /api/categories` returning `{categories: [{name, count}]}` from processed articles. Frontend `CategoryFilter` component wired into page state and URL query params.
+**[RESOLVED] No `/api/categories` endpoint.** Shipped.
 
 ## 2. Active phase
 
-**Phase 7 — Feature buildout + spec alignment.** Country support and About modal are shipped on `v3.0`. Remaining Phase 7 items: spec version alignment, content guardrails (scope decision required), accessibility pass, topic filtering UI. Spec version alignment is a prerequisite for the open-source launch in Phase 8.
+**Phase 9 — Documentation alignment + developer experience.** Phases 7 and 8 are complete (all checklist items shipped). The remaining work is documentation alignment to make specs, README, and validation commands match the actual shipped state, plus the v3.0 → master merge and demo video.
 
 ## 3. Ordered checklist
 
@@ -81,22 +107,37 @@ b10a31c Add country support, banner images, About modal
 - [x] Branch cleanup: deleted local+remote `v2.0`, `v2.0-Codex`, `v2.0-Security`, `v2.0-UX`.
 
 ### Completed (Phase 6 — UX polish)
-- [x] Evaluate headline rewrite visibility. No display bug; added `_validate_result` normalization + 3 tests.
+- [x] Evaluate headline rewrite visibility. Added `_validate_result` normalization + 3 tests.
 - [x] Upgrade article card layout. Full-width 16:9 banner images, sentiment badges, image error fallback.
 - [x] Header/feed layout alignment. `max-w-3xl` on header container.
-- [x] Evaluate broader roadmap items. Assessment complete — see roadmap table below.
+- [x] Evaluate broader roadmap items. Assessment complete.
 
-### Completed (Phase 7 — partial)
-- [x] **Country-aware reading.** `country` column, dual US+GB fetch, frontend CountryFilter, country badges. DB migration for legacy databases.
-- [x] **About modal.** `about-modal.tsx` with ShadCN Dialog. About button in header. App explanation, how-it-works list, GitHub link, Buy Me a Coffee link, v3.0.0/attribution footer.
+### Completed (Phase 7 — Feature buildout + spec alignment)
+- [x] Country-aware reading. Dual US+GB fetch, frontend CountryFilter, country badges, DB migration.
+- [x] About modal. v3.0.0 with GitHub + Buy Me a Coffee links, AGPLv3 license.
+- [x] Spec version alignment. All specs, `AGENTS.md`, `CLAUDE.md`, `package.json` updated to v3.0.
+- [x] Content guardrails. Keyword exclusion for war/suicide/depression/death/grief in both feeds.
+- [x] Accessibility pass. aria-labels, landmarks, live regions, aria-busy on refresh.
+- [x] Topic filtering UI. `GET /api/categories` + `CategoryFilter` component + URL sync.
 
-### Active (Phase 7 — remaining)
+### Completed (Phase 8 — Open source launch + Article Comparison)
+- [x] AGPLv3 LICENSE file. Canonical text, `package.json` license field, About modal updated.
+- [x] README overhaul. Open-source audience, quick-start, architecture diagram, NewsAPI free tier note, contributing guidelines.
+- [x] Article Comparison — backend grouping. `GET /api/comparison` with Jaccard similarity. 12 tests.
+- [x] Article Comparison — AI analysis. `POST /api/comparison/analyse` with framing analysis. 9 tests.
+- [x] Article Comparison — frontend page. `/comparison` route with side-by-side view and AI analysis.
+- [x] Pluggable news source architecture. `NewsSource` protocol, DI in `ArticleProcessor`.
+- [x] User-configurable content guardrails — backend. `Setting` model, `GET/PUT /api/settings/guardrails`, 11 tests.
+- [x] User-configurable content guardrails — frontend. "Blocked topics" in settings dialog.
 
-- [x] [P2] **Spec version alignment.** Updated `specs/OVERVIEW.md`, `specs/FRONTEND.md`, `specs/BACKEND.md`, `specs/ROADMAP.md` to reflect v3.0 naming. Updated `OVERVIEW.md` architecture diagram for dual US+GB fetch. Updated `AGENTS.md` and `CLAUDE.md` purpose line and product rules from "v2" to "v3". Updated `package.json` version to `3.0.0`. GitHub repo description update deferred until CLI becomes available.
-- [x] [P2] **Content guardrails.** Keyword-based exclusion for war, suicide, depression, death, grief. Applied to both normal feed (`articles.py` base query) and Good News mode (`good_news_filter_expression`). Processing-time `apply_good_news_rules` also updated. Frontend hint text updated. Specs updated (`BACKEND.md`, `ROADMAP.md`). 4 new tests (1 processing + 3 API). Total: 63 backend tests.
-- [x] [P2] **Merge v3.0 → master.** PR created. Full validation passed: 63/63 backend tests, lint clean, typecheck clean. Playwright 11/11 on last code-affecting commit. Awaiting merge.
-- [x] [P3] **Accessibility pass.** Added `aria-label` to `CountryFilter` and `SourceFilter` `SelectTrigger` elements. Wrapped filter bar in `<nav aria-label="Article filters">` landmark. Added `aria-live="polite"` on `StatsBar` for article count announcements. Added `aria-busy` to refresh button during processing. Verified ShadCN Dialog focus trapping (Radix UI primitive provides built-in focus trap, Escape dismiss, and focus return).
-- [x] [P3] **Topic filtering UI.** Added `GET /api/categories` endpoint returning `{categories: [{name, count}]}` from processed articles. Created `CategoryFilter` component (pattern matches `SourceFilter`). Wired into page state and URL query params. Backend schemas: `CategoryItem`, `CategoriesResponse`. Frontend types, API client, component, and page wiring all complete. 3 new backend tests. Total: 66 backend tests.
+### Active (Phase 9 — Documentation alignment + DX)
+
+- [x] [P1] **Fix spec text drift — remove "future work" claims for shipped features.** Updated `specs/OVERVIEW.md:11,59`, `specs/FRONTEND.md:76`, and `specs/ROADMAP.md:85,89` to reflect that content guardrails and Article Comparison are shipped.
+- [x] [P1] **Update validation commands.** Added `python -m unittest src.backend.tests.test_comparison -v` to `CLAUDE.md` and `AGENTS.md` validation sections.
+- [ ] [P2] **Update README test count.** Change `README.md:132-139` from "66 tests across 4 modules" to "98 tests across 6 modules" and add `test_comparison` and `test_custom_guardrails` to the module list.
+- [ ] [P2] **Merge v3.0 → master.** Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes.
+- [ ] [P3] **Cross-module test isolation.** Running all 6 test modules together causes 3 `setUpClass` errors (DB path conflicts between `test_api_smoke`, `test_comparison`, `test_custom_guardrails`). Each module passes independently. Fix: shared test DB fixture or per-module `DATABASE_URL` isolation. Not blocking but degrades CI confidence if a unified test runner is ever adopted.
+- [ ] [P3] **Demo video.** Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
 
 ### Roadmap evaluation results (Phase 6 → Phase 7 gate)
 
@@ -104,45 +145,26 @@ b10a31c Add country support, banner images, About modal
 |------|--------|-------|
 | Country-aware reading | **SHIPPED** | Dual US+GB fetch, frontend filter, country badges |
 | About modal | **SHIPPED** | v3.0.0 with GitHub + Buy Me a Coffee links |
-| Content guardrails | **SHIPPED** | Keyword exclusion for war/suicide/depression/death/grief in both feeds |
+| Content guardrails | **SHIPPED** | Built-in + user-configurable keyword exclusion |
 | Accessibility pass | **SHIPPED** | aria-labels, landmarks, live regions, aria-busy on refresh |
 | Topic filtering UI | **SHIPPED** | `GET /api/categories` endpoint + `CategoryFilter` component + URL sync |
+| Article Comparison | **SHIPPED** | Backend grouping + AI analysis + frontend `/comparison` route |
+| Pluggable news sources | **SHIPPED** | `NewsSource` protocol with DI |
+| User-configurable guardrails | **SHIPPED** | `GET/PUT /api/settings/guardrails` + frontend "Blocked topics" |
 | Processing visibility | **Deferred** | Heaviest lift; best done after simpler features prove UX patterns |
-| Fact Checker Mode | **Deferred** | Depends on topic infrastructure; evolved into Article Comparison for Phase 8 |
-
-### Planned (Phase 8 — Open source launch + Article Comparison)
-
-**Open source packaging:**
-- [x] [P2] **AGPLv3 LICENSE file.** Added canonical AGPLv3 text to repo root `LICENSE`. Updated `package.json` license field to `"AGPL-3.0-only"`. Updated About modal from "Coming soon" to "AGPLv3". Also fixed broken GitHub URL (`tombutler` -> `ThomasJButler`) and Buy Me a Coffee URL in About modal.
-- [x] [P2] **README overhaul.** Rewrote for open-source audience: hero section with tagline, quick-start guide (5 steps), personalisation section with Claude prompt template, architecture diagram, NewsAPI free tier note with premium mention, contributing guidelines with CLA mention, Docker section, development/validation section. Also cleaned up stale `specs/ROADMAP.md` sections (marked shipped features, updated Fact Checker → Article Comparison, trimmed stale loop order).
-- [ ] [P3] **Demo video.** Screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal.
-
-**Article Comparison feature:**
-- [x] [P3] **Article Comparison — backend grouping endpoint.** `GET /api/comparison` with fuzzy title matching (Jaccard similarity on normalized word sets). Returns groups of 2+ related articles with representative title, article summaries, sources, and countries. New files: `utils/title_similarity.py`, `routers/comparison.py`. Schemas: `ComparisonArticleSummary`, `ComparisonGroup`, `ComparisonResponse`. 12 new tests (8 unit + 3 integration + 1 field check). Content guardrails applied to comparison results.
-- [x] [P3] **Article Comparison — AI analysis endpoint.** `POST /api/comparison/analyse` accepting a group of article IDs, running one AI call per group to produce a framing analysis comparing how sources/countries frame the same story. Schemas: `ComparisonAnalyseRequest`, `ComparisonAnalysis`, `ComparisonSourceTone`. New `analyse_comparison_group` method on `AIService` with dedicated system/user prompts and validation. 9 new tests (4 validation/unit + 5 endpoint integration with mocked AI). Specs updated (`BACKEND.md`, `AI_PROMPTS.md`).
-- [x] [P3] **Article Comparison — frontend page.** New `/comparison` route (`app/comparison/page.tsx`) with comparison group cards, expandable side-by-side article view (responsive 2-col grid), on-demand AI analysis with framing differences and source tone cards. Compare icon button added to header linking to `/comparison`. Frontend types and API client functions (`fetchComparisonGroups`, `analyseComparisonGroup`) wired up. `specs/FRONTEND.md` updated with new route, project structure entry, and Article Comparison Route section.
-
-**Future considerations:**
-- [x] [P4] **Pluggable news source architecture.** `NewsSource` protocol in `services/news_source.py` with `fetch_all_categories(country) -> list[dict]` contract. `NewsFetchError` moved to protocol module (re-exported from `news_fetcher.py` for backward compat). `ArticleProcessor.process_new_articles` accepts `NewsSource` via DI instead of constructing `NewsFetcher` internally. `process_new_articles_background` constructs the `NewsFetcher` and injects it. 5 tests updated to pass mock sources. `specs/BACKEND.md` updated with pluggable source docs. All 87 backend tests pass.
-- [x] [P4] **User-configurable content guardrails — backend.** `Setting` model (key-value table) in `models.py`. New `routers/settings.py` with `GET /api/settings/guardrails` and `PUT /api/settings/guardrails`. Keywords normalized (lowercase, trimmed, deduplicated, max 50, max 100 chars each). `custom_guardrail_expression` and `load_custom_guardrail_keywords` in `utils/good_news.py`. Custom keywords applied to article feed, comparison groups, and good_news_count stats. 11 new tests in `test_custom_guardrails.py`. Specs updated (`BACKEND.md`). Total: 98 backend tests across 6 modules.
-- [x] [P4] **User-configurable content guardrails — frontend.** "Blocked topics" section added to settings dialog with keyword badges (add/remove), immediate save via `PUT /api/settings/guardrails`, loading and error states. API client functions (`fetchGuardrails`, `updateGuardrails`) in `lib/api.ts`. `GuardrailsResponse` type in `types/article.ts`. `specs/FRONTEND.md` updated with Content Guardrails section.
 
 ## 4. Notes / discoveries that matter for the next loop
 
-- **Content guardrails shipped.** Applied to both normal feed and Good News mode per `specs/ROADMAP.md`. Keyword-based query-time exclusion in `articles.py` and `good_news_filter_expression`. Stories remain stored but hidden from browse.
-- **Version naming aligned.** All specs, `AGENTS.md`, `CLAUDE.md`, and `package.json` now consistently use v3.0 naming.
-- **GitHub CLI unavailable.** TLS cert verification failing as of 2026-03-21. PR creation and issue checks will need retrying later or using the web UI.
-- **Validation current.** Backend 98 tests (6 modules, all pass per-module), frontend lint + typecheck pass. Playwright 11/11 on last code-affecting commit.
-- **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables, not a missing dependency.
-- **Test count.** 98 backend tests across 6 test modules. 11 Playwright e2e tests.
+- **All code features are shipped.** No pending implementation work. The remaining tasks are documentation alignment and merge.
+- **Spec text drift is the highest-priority fix.** Three spec files at five locations claim shipped features are "future work" or "planned". This is the most confusing mismatch for any new contributor reading the specs.
+- **GitHub CLI TLS cert issue persists.** PR creation, issue checks, and merge operations need the web UI or a retry when the cert chain resolves.
+- **Validation current.** Backend 98 tests (6 modules, all pass per-module), frontend lint + typecheck pass. Playwright 11/11.
+- **Cross-module test errors: 3, not 2.** The addition of `test_custom_guardrails` introduced a third `setUpClass` conflict. Each module passes independently. A shared test DB fixture would fix this if unified CI is ever needed.
+- **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
-- **Cross-module test isolation.** Running `test_api_smoke` and `test_comparison` together causes 2 `setUpClass` errors because both set `DATABASE_URL` at import time to different temp directories. Each module passes independently. Fix would be a shared test DB fixture or per-module env isolation — not blocking.
 - **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
-- **Code-spec alignment is strong** for shipped features. Version naming is now consistent across all specs and runtime.
-- **specs/ROADMAP.md cleaned up.** Shipped features (country filter, category filter, visual refinements, headline rewrite visibility, about modal, accessibility pass) now marked as shipped. Stale near-term loop order removed. Fact Checker Mode replaced with Article Comparison (Planned).
 - **Dual US+GB fetch doubles API usage** from ~7 to ~14 requests per refresh. Within 100/day free limit (~7 refreshes/day).
-- **`package.json` version** now `3.0.0`, matching the About modal display version.
 
 ## 5. Next recommended build slice
 
-**Demo video [P3]** — Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required — this is a content creation task.
+**Update README test count [P2]** — Change `README.md:132-139` from "66 tests across 4 modules" to "98 tests across 6 modules" and add `test_comparison` and `test_custom_guardrails` to the module list. Small, safe doc-only edit.

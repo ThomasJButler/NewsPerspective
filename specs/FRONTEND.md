@@ -73,7 +73,7 @@ src/frontend/
 - The article feed is always allowed to render cached backend data, even when no NewsAPI key has been stored.
 - The good-news toggle mirrors the backend `good_news_only` filter only.
 - The shipped backend filter excludes `sports`, `entertainment`, and detected `politics`; the frontend explains that scope in the toggle hint instead of adding a separate client-side rule.
-- The broader roadmap-only content guardrails are still future work.
+- Content guardrails are shipped: built-in keyword exclusions plus user-configurable blocked topics via the settings dialog.
 - A persistent refresh-status card sits above the stats bar and feed, so the latest known refresh state stays visible after any toast disappears.
 - The stats bar is only shown when `/api/stats` returns a non-zero article count.
 

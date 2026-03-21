@@ -82,11 +82,11 @@ Article cards use full-width 16:9 banner images with error fallback. Header cont
 
 `getVisibleHeadline()` ensures rewritten headlines are displayed when available, with fallback to the original. `_validate_result` normalisation ensures blank rewrites are cleaned up at processing time.
 
-## Article Comparison (Planned)
+## Article Comparison (Shipped)
 
 Evolved from the original "Fact Checker Mode" concept. A dedicated `/comparison` page showing how the same story is framed differently across sources and countries.
 
-Planned scope:
+Shipped scope:
 
 - Backend: `GET /api/comparison` (fuzzy title matching to group related articles), `POST /api/comparison/analyse` (one AI call per group)
 - Frontend: side-by-side card layout with AI analysis panel
