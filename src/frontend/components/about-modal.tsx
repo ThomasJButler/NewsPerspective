@@ -66,7 +66,7 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
           <Separator />
 
           <p className="text-xs">
-            v2.0.0 &middot; Built by Tom Butler &middot; Licensed under AGPLv3
+            v3.0.0 &middot; Built by Tom Butler &middot; License: Coming soon
           </p>
         </div>
       </DialogContent>
