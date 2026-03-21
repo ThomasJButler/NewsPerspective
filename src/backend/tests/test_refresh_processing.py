@@ -11,7 +11,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 _TEMP_DIR = tempfile.TemporaryDirectory()
@@ -91,15 +91,13 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
             "NewsAPI returned an error: post-validation quota exceeded"
         )
 
-        with patch.object(
-            article_processor.NewsFetcher,
-            "fetch_all_categories",
-            side_effect=expected_error,
-        ):
-            processor = article_processor.ArticleProcessor()
+        source = MagicMock()
+        source.fetch_all_categories.side_effect = expected_error
 
-            with self.assertRaises(news_fetcher.NewsFetchError) as raised:
-                processor.process_new_articles(db=_DummySession(), api_key="valid-key")
+        processor = article_processor.ArticleProcessor()
+
+        with self.assertRaises(news_fetcher.NewsFetchError) as raised:
+            processor.process_new_articles(db=_DummySession(), news_source=source)
 
         self.assertIs(raised.exception, expected_error)
 
@@ -191,16 +189,14 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         session = database.SessionLocal()
         failure = news_fetcher.NewsFetchError("sports category failed after general succeeded")
 
-        try:
-            with patch.object(
-                article_processor.NewsFetcher,
-                "fetch_all_categories",
-                side_effect=failure,
-            ):
-                processor = article_processor.ArticleProcessor()
+        source = MagicMock()
+        source.fetch_all_categories.side_effect = failure
 
-                with self.assertRaises(news_fetcher.NewsFetchError):
-                    processor.process_new_articles(db=session, api_key="valid-key")
+        try:
+            processor = article_processor.ArticleProcessor()
+
+            with self.assertRaises(news_fetcher.NewsFetchError):
+                processor.process_new_articles(db=session, news_source=source)
 
             self.assertEqual(session.query(models.Article).count(), 0)
         finally:
@@ -241,12 +237,11 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
             "is_good_news": True,
         }
 
+        source = MagicMock()
+        source.fetch_all_categories.return_value = fetched_articles
+
         try:
             with patch.object(
-                article_processor.NewsFetcher,
-                "fetch_all_categories",
-                return_value=fetched_articles,
-            ), patch.object(
                 article_processor.AIService,
                 "__init__",
                 lambda self: None,
@@ -256,7 +251,7 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
                 return_value=analysis_result,
             ):
                 processor = article_processor.ArticleProcessor()
-                summary = processor.process_new_articles(db=session, api_key="valid-key")
+                summary = processor.process_new_articles(db=session, news_source=source)
 
             self.assertEqual(
                 summary,
@@ -314,12 +309,11 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
             "is_good_news": True,
         }
 
+        source = MagicMock()
+        source.fetch_all_categories.return_value = fetched_articles
+
         try:
             with patch.object(
-                article_processor.NewsFetcher,
-                "fetch_all_categories",
-                return_value=fetched_articles,
-            ), patch.object(
                 article_processor.AIService,
                 "__init__",
                 lambda self: None,
@@ -329,7 +323,7 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
                 return_value=analysis_result,
             ):
                 processor = article_processor.ArticleProcessor()
-                summary = processor.process_new_articles(db=session, api_key="valid-key")
+                summary = processor.process_new_articles(db=session, news_source=source)
 
             self.assertEqual(
                 summary,
@@ -391,12 +385,11 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
             "is_good_news": True,
         }
 
+        source = MagicMock()
+        source.fetch_all_categories.return_value = fetched_articles
+
         try:
             with patch.object(
-                article_processor.NewsFetcher,
-                "fetch_all_categories",
-                return_value=fetched_articles,
-            ), patch.object(
                 article_processor.AIService,
                 "__init__",
                 lambda self: None,
@@ -406,7 +399,7 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
                 return_value=analysis_result,
             ):
                 processor = article_processor.ArticleProcessor()
-                summary = processor.process_new_articles(db=session, api_key="valid-key")
+                summary = processor.process_new_articles(db=session, news_source=source)
 
             self.assertEqual(
                 summary,

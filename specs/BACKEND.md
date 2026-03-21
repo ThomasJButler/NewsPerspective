@@ -263,7 +263,15 @@ Current tracker semantics:
 
 ## Refresh pipeline behavior
 
-### News fetching
+### Pluggable news source architecture
+
+`src/backend/services/news_source.py` defines a `NewsSource` protocol and the `NewsFetchError` exception. Any class that implements `fetch_all_categories(country: str) -> list[dict]` satisfies the protocol and can be injected into `ArticleProcessor.process_new_articles(db, news_source)`.
+
+The built-in implementation is `NewsFetcher` in `src/backend/services/news_fetcher.py` (NewsAPI). Alternative sources (e.g. GNews, MediaStack, RSS) can be added by implementing the `NewsSource` protocol without modifying the processor.
+
+Each returned dict must include: `original_title`, `original_description`, `source_name`, `source_id`, `author`, `url`, `image_url`, `published_at`, `category`, `country`.
+
+### News fetching (NewsAPI — built-in source)
 
 `src/backend/services/news_fetcher.py` currently:
 
@@ -286,7 +294,7 @@ Retry behavior:
 
 `src/backend/services/article_processor.py` currently:
 
-1. Fetches all categories from NewsAPI for both US and GB
+1. Receives a `NewsSource` and fetches all categories for both US and GB
 2. Skips URLs already present in the database
 3. Inserts each new article first with `processing_status="pending"`
 4. Calls OpenAI once per new article for:
