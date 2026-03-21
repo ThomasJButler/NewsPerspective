@@ -519,7 +519,7 @@ function HomeContent() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-4 mb-4">
+        <nav aria-label="Article filters" className="flex flex-wrap items-center gap-4 mb-4">
           <GoodNewsToggle
             checked={goodNewsOnly}
             onCheckedChange={setGoodNewsOnly}
@@ -533,7 +533,7 @@ function HomeContent() {
             value={effectiveSourceFilter}
             onValueChange={setSourceFilter}
           />
-        </div>
+        </nav>
 
         <RefreshStatusCard refreshStatus={refreshStatus} stats={stats} />
 

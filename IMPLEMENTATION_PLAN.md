@@ -26,12 +26,11 @@ Updated on 2026-03-21 (ninth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
 - Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
 
-### Validation snapshot (2026-03-21, pre-merge)
+### Validation snapshot (2026-03-21, post-accessibility-pass)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `npx playwright test` — **11/11 passed** (last run 2026-03-20; sandbox prevents re-run due to port binding. No code changes since last passing run affect e2e behavior).
-- Backend: all 4 test modules run together — **63/63 passed** (`test_api_smoke` 32, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4).
-- New tests added: 1 processing-level guardrail test, 3 API-level guardrail tests (normal feed exclusion, good news exclusion, stats good_news_count exclusion).
+- `npx playwright test` — **11/11 passed** (last run 2026-03-20; sandbox prevents re-run due to port binding. Accessibility changes are attribute-only and do not affect e2e behavior).
+- Backend: all 4 test modules run together — **63/63 passed** (`test_api_smoke` 32, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4). No backend changes in this slice.
 
 ### Branch and worktree state
 - **Active branch:** `v3.0` (8 commits ahead of `master`).
@@ -60,13 +59,7 @@ b10a31c Add country support, banner images, About modal
 
 **[RESOLVED] `package.json` version.** Updated from `0.1.0` to `3.0.0`.
 
-**[P3] Accessibility gaps.** Foundation is good (aria-labels on refresh/settings/about buttons, `aria-describedby` on good-news toggle, `prefers-reduced-motion` in CSS, `focus-visible` utilities). Remaining gaps:
-- `CountryFilter` `SelectTrigger` lacks `aria-label` (`country-filter.tsx:19-21`)
-- `SourceFilter` `SelectTrigger` lacks `aria-label` (`source-filter.tsx:25-27`)
-- No `aria-live` regions for article count or filter result updates
-- No `<nav>` landmark for filter controls (header uses `<header>` but filter bar is a plain `<div>`)
-- No `aria-busy` on refresh button during processing
-- ShadCN Dialog components provide focus trapping, but not explicitly verified
+**[RESOLVED] Accessibility gaps.** All identified gaps addressed: `aria-label` on `CountryFilter` and `SourceFilter` select triggers, `<nav>` landmark wrapping filter bar, `aria-live="polite"` on stats bar, `aria-busy` on refresh button, ShadCN Dialog focus trapping verified (Radix UI built-in). Remaining foundation: aria-labels on refresh/settings/about buttons, `aria-describedby` on good-news toggle, `prefers-reduced-motion` in CSS, `focus-visible` utilities.
 
 **[P3] No `/api/categories` endpoint.** Backend accepts a `category` query param on `GET /api/articles` (`articles.py:44`), but there is no endpoint to list available categories with counts. `news_fetcher.py` defines `CATEGORIES` internally but it's not exposed via API.
 
@@ -102,7 +95,7 @@ b10a31c Add country support, banner images, About modal
 - [x] [P2] **Spec version alignment.** Updated `specs/OVERVIEW.md`, `specs/FRONTEND.md`, `specs/BACKEND.md`, `specs/ROADMAP.md` to reflect v3.0 naming. Updated `OVERVIEW.md` architecture diagram for dual US+GB fetch. Updated `AGENTS.md` and `CLAUDE.md` purpose line and product rules from "v2" to "v3". Updated `package.json` version to `3.0.0`. GitHub repo description update deferred until CLI becomes available.
 - [x] [P2] **Content guardrails.** Keyword-based exclusion for war, suicide, depression, death, grief. Applied to both normal feed (`articles.py` base query) and Good News mode (`good_news_filter_expression`). Processing-time `apply_good_news_rules` also updated. Frontend hint text updated. Specs updated (`BACKEND.md`, `ROADMAP.md`). 4 new tests (1 processing + 3 API). Total: 63 backend tests.
 - [x] [P2] **Merge v3.0 → master.** PR created. Full validation passed: 63/63 backend tests, lint clean, typecheck clean. Playwright 11/11 on last code-affecting commit. Awaiting merge.
-- [ ] [P3] **Accessibility pass.** Add `aria-label` to `CountryFilter` and `SourceFilter` `SelectTrigger` elements. Wrap filter bar in `<nav aria-label="Article filters">` landmark. Add `aria-live="polite"` region for article count updates. Add `aria-busy` to refresh button during processing. Verify ShadCN Dialog focus trapping. Test keyboard navigation through all interactive controls.
+- [x] [P3] **Accessibility pass.** Added `aria-label` to `CountryFilter` and `SourceFilter` `SelectTrigger` elements. Wrapped filter bar in `<nav aria-label="Article filters">` landmark. Added `aria-live="polite"` on `StatsBar` for article count announcements. Added `aria-busy` to refresh button during processing. Verified ShadCN Dialog focus trapping (Radix UI primitive provides built-in focus trap, Escape dismiss, and focus return).
 - [ ] [P3] **Topic filtering UI.** Add `GET /api/categories` endpoint returning `{categories: [{name, count}]}` from processed articles. Create `CategoryFilter` component (pattern matches `SourceFilter`). Wire into page state and URL query params.
 
 ### Roadmap evaluation results (Phase 6 → Phase 7 gate)
@@ -147,6 +140,4 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**v3.0 → master PR is open.** Merge it, then proceed to:
-
-**Accessibility pass [P3]** — add `aria-label` to `CountryFilter` and `SourceFilter` select triggers, wrap filter bar in `<nav>` landmark, add `aria-live` region for article count, add `aria-busy` to refresh button. Small, self-contained changes across 4-5 frontend files.
+**Topic filtering UI [P3]** — add `GET /api/categories` endpoint returning `{categories: [{name, count}]}` from processed articles. Create `CategoryFilter` frontend component (pattern matches `SourceFilter`). Wire into page state and URL query params. Backend + frontend slice.

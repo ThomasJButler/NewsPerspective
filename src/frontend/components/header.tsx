@@ -39,6 +39,7 @@ export function Header({
               onClick={onRefreshClick}
               disabled={refreshing}
               aria-label="Refresh articles"
+              aria-busy={refreshing}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
