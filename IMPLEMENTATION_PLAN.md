@@ -71,9 +71,7 @@ b10a31c Add country support, banner images, About modal
 
 **[RESOLVED] Spec text drift — shipped features described as future/planned.** Fixed in all three spec files. Content guardrails and Article Comparison now described as shipped.
 
-**[NEW] README test count and module list stale.**
-- `README.md:132` says "Backend tests (66 tests across 4 modules)". Actual: **98 tests across 6 modules**.
-- `README.md:133-139` lists only `test_api_smoke`, `test_refresh_processing`, `test_manual_integration_evidence`, `test_config`. Missing: `test_comparison`, `test_custom_guardrails`.
+**[RESOLVED] README test count and module list stale.** Updated to 98 tests across 6 modules with `test_comparison` and `test_custom_guardrails` added.
 
 **[RESOLVED] Validation commands missing `test_comparison`.** Added to both `CLAUDE.md` and `AGENTS.md`.
 
@@ -134,7 +132,7 @@ b10a31c Add country support, banner images, About modal
 
 - [x] [P1] **Fix spec text drift — remove "future work" claims for shipped features.** Updated `specs/OVERVIEW.md:11,59`, `specs/FRONTEND.md:76`, and `specs/ROADMAP.md:85,89` to reflect that content guardrails and Article Comparison are shipped.
 - [x] [P1] **Update validation commands.** Added `python -m unittest src.backend.tests.test_comparison -v` to `CLAUDE.md` and `AGENTS.md` validation sections.
-- [ ] [P2] **Update README test count.** Change `README.md:132-139` from "66 tests across 4 modules" to "98 tests across 6 modules" and add `test_comparison` and `test_custom_guardrails` to the module list.
+- [x] [P2] **Update README test count.** Changed `README.md` from "66 tests across 4 modules" to "98 tests across 6 modules" and added `test_comparison` and `test_custom_guardrails` to the module list.
 - [ ] [P2] **Merge v3.0 → master.** Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes.
 - [ ] [P3] **Cross-module test isolation.** Running all 6 test modules together causes 3 `setUpClass` errors (DB path conflicts between `test_api_smoke`, `test_comparison`, `test_custom_guardrails`). Each module passes independently. Fix: shared test DB fixture or per-module `DATABASE_URL` isolation. Not blocking but degrades CI confidence if a unified test runner is ever adopted.
 - [ ] [P3] **Demo video.** Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal. No code changes required.
@@ -167,4 +165,4 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Update README test count [P2]** — Change `README.md:132-139` from "66 tests across 4 modules" to "98 tests across 6 modules" and add `test_comparison` and `test_custom_guardrails` to the module list. Small, safe doc-only edit.
+**Merge v3.0 → master [P2]** — Check PR status via web UI (GitHub CLI TLS cert issue persists). Merge or recreate PR if needed. All validation passes. Human task.

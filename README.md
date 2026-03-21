@@ -129,7 +129,7 @@ docker compose -f src/frontend/compose.yaml down
 
 ### Validation
 
-Backend tests (66 tests across 4 modules):
+Backend tests (98 tests across 6 modules):
 
 ```bash
 source src/backend/.venv/bin/activate
@@ -137,6 +137,8 @@ python -m unittest src.backend.tests.test_api_smoke -v
 python -m unittest src.backend.tests.test_refresh_processing -v
 python -m unittest src.backend.tests.test_manual_integration_evidence -v
 python -m unittest src.backend.tests.test_config -v
+python -m unittest src.backend.tests.test_comparison -v
+python -m unittest src.backend.tests.test_custom_guardrails -v
 ```
 
 Frontend checks:
