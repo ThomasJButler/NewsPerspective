@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Article
 from ..schemas import ArticleListResponse, ArticleResponse
-from ..utils.good_news import apply_good_news_rules, content_guardrail_expression, good_news_filter_expression
+from ..utils.good_news import (
+    apply_good_news_rules,
+    content_guardrail_expression,
+    custom_guardrail_expression,
+    good_news_filter_expression,
+    load_custom_guardrail_keywords,
+)
 from ..utils.source_normalization import (
     clean_source_value,
     normalized_source_label,
@@ -46,10 +52,13 @@ def get_articles(
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> ArticleListResponse:
+    custom_keywords = load_custom_guardrail_keywords(db)
     query = db.query(Article).filter(
         Article.processing_status == "processed",
         not_(content_guardrail_expression(Article)),
     )
+    if custom_keywords:
+        query = query.filter(not_(custom_guardrail_expression(Article, custom_keywords)))
 
     if good_news_only:
         query = query.filter(good_news_filter_expression(Article))

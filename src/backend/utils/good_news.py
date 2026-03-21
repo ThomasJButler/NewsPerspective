@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import and_, func, not_, or_
+from sqlalchemy.orm import Session
 
 GOOD_NEWS_EXCLUDED_CATEGORIES = frozenset({"sports", "entertainment"})
 
@@ -174,6 +177,49 @@ def content_guardrail_expression(article_model):
         normalized_text.like(f"%{keyword}%") for keyword in CONTENT_GUARDRAIL_KEYWORDS
     ]
     return or_(*keyword_matches)
+
+
+def custom_guardrail_expression(article_model, keywords: list[str]):
+    """SQL expression that matches articles containing any of the given keywords."""
+    if not keywords:
+        # Always-false expression — nothing extra to exclude.
+        return and_(False)
+    normalized_text = func.lower(
+        func.trim(
+            func.coalesce(article_model.original_title, "")
+            + " "
+            + func.coalesce(article_model.original_description, "")
+            + " "
+            + func.coalesce(article_model.source_name, "")
+        )
+    )
+    keyword_matches = [
+        normalized_text.like(f"%{kw.strip().lower()}%")
+        for kw in keywords
+        if kw.strip()
+    ]
+    if not keyword_matches:
+        return and_(False)
+    return or_(*keyword_matches)
+
+
+CUSTOM_GUARDRAILS_SETTING_KEY = "custom_guardrail_keywords"
+
+
+def load_custom_guardrail_keywords(db: Session) -> list[str]:
+    """Load user-defined guardrail keywords from the settings table."""
+    from ..models import Setting
+
+    row = db.query(Setting).filter(Setting.key == CUSTOM_GUARDRAILS_SETTING_KEY).first()
+    if row is None:
+        return []
+    try:
+        keywords = json.loads(row.value)
+        if isinstance(keywords, list):
+            return [str(k) for k in keywords if str(k).strip()]
+        return []
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 def good_news_filter_expression(article_model):

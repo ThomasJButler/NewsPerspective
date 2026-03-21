@@ -14,6 +14,7 @@
 - API routers:
   - `src/backend/routers/articles.py`
   - `src/backend/routers/comparison.py`
+  - `src/backend/routers/settings.py`
   - `src/backend/routers/sources.py`
 - Refresh work is currently exposed from `sources.py`; there is no separate refresh router.
 - CORS currently allows `http://localhost:3000`.
@@ -44,6 +45,17 @@ The backend stores fetched articles in a single SQLite `articles` table with the
 | `country` | TEXT | Source country code (`us` or `gb`), default `us` |
 | `processing_status` | TEXT | `pending`, `processed`, or `failed` |
 
+### Settings table
+
+The backend stores user-configurable settings in a `settings` key-value table:
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | TEXT | Primary key |
+| `value` | TEXT | JSON-encoded setting value |
+
+Currently the only key is `custom_guardrail_keywords`, which stores a JSON array of user-specified content guardrail keywords.
+
 ## Article visibility rules
 
 - `GET /api/articles`, `GET /api/sources`, and `GET /api/stats` only include rows where `processing_status = "processed"`.
@@ -65,7 +77,8 @@ Query params:
 - `search` optional string; matches `original_title` or `rewritten_title` with `ILIKE`
 
 Content guardrails (applied to both the normal feed and Good News mode):
-- The base article query excludes stories matching content guardrail keywords for `war`, `suicide`, `depression`, `death`, and `grief`. These stories do not appear in the normal feed or Good News results.
+- The base article query excludes stories matching built-in content guardrail keywords for `war`, `suicide`, `depression`, `death`, and `grief`. These stories do not appear in the normal feed or Good News results.
+- User-configurable guardrails: users can add custom keywords via `PUT /api/settings/guardrails`. Articles matching any custom keyword are also excluded from the article feed, comparison groups, and Good News stats.
 - Guardrail detection is keyword-based on the normalized title, description, and source name fields.
 
 Current `good_news_only` semantics:
@@ -191,6 +204,39 @@ AI behavior:
 - Uses one OpenAI chat completion call per group.
 - If `OPENAI_API_KEY` is missing, returns default empty analysis.
 - Malformed AI output falls back to defaults.
+
+### `GET /api/settings/guardrails`
+
+Returns the user-configured content guardrail keywords.
+
+Response shape:
+
+```json
+{
+  "keywords": ["bitcoin", "crypto"]
+}
+```
+
+Returns an empty list when no custom keywords have been configured.
+
+### `PUT /api/settings/guardrails`
+
+Replaces the user-configured content guardrail keywords.
+
+Request body:
+
+```json
+{
+  "keywords": ["bitcoin", "crypto"]
+}
+```
+
+Normalization:
+- Keywords are lowercased and trimmed.
+- Blank and duplicate keywords are removed.
+- Maximum 50 keywords, each up to 100 characters.
+
+Response shape: same as `GET /api/settings/guardrails`.
 
 ### `GET /api/stats`
 
@@ -336,5 +382,5 @@ Notes:
 ## Known limitations
 
 - Refresh state is per-process and resets on restart.
-- The current runtime excludes `sports`, `entertainment`, and detected `politics` stories from Good News. Content guardrails additionally exclude `war`, `suicide`, `depression`, `death`, and `grief` stories from both the normal feed and Good News mode.
+- The current runtime excludes `sports`, `entertainment`, and detected `politics` stories from Good News. Built-in content guardrails exclude `war`, `suicide`, `depression`, `death`, and `grief` stories from both the normal feed and Good News mode. User-configurable guardrails add custom keyword exclusions on top of the built-in set.
 - Trusted-machine manual evidence for the current real-key refresh flow is recorded in `logs/phase3_manual_integration_report.md`.

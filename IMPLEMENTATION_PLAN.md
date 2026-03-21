@@ -26,11 +26,11 @@ Updated on 2026-03-21 (tenth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
 - Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
 
-### Validation snapshot (2026-03-21, post-pluggable news source)
+### Validation snapshot (2026-03-21, post-custom guardrails backend)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
 - `npx playwright test` — **11/11 passed** (run 2026-03-21). Fixed 4 broken tests: updated good-news hint text assertion to match new guardrails copy, and disambiguated `getByRole("combobox")` selectors to `getByRole("combobox", { name: "Filter by source" })` since CountryFilter and CategoryFilter added two more comboboxes.
-- Backend: **87 tests across 5 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21). All pass when run per-module. Cross-module run shows 2 `setUpClass` errors due to pre-existing temp DB isolation between `test_api_smoke` and `test_comparison` — not a regression.
+- Backend: **98 tests across 6 modules** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4, `test_comparison` 21, `test_custom_guardrails` 11). All pass when run per-module. Cross-module run shows 2 `setUpClass` errors due to pre-existing temp DB isolation between `test_api_smoke` and `test_comparison` — not a regression.
 
 ### Branch and worktree state
 - **Active branch:** `v3.0` (8 commits ahead of `master`).
@@ -124,16 +124,17 @@ b10a31c Add country support, banner images, About modal
 
 **Future considerations:**
 - [x] [P4] **Pluggable news source architecture.** `NewsSource` protocol in `services/news_source.py` with `fetch_all_categories(country) -> list[dict]` contract. `NewsFetchError` moved to protocol module (re-exported from `news_fetcher.py` for backward compat). `ArticleProcessor.process_new_articles` accepts `NewsSource` via DI instead of constructing `NewsFetcher` internally. `process_new_articles_background` constructs the `NewsFetcher` and injects it. 5 tests updated to pass mock sources. `specs/BACKEND.md` updated with pluggable source docs. All 87 backend tests pass.
-- [ ] [P4] **User-configurable content guardrails.** Let users specify trigger words and topics to avoid.
+- [x] [P4] **User-configurable content guardrails — backend.** `Setting` model (key-value table) in `models.py`. New `routers/settings.py` with `GET /api/settings/guardrails` and `PUT /api/settings/guardrails`. Keywords normalized (lowercase, trimmed, deduplicated, max 50, max 100 chars each). `custom_guardrail_expression` and `load_custom_guardrail_keywords` in `utils/good_news.py`. Custom keywords applied to article feed, comparison groups, and good_news_count stats. 11 new tests in `test_custom_guardrails.py`. Specs updated (`BACKEND.md`). Total: 98 backend tests across 6 modules.
+- [ ] [P4] **User-configurable content guardrails — frontend.** Settings UI for managing custom blocked keywords (add/remove/list). Wire into existing settings dialog or new guardrails section.
 
 ## 4. Notes / discoveries that matter for the next loop
 
 - **Content guardrails shipped.** Applied to both normal feed and Good News mode per `specs/ROADMAP.md`. Keyword-based query-time exclusion in `articles.py` and `good_news_filter_expression`. Stories remain stored but hidden from browse.
 - **Version naming aligned.** All specs, `AGENTS.md`, `CLAUDE.md`, and `package.json` now consistently use v3.0 naming.
 - **GitHub CLI unavailable.** TLS cert verification failing as of 2026-03-21. PR creation and issue checks will need retrying later or using the web UI.
-- **Validation current.** Backend 87 tests (5 modules, all pass per-module), frontend lint + typecheck pass. Playwright 11/11 on last code-affecting commit.
+- **Validation current.** Backend 98 tests (6 modules, all pass per-module), frontend lint + typecheck pass. Playwright 11/11 on last code-affecting commit.
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables, not a missing dependency.
-- **Test count.** 87 backend tests across 5 test modules. 11 Playwright e2e tests.
+- **Test count.** 98 backend tests across 6 test modules. 11 Playwright e2e tests.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
 - **Cross-module test isolation.** Running `test_api_smoke` and `test_comparison` together causes 2 `setUpClass` errors because both set `DATABASE_URL` at import time to different temp directories. Each module passes independently. Fix would be a shared test DB fixture or per-module env isolation — not blocking.
 - **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
@@ -144,4 +145,4 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**User-configurable content guardrails [P4]** — Let users specify trigger words and topics to avoid. Requires backend storage (settings table or config file), API endpoint for CRUD, and frontend settings UI. Alternatively: **Demo video [P3]** — Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal.
+**User-configurable content guardrails — frontend [P4]** — Add a "Blocked topics" section to the settings dialog (or a dedicated guardrails management UI). Should call `GET /api/settings/guardrails` to load current keywords and `PUT /api/settings/guardrails` to save changes. Needs: API client functions in `lib/api.ts`, UI with add/remove keyword chips, integration into existing settings dialog or new page. Alternatively: **Demo video [P3]** — Human task: screen recording with OBS, edit with DaVinci Resolve, upload to YouTube, link from README and About modal.

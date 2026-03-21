@@ -13,10 +13,10 @@ if __package__ in (None, ""):
         sys.path.insert(0, repo_root_str)
 
     from src.backend.database import Base, engine
-    from src.backend.routers import articles, comparison, sources
+    from src.backend.routers import articles, comparison, settings, sources
 else:
     from .database import Base, engine
-    from .routers import articles, comparison, sources
+    from .routers import articles, comparison, settings, sources
 
 
 @asynccontextmanager
@@ -48,4 +48,5 @@ app.add_middleware(
 
 app.include_router(articles.router)
 app.include_router(comparison.router)
+app.include_router(settings.router)
 app.include_router(sources.router)

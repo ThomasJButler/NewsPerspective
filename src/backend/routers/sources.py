@@ -2,7 +2,7 @@ import re
 
 import requests as http_requests
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, not_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -22,7 +22,7 @@ from ..schemas import (
 from ..services.article_processor import process_new_articles_background
 from ..services.news_fetcher import DEFAULT_NEWSAPI_COUNTRY
 from ..services.refresh_tracker import refresh_tracker
-from ..utils.good_news import good_news_filter_expression
+from ..utils.good_news import custom_guardrail_expression, good_news_filter_expression, load_custom_guardrail_keywords
 from ..utils.source_normalization import source_id_expression, source_label_expression
 
 router = APIRouter(prefix="/api", tags=["sources"])
@@ -114,12 +114,16 @@ def get_stats(db: Session = Depends(get_db)):
         or 0
     )
 
+    custom_keywords = load_custom_guardrail_keywords(db)
+    good_news_filters = [
+        Article.processing_status == "processed",
+        good_news_filter_expression(Article),
+    ]
+    if custom_keywords:
+        good_news_filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))
     good_news_count = (
         db.query(func.count(Article.id))
-        .filter(
-            Article.processing_status == "processed",
-            good_news_filter_expression(Article),
-        )
+        .filter(*good_news_filters)
         .scalar()
         or 0
     )

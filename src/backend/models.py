@@ -48,3 +48,10 @@ class Article(Base):
     category = Column(String, nullable=True)
     country = Column(String, default="us", nullable=False)
     processing_status = Column(String, default="pending")  # pending/processed/failed
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=False, default="")

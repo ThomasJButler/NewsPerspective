@@ -113,6 +113,14 @@ class ComparisonAnalysis(BaseModel):
     source_tones: list[ComparisonSourceTone]
 
 
+class GuardrailsResponse(BaseModel):
+    keywords: list[str]
+
+
+class GuardrailsUpdateRequest(BaseModel):
+    keywords: list[str]
+
+
 class RefreshResponse(BaseModel):
     status: str
     message: str

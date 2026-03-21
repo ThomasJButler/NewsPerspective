@@ -13,7 +13,7 @@ from ..schemas import (
     ComparisonSourceTone,
 )
 from ..services.ai_service import AIService
-from ..utils.good_news import content_guardrail_expression
+from ..utils.good_news import content_guardrail_expression, custom_guardrail_expression, load_custom_guardrail_keywords
 from ..utils.source_normalization import normalized_source_label
 from ..utils.title_similarity import group_articles
 
@@ -25,12 +25,16 @@ def get_comparison_groups(
     db: Session = Depends(get_db),
 ) -> ComparisonResponse:
     """Return groups of related articles for side-by-side comparison."""
+    custom_keywords = load_custom_guardrail_keywords(db)
+    base_filter = [
+        Article.processing_status == "processed",
+        not_(content_guardrail_expression(Article)),
+    ]
+    if custom_keywords:
+        base_filter.append(not_(custom_guardrail_expression(Article, custom_keywords)))
     articles = (
         db.query(Article)
-        .filter(
-            Article.processing_status == "processed",
-            not_(content_guardrail_expression(Article)),
-        )
+        .filter(*base_filter)
         .order_by(Article.published_at.desc())
         .all()
     )
