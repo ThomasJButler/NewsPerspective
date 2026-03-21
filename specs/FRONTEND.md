@@ -25,6 +25,7 @@ src/frontend/
 │   ├── api-key-setup.tsx
 │   ├── article-card.tsx
 │   ├── article-feed.tsx
+│   ├── category-filter.tsx
 │   ├── good-news-toggle.tsx
 │   ├── country-filter.tsx
 │   ├── about-modal.tsx
@@ -66,7 +67,7 @@ src/frontend/
 `/` is the primary screen for both first-time and returning users.
 
 - The header shows the product title and tagline, a search field, refresh button, about button, theme toggle, and settings button.
-- The search box, source filter, country filter, and good-news toggle are synchronized with the URL query string.
+- The search box, source filter, category filter, country filter, and good-news toggle are synchronized with the URL query string.
 - Browser back/forward restores those controls from the current URL instead of leaving stale client state behind.
 - The article feed is always allowed to render cached backend data, even when no NewsAPI key has been stored.
 - The good-news toggle mirrors the backend `good_news_only` filter only.

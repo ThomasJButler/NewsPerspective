@@ -103,6 +103,23 @@ Returns processed-source counts. The display label is normalized in this order:
 
 Blank `source_id` values are returned as an empty string in the response.
 
+### `GET /api/categories`
+
+Returns processed-article category counts. Only includes categories from articles with `processing_status = "processed"` and a non-null `category` value.
+
+Response shape:
+
+```json
+{
+  "categories": [
+    {"name": "general", "count": 10},
+    {"name": "technology", "count": 5}
+  ]
+}
+```
+
+Ordering: highest count first, then alphabetical by category name.
+
 ### `GET /api/stats`
 
 Returns processed-article totals:

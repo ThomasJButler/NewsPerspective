@@ -6,6 +6,7 @@ import { useApiKey } from "@/hooks/use-api-key";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   fetchArticles,
+  fetchCategories,
   fetchRefreshStatus,
   fetchSources,
   fetchStats,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/api";
 import type {
   Article,
+  Category,
   RefreshStatusResponse,
   Source,
   StatsResponse,
@@ -23,6 +25,7 @@ import { ApiKeySetup } from "@/components/api-key-setup";
 import { Header } from "@/components/header";
 import { GoodNewsToggle } from "@/components/good-news-toggle";
 import { RefreshStatusCard } from "@/components/refresh-status-card";
+import { CategoryFilter } from "@/components/category-filter";
 import { CountryFilter } from "@/components/country-filter";
 import { SourceFilter } from "@/components/source-filter";
 import { StatsBar } from "@/components/stats-bar";
@@ -46,6 +49,7 @@ interface ArticleQueryState {
   search?: string;
   good_news_only?: boolean;
   source?: string;
+  category?: string;
   country?: string;
 }
 
@@ -57,6 +61,7 @@ function articleQueryMatches(
     left.search === right.search &&
     left.good_news_only === right.good_news_only &&
     left.source === right.source &&
+    left.category === right.category &&
     left.country === right.country
   );
 }
@@ -76,6 +81,7 @@ function HomeContent() {
   );
 
   const [articles, setArticles] = useState<Article[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [refreshStatus, setRefreshStatus] =
@@ -102,6 +108,9 @@ function HomeContent() {
   const [countryFilter, setCountryFilter] = useState(
     searchParams.get("country") || "all"
   );
+  const [categoryFilter, setCategoryFilter] = useState(
+    searchParams.get("category") || "all"
+  );
 
   const debouncedSearch = useDebounce(searchValue);
   const effectiveSourceFilter =
@@ -110,10 +119,17 @@ function HomeContent() {
     sources.some((source) => source.source_name === sourceFilter)
       ? sourceFilter
       : "all";
+  const effectiveCategoryFilter =
+    categoryFilter === "all" ||
+    categories.length === 0 ||
+    categories.some((cat) => cat.name === categoryFilter)
+      ? categoryFilter
+      : "all";
   const currentArticleQuery: ArticleQueryState = {
     search: debouncedSearch || undefined,
     good_news_only: goodNewsOnly || undefined,
     source: effectiveSourceFilter !== "all" ? effectiveSourceFilter : undefined,
+    category: effectiveCategoryFilter !== "all" ? effectiveCategoryFilter : undefined,
     country: countryFilter !== "all" ? countryFilter : undefined,
   };
   const currentArticleQueryKey = JSON.stringify(currentArticleQuery);
@@ -127,6 +143,7 @@ function HomeContent() {
     const nextGoodNewsOnly = searchParams.get("good_news") === "true";
     const nextSourceFilter = searchParams.get("source") || "all";
     const nextCountryFilter = searchParams.get("country") || "all";
+    const nextCategoryFilter = searchParams.get("category") || "all";
 
     setSearchValue((currentValue) =>
       currentValue === nextSearchValue ? currentValue : nextSearchValue
@@ -139,6 +156,9 @@ function HomeContent() {
     );
     setCountryFilter((currentValue) =>
       currentValue === nextCountryFilter ? currentValue : nextCountryFilter
+    );
+    setCategoryFilter((currentValue) =>
+      currentValue === nextCategoryFilter ? currentValue : nextCategoryFilter
     );
   }, [searchParams]);
 
@@ -156,6 +176,9 @@ function HomeContent() {
     if (countryFilter !== "all") {
       params.set("country", countryFilter);
     }
+    if (effectiveCategoryFilter !== "all") {
+      params.set("category", effectiveCategoryFilter);
+    }
     const nextQuery = params.toString();
 
     if (nextQuery === currentQueryRef.current) {
@@ -167,6 +190,7 @@ function HomeContent() {
   }, [
     countryFilter,
     debouncedSearch,
+    effectiveCategoryFilter,
     effectiveSourceFilter,
     goodNewsOnly,
     router,
@@ -218,15 +242,20 @@ function HomeContent() {
   }, []);
 
   const loadMetadata = useCallback(async () => {
-    const [sourcesResult, statsResult, refreshStatusResult] =
+    const [sourcesResult, categoriesResult, statsResult, refreshStatusResult] =
       await Promise.allSettled([
         fetchSources(),
+        fetchCategories(),
         fetchStats(),
         fetchRefreshStatus(),
       ]);
 
     if (sourcesResult.status === "fulfilled") {
       setSources(sourcesResult.value.sources);
+    }
+
+    if (categoriesResult.status === "fulfilled") {
+      setCategories(categoriesResult.value.categories);
     }
 
     if (statsResult.status === "fulfilled") {
@@ -527,6 +556,11 @@ function HomeContent() {
           <CountryFilter
             value={countryFilter}
             onValueChange={setCountryFilter}
+          />
+          <CategoryFilter
+            categories={categories}
+            value={effectiveCategoryFilter}
+            onValueChange={setCategoryFilter}
           />
           <SourceFilter
             sources={sources}

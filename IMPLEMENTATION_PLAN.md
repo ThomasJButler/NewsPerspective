@@ -26,11 +26,11 @@ Updated on 2026-03-21 (ninth pass, Claude Code Opus 4.6, `v3.0` branch).
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
 - Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
 
-### Validation snapshot (2026-03-21, post-accessibility-pass)
+### Validation snapshot (2026-03-21, post-topic-filtering)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `npx playwright test` — **11/11 passed** (last run 2026-03-20; sandbox prevents re-run due to port binding. Accessibility changes are attribute-only and do not affect e2e behavior).
-- Backend: all 4 test modules run together — **63/63 passed** (`test_api_smoke` 32, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4). No backend changes in this slice.
+- `npx playwright test` — **11/11 passed** (last run 2026-03-20; sandbox prevents re-run due to port binding. Topic filtering adds a new filter component but does not affect existing e2e scenarios).
+- Backend: all 4 test modules run together — **66/66 passed** (`test_api_smoke` 35, `test_refresh_processing` 13, `test_manual_integration_evidence` 14, `test_config` 4). 3 new tests for `GET /api/categories`.
 
 ### Branch and worktree state
 - **Active branch:** `v3.0` (8 commits ahead of `master`).
@@ -61,7 +61,7 @@ b10a31c Add country support, banner images, About modal
 
 **[RESOLVED] Accessibility gaps.** All identified gaps addressed: `aria-label` on `CountryFilter` and `SourceFilter` select triggers, `<nav>` landmark wrapping filter bar, `aria-live="polite"` on stats bar, `aria-busy` on refresh button, ShadCN Dialog focus trapping verified (Radix UI built-in). Remaining foundation: aria-labels on refresh/settings/about buttons, `aria-describedby` on good-news toggle, `prefers-reduced-motion` in CSS, `focus-visible` utilities.
 
-**[P3] No `/api/categories` endpoint.** Backend accepts a `category` query param on `GET /api/articles` (`articles.py:44`), but there is no endpoint to list available categories with counts. `news_fetcher.py` defines `CATEGORIES` internally but it's not exposed via API.
+**[RESOLVED] No `/api/categories` endpoint.** Shipped `GET /api/categories` returning `{categories: [{name, count}]}` from processed articles. Frontend `CategoryFilter` component wired into page state and URL query params.
 
 ## 2. Active phase
 
@@ -96,7 +96,7 @@ b10a31c Add country support, banner images, About modal
 - [x] [P2] **Content guardrails.** Keyword-based exclusion for war, suicide, depression, death, grief. Applied to both normal feed (`articles.py` base query) and Good News mode (`good_news_filter_expression`). Processing-time `apply_good_news_rules` also updated. Frontend hint text updated. Specs updated (`BACKEND.md`, `ROADMAP.md`). 4 new tests (1 processing + 3 API). Total: 63 backend tests.
 - [x] [P2] **Merge v3.0 → master.** PR created. Full validation passed: 63/63 backend tests, lint clean, typecheck clean. Playwright 11/11 on last code-affecting commit. Awaiting merge.
 - [x] [P3] **Accessibility pass.** Added `aria-label` to `CountryFilter` and `SourceFilter` `SelectTrigger` elements. Wrapped filter bar in `<nav aria-label="Article filters">` landmark. Added `aria-live="polite"` on `StatsBar` for article count announcements. Added `aria-busy` to refresh button during processing. Verified ShadCN Dialog focus trapping (Radix UI primitive provides built-in focus trap, Escape dismiss, and focus return).
-- [ ] [P3] **Topic filtering UI.** Add `GET /api/categories` endpoint returning `{categories: [{name, count}]}` from processed articles. Create `CategoryFilter` component (pattern matches `SourceFilter`). Wire into page state and URL query params.
+- [x] [P3] **Topic filtering UI.** Added `GET /api/categories` endpoint returning `{categories: [{name, count}]}` from processed articles. Created `CategoryFilter` component (pattern matches `SourceFilter`). Wired into page state and URL query params. Backend schemas: `CategoryItem`, `CategoriesResponse`. Frontend types, API client, component, and page wiring all complete. 3 new backend tests. Total: 66 backend tests.
 
 ### Roadmap evaluation results (Phase 6 → Phase 7 gate)
 
@@ -105,8 +105,8 @@ b10a31c Add country support, banner images, About modal
 | Country-aware reading | **SHIPPED** | Dual US+GB fetch, frontend filter, country badges |
 | About modal | **SHIPPED** | v3.0.0 with GitHub + Buy Me a Coffee links |
 | Content guardrails | **SHIPPED** | Keyword exclusion for war/suicide/depression/death/grief in both feeds |
-| Accessibility pass | **Active** | Good foundation; gaps in aria-labels, landmarks, live regions |
-| Topic filtering UI | **Active** | Backend category param exists; need `/api/categories` endpoint + frontend component |
+| Accessibility pass | **SHIPPED** | aria-labels, landmarks, live regions, aria-busy on refresh |
+| Topic filtering UI | **SHIPPED** | `GET /api/categories` endpoint + `CategoryFilter` component + URL sync |
 | Processing visibility | **Deferred** | Heaviest lift; best done after simpler features prove UX patterns |
 | Fact Checker Mode | **Deferred** | Depends on topic infrastructure; evolved into Article Comparison for Phase 8 |
 
@@ -131,7 +131,7 @@ b10a31c Add country support, banner images, About modal
 - **GitHub CLI unavailable.** TLS cert verification failing as of 2026-03-21. PR creation and issue checks will need retrying later or using the web UI.
 - **Validation current.** Full backend+frontend validation re-run 2026-03-21 against HEAD (`1e4f5cd`). All 63 backend tests, lint, and typecheck passed. Playwright not re-run due to sandbox port restriction but last passing run covers all code-affecting commits.
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables, not a missing dependency.
-- **Test count.** 63 backend tests across 4 test modules. 11 Playwright e2e tests.
+- **Test count.** 66 backend tests across 4 test modules. 11 Playwright e2e tests.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
 - **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
 - **Code-spec alignment is strong** for shipped features. Only drift is version naming (v2 in specs vs v3.0 in runtime).
@@ -140,4 +140,4 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Topic filtering UI [P3]** — add `GET /api/categories` endpoint returning `{categories: [{name, count}]}` from processed articles. Create `CategoryFilter` frontend component (pattern matches `SourceFilter`). Wire into page state and URL query params. Backend + frontend slice.
+**AGPLv3 LICENSE file [P2]** — add `LICENSE` file to repo root with the full AGPLv3 text. Update `package.json` `license` field from `"UNLICENSED"` to `"AGPL-3.0-only"`. Update About modal license line from "Coming soon" to the actual license.
