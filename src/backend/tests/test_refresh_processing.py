@@ -356,6 +356,83 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         finally:
             session.close()
 
+    def test_process_new_articles_excludes_guardrailed_content_from_persisted_good_news(self) -> None:
+        session = database.SessionLocal()
+        fetched_articles = [
+            {
+                "original_title": "Death toll rises in earthquake aftermath",
+                "original_description": "Grief overwhelms survivors as mourning begins.",
+                "source_name": "World Desk",
+                "source_id": "world-desk",
+                "author": "Reporter One",
+                "url": "https://example.com/death-toll-earthquake",
+                "image_url": "https://example.com/death-toll-earthquake.jpg",
+                "published_at": "2026-03-11T10:00:00Z",
+                "category": "general",
+            },
+            {
+                "original_title": "Community garden expands across the city",
+                "original_description": "Volunteers opened new plots for families.",
+                "source_name": "Metro Desk",
+                "source_id": "metro-desk",
+                "author": "Reporter Two",
+                "url": "https://example.com/community-garden-guardrail-test",
+                "image_url": "https://example.com/community-garden-guardrail-test.jpg",
+                "published_at": "2026-03-11T11:00:00Z",
+                "category": "general",
+            },
+        ]
+        analysis_result = {
+            "rewritten_title": "Calmer headline",
+            "tldr": "Summary.",
+            "needs_rewrite": True,
+            "sentiment": "positive",
+            "sentiment_score": 0.8,
+            "is_good_news": True,
+        }
+
+        try:
+            with patch.object(
+                article_processor.NewsFetcher,
+                "fetch_all_categories",
+                return_value=fetched_articles,
+            ), patch.object(
+                article_processor.AIService,
+                "__init__",
+                lambda self: None,
+            ), patch.object(
+                article_processor.AIService,
+                "analyse_article",
+                return_value=analysis_result,
+            ):
+                processor = article_processor.ArticleProcessor()
+                summary = processor.process_new_articles(db=session, api_key="valid-key")
+
+            self.assertEqual(
+                summary,
+                {
+                    "new_articles": 2,
+                    "processed_articles": 2,
+                    "failed_articles": 0,
+                },
+            )
+
+            guardrailed_article = (
+                session.query(models.Article)
+                .filter_by(url="https://example.com/death-toll-earthquake")
+                .one()
+            )
+            safe_article = (
+                session.query(models.Article)
+                .filter_by(url="https://example.com/community-garden-guardrail-test")
+                .one()
+            )
+
+            self.assertFalse(guardrailed_article.is_good_news)
+            self.assertTrue(safe_article.is_good_news)
+        finally:
+            session.close()
+
     def test_background_refresh_marks_failed_when_news_fetch_raises(self) -> None:
         session = _DummySession()
         error = news_fetcher.NewsFetchError("NewsAPI returned an error: quota exceeded")

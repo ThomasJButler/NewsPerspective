@@ -17,15 +17,17 @@ The app should make it easier to:
 3. Avoid categories and topics that are emotionally harmful or unwanted.
 4. Understand how the same story is framed across outlets and countries.
 
-## Planned Content Guardrails
+## Content Guardrails (Shipped)
 
-These are product-direction guardrails for a future implementation phase. They are not enforced by the current v3 runtime yet, and the active specs should not imply that they already ship. Once implemented, they should apply to both the normal feed and Good News mode unless a later active spec explicitly narrows them:
+Content guardrails are enforced at query time in both the normal feed and Good News mode. Stories matching guardrail keywords are hidden from browse results but remain in the database for audit purposes.
 
-- Exclude war stories for now.
-- Exclude suicide stories.
-- Exclude depression stories.
-- Exclude death-related stories.
-- Exclude grief-related stories.
+Excluded topics:
+
+- War stories (warfare, airstrike, bombing, armed conflict, etc.)
+- Suicide stories (suicide, suicidal, self-harm)
+- Depression stories (depression, depressed, mental health crisis)
+- Death-related stories (death toll, killed, murder, homicide, fatally, found dead)
+- Grief-related stories (grief, grieving, mourning, funeral, vigil)
 
 Rationale:
 

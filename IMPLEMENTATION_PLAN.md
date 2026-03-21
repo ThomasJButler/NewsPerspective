@@ -2,7 +2,7 @@
 
 ## 1. Current status summary and code review
 
-Updated on 2026-03-21 (eighth pass, Claude Code Opus 4.6, `v3.0` branch).
+Updated on 2026-03-21 (ninth pass, Claude Code Opus 4.6, `v3.0` branch).
 
 ### Verified runtime state
 - `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. The backend does not read a server-side `NEWS_API_KEY`.
@@ -24,14 +24,14 @@ Updated on 2026-03-21 (eighth pass, Claude Code Opus 4.6, `v3.0` branch).
 - All frontend components, hooks, types, and library files documented in `specs/FRONTEND.md` exist in the tree.
 - `specs/AI_PROMPTS.md` system prompt and user prompt template match actual strings in `src/backend/services/ai_service.py` exactly. No drift.
 - Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
-- Good-news toggle hint text: "Excludes sports, entertainment, and politics stories." (`good-news-toggle.tsx:34`). Needs updating when content guardrails ship.
+- Good-news toggle hint text updated to: "Excludes sports, entertainment, politics, and distressing content." (`good-news-toggle.tsx:34`).
 
-### Validation snapshot (2026-03-20)
+### Validation snapshot (2026-03-21)
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `npx playwright test` — **11/11 passed** (both `cached-browse.spec.ts` and `refresh-path.spec.ts`).
-- Backend: `test_refresh_processing` **12/12 passed**. `test_api_smoke` 29, `test_config` 4, `test_manual_integration_evidence` 14 — all passed. Total: **59 backend tests**.
-- Note: validation has not been re-run since the last code change (commit `b10a31c`–`2501624`). The two subsequent commits (`f87e332`, `ce17dd1`) were docs/plan-only. A full re-run is recommended before the v3.0→master merge.
+- `npx playwright test` — **11/11 passed** (last run 2026-03-20; not re-run for content guardrails since they are backend+component-only changes).
+- Backend: `test_refresh_processing` **13/13 passed**. `test_api_smoke` **32/32 passed**. `test_config` 4, `test_manual_integration_evidence` 14 — all passed. Total: **63 backend tests**.
+- New tests added: 1 processing-level guardrail test, 3 API-level guardrail tests (normal feed exclusion, good news exclusion, stats good_news_count exclusion).
 
 ### Branch and worktree state
 - **Active branch:** `v3.0` (6 commits ahead of `master`).
@@ -54,7 +54,7 @@ b10a31c Add country support, banner images, About modal
 
 **[RESOLVED] Spec version naming drift.** All specs, `AGENTS.md`, `CLAUDE.md`, and `package.json` now use v3.0 naming consistently. Remaining intentional "v2" references: NewsAPI `/v2/top-headlines` URL path (external API), historical "What Changed From v1" section in `OVERVIEW.md`, and completed-task history in `IMPLEMENTATION_PLAN.md`.
 
-**[P2] Content guardrails scope ambiguity.** `specs/ROADMAP.md` says guardrails should apply to "both the normal feed and Good News mode." But the current plan's implementation steps only expand `good_news.py`, which only affects the Good News filter path. If guardrails should also hide war/suicide/depression/death/grief stories from the normal feed, the implementation needs additional query-time filtering in `articles.py` or ingestion-time exclusion. **Scope decision required before building.**
+**[RESOLVED] Content guardrails.** Shipped in both the normal feed and Good News mode, matching `specs/ROADMAP.md` intent. Keyword-based exclusion for war, suicide, depression, death, and grief topics applied at query time in `articles.py` and `good_news_filter_expression`. Stories remain in the database for audit but are hidden from browse results. 4 new tests cover processing-level and API-level guardrail behavior.
 
 **[RESOLVED] OVERVIEW.md architecture diagram.** Updated to show dual `country=us, country=gb` fetch.
 
@@ -100,8 +100,8 @@ b10a31c Add country support, banner images, About modal
 ### Active (Phase 7 — remaining)
 
 - [x] [P2] **Spec version alignment.** Updated `specs/OVERVIEW.md`, `specs/FRONTEND.md`, `specs/BACKEND.md`, `specs/ROADMAP.md` to reflect v3.0 naming. Updated `OVERVIEW.md` architecture diagram for dual US+GB fetch. Updated `AGENTS.md` and `CLAUDE.md` purpose line and product rules from "v2" to "v3". Updated `package.json` version to `3.0.0`. GitHub repo description update deferred until CLI becomes available.
-- [ ] [P2] **Content guardrails (scope decision first).** Decide: do guardrails apply to Good News mode only, or to the normal feed as well? `specs/ROADMAP.md` says both. If both: add query-time filtering in `articles.py` GET handler in addition to Good News path. If Good News only: document the narrower scope in `ROADMAP.md`. Then: add keyword tuples for war, suicide, depression, death, grief in `good_news.py`; create helper functions matching `is_politics_story()` pattern; expand `apply_good_news_rules()` and `good_news_filter_expression()`; if normal-feed scope, also add exclusion WHERE clause in `articles.py`; update `good-news-toggle.tsx` hint text; add unit tests for each exclusion category; update `specs/BACKEND.md` and `specs/ROADMAP.md`.
-- [ ] [P2] **Merge v3.0 → master.** Create PR once spec alignment and content guardrails are complete. Run full validation suite before merge (backend tests, lint, typecheck, Playwright e2e).
+- [x] [P2] **Content guardrails.** Keyword-based exclusion for war, suicide, depression, death, grief. Applied to both normal feed (`articles.py` base query) and Good News mode (`good_news_filter_expression`). Processing-time `apply_good_news_rules` also updated. Frontend hint text updated. Specs updated (`BACKEND.md`, `ROADMAP.md`). 4 new tests (1 processing + 3 API). Total: 63 backend tests.
+- [ ] [P2] **Merge v3.0 → master.** Create PR now that spec alignment and content guardrails are complete. Run full validation suite before merge (backend tests, lint, typecheck, Playwright e2e).
 - [ ] [P3] **Accessibility pass.** Add `aria-label` to `CountryFilter` and `SourceFilter` `SelectTrigger` elements. Wrap filter bar in `<nav aria-label="Article filters">` landmark. Add `aria-live="polite"` region for article count updates. Add `aria-busy` to refresh button during processing. Verify ShadCN Dialog focus trapping. Test keyboard navigation through all interactive controls.
 - [ ] [P3] **Topic filtering UI.** Add `GET /api/categories` endpoint returning `{categories: [{name, count}]}` from processed articles. Create `CategoryFilter` component (pattern matches `SourceFilter`). Wire into page state and URL query params.
 
@@ -111,7 +111,7 @@ b10a31c Add country support, banner images, About modal
 |------|--------|-------|
 | Country-aware reading | **SHIPPED** | Dual US+GB fetch, frontend filter, country badges |
 | About modal | **SHIPPED** | v3.0.0 with GitHub + Buy Me a Coffee links |
-| Content guardrails | **Active** | Scope decision needed; expand good_news.py + possibly articles.py |
+| Content guardrails | **SHIPPED** | Keyword exclusion for war/suicide/depression/death/grief in both feeds |
 | Accessibility pass | **Active** | Good foundation; gaps in aria-labels, landmarks, live regions |
 | Topic filtering UI | **Active** | Backend category param exists; need `/api/categories` endpoint + frontend component |
 | Processing visibility | **Deferred** | Heaviest lift; best done after simpler features prove UX patterns |
@@ -133,12 +133,12 @@ b10a31c Add country support, banner images, About modal
 
 ## 4. Notes / discoveries that matter for the next loop
 
-- **Content guardrails scope decision required.** `specs/ROADMAP.md` says "they should apply to both the normal feed and Good News mode." The current `good_news.py` functions only affect the Good News filter. If normal-feed exclusion is desired, the build loop must also add filtering in `articles.py`'s GET handler, which is a broader change. Recommend deciding scope before starting the build slice.
+- **Content guardrails shipped.** Applied to both normal feed and Good News mode per `specs/ROADMAP.md`. Keyword-based query-time exclusion in `articles.py` and `good_news_filter_expression`. Stories remain stored but hidden from browse.
 - **Version naming aligned.** All specs, `AGENTS.md`, `CLAUDE.md`, and `package.json` now consistently use v3.0 naming.
 - **GitHub CLI unavailable.** TLS cert verification failing as of 2026-03-21. PR creation and issue checks will need retrying later or using the web UI.
 - **Validation is slightly stale.** Last full run was 2026-03-20 against commits up to `2501624`. Two subsequent commits (`f87e332`, `ce17dd1`) were docs/plan-only and shouldn't affect tests, but a re-run is recommended before the v3.0→master merge PR.
 - **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking. Root cause is environment proxy variables, not a missing dependency.
-- **Test count.** 59 backend tests across 4 test modules. 11 Playwright e2e tests.
+- **Test count.** 63 backend tests across 4 test modules. 11 Playwright e2e tests.
 - **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected.
 - **Manual evidence helper** intentionally leaves human-fill TODO placeholders by design.
 - **Code-spec alignment is strong** for shipped features. Only drift is version naming (v2 in specs vs v3.0 in runtime).
@@ -147,20 +147,10 @@ b10a31c Add country support, banner images, About modal
 
 ## 5. Next recommended build slice
 
-**Content guardrails** (scope decision required) — then **v3.0 → master merge**.
+**v3.0 → master merge.** Content guardrails are shipped. Next step:
 
-Content guardrails (requires scope decision):
-1. **Owner decision:** Do content guardrails apply to only Good News mode, or to the normal feed as well?
-2. Add keyword tuples for war, suicide, depression, death, grief in `good_news.py`.
-3. Create helper functions matching the `is_politics_story()` pattern.
-4. Update `apply_good_news_rules()` to apply the new exclusions.
-5. Update `good_news_filter_expression()` SQL filter to include new keyword checks.
-6. If normal-feed scope: add exclusion WHERE clause in `articles.py` GET handler.
-7. Update frontend `good-news-toggle.tsx` hint text to reflect expanded exclusions.
-8. Add unit tests for each new exclusion category.
-9. Update `specs/BACKEND.md` and `specs/ROADMAP.md` to reflect shipped guardrails.
-
-Then v3.0 → master merge:
 1. Run full validation: backend tests, lint, typecheck, Playwright e2e.
 2. Create PR with summary of all v3.0 changes.
 3. Merge after CI passes.
+
+Then: **Accessibility pass [P3]** or **Topic filtering UI [P3]** depending on priority.

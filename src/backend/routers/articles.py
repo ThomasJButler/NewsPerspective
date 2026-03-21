@@ -1,13 +1,13 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, nulls_last
+from sqlalchemy import not_, or_, nulls_last
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Article
 from ..schemas import ArticleListResponse, ArticleResponse
-from ..utils.good_news import apply_good_news_rules, good_news_filter_expression
+from ..utils.good_news import apply_good_news_rules, content_guardrail_expression, good_news_filter_expression
 from ..utils.source_normalization import (
     clean_source_value,
     normalized_source_label,
@@ -46,7 +46,10 @@ def get_articles(
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> ArticleListResponse:
-    query = db.query(Article).filter(Article.processing_status == "processed")
+    query = db.query(Article).filter(
+        Article.processing_status == "processed",
+        not_(content_guardrail_expression(Article)),
+    )
 
     if good_news_only:
         query = query.filter(good_news_filter_expression(Article))
