@@ -64,6 +64,35 @@ class StatsResponse(BaseModel):
     latest_fetch: datetime | None = None
 
 
+class ComparisonArticleSummary(BaseModel):
+    """Abbreviated article within a comparison group."""
+    id: str
+    original_title: str
+    rewritten_title: str | None = None
+    source_name: str | None = None
+    country: str = "us"
+    original_sentiment: str | None = None
+    sentiment_score: float | None = None
+    url: str
+    image_url: str | None = None
+    published_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ComparisonGroup(BaseModel):
+    """A group of articles covering the same story."""
+    representative_title: str
+    articles: list[ComparisonArticleSummary]
+    sources: list[str]
+    countries: list[str]
+
+
+class ComparisonResponse(BaseModel):
+    groups: list[ComparisonGroup]
+    total_groups: int
+
+
 class RefreshResponse(BaseModel):
     status: str
     message: str
