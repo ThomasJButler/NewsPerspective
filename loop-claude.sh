@@ -87,7 +87,7 @@ if [[ "${1:-}" == "coach" ]]; then
         JSONL_FILE="$RUN_DIR/coach-${TIMESTAMP}.jsonl"
 
         cat "$PROMPT_FILE" | claude -p \
-            --dangerously-skip-permissions \
+            --permission-mode acceptEdits \
             --output-format=stream-json \
             --verbose \
         | tee "$JSONL_FILE"
@@ -202,7 +202,7 @@ while true; do
     echo
     echo "==> Iteration $((ITERATION + 1))"
 
-    CLAUDE_ARGS=(-p "$PROMPT_TEXT" --output-format stream-json)
+    CLAUDE_ARGS=(-p "$PROMPT_TEXT" --output-format stream-json --permission-mode acceptEdits)
 
     if [[ "$OVERLAY_PROMPT_FILE" != "" ]]; then
         if [[ ! -f "$OVERLAY_PROMPT_FILE" ]]; then

@@ -2,12 +2,14 @@ import re
 
 import requests as http_requests
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, not_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Article
 from ..schemas import (
+    CategoriesResponse,
+    CategoryItem,
     RefreshErrorCode,
     RefreshErrorDetail,
     RefreshErrorResponse,
@@ -20,7 +22,7 @@ from ..schemas import (
 from ..services.article_processor import process_new_articles_background
 from ..services.news_fetcher import DEFAULT_NEWSAPI_COUNTRY
 from ..services.refresh_tracker import refresh_tracker
-from ..utils.good_news import good_news_filter_expression
+from ..utils.good_news import content_guardrail_expression, custom_guardrail_expression, good_news_filter_expression, load_custom_guardrail_keywords
 from ..utils.source_normalization import source_id_expression, source_label_expression
 
 router = APIRouter(prefix="/api", tags=["sources"])
@@ -45,15 +47,23 @@ def _refresh_error(
 
 @router.get("/sources", response_model=SourcesResponse)
 def get_sources(db: Session = Depends(get_db)):
+    custom_keywords = load_custom_guardrail_keywords(db)
     source_label = source_label_expression(Article)
     source_id = source_id_expression(Article)
+    filters = [
+        Article.processing_status == "processed",
+        not_(content_guardrail_expression(Article)),
+    ]
+    if custom_keywords:
+        filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))
+
     rows = (
         db.query(
             source_label.label("source_name"),
             func.coalesce(func.max(source_id), "").label("source_id"),
             func.count(Article.id).label("article_count"),
         )
-        .filter(Article.processing_status == "processed")
+        .filter(*filters)
         .group_by(source_label)
         .order_by(func.count(Article.id).desc(), source_label.asc())
         .all()
@@ -71,37 +81,71 @@ def get_sources(db: Session = Depends(get_db)):
     return SourcesResponse(sources=sources)
 
 
+@router.get("/categories", response_model=CategoriesResponse)
+def get_categories(db: Session = Depends(get_db)):
+    custom_keywords = load_custom_guardrail_keywords(db)
+    filters = [
+        Article.processing_status == "processed",
+        Article.category.isnot(None),
+        not_(content_guardrail_expression(Article)),
+    ]
+    if custom_keywords:
+        filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))
+
+    rows = (
+        db.query(
+            Article.category.label("name"),
+            func.count(Article.id).label("count"),
+        )
+        .filter(*filters)
+        .group_by(Article.category)
+        .order_by(func.count(Article.id).desc(), Article.category.asc())
+        .all()
+    )
+
+    return CategoriesResponse(
+        categories=[
+            CategoryItem(name=row.name, count=row.count) for row in rows
+        ]
+    )
+
+
 @router.get("/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db)):
     source_label = source_label_expression(Article)
+    custom_keywords = load_custom_guardrail_keywords(db)
+
+    base_filters = [
+        Article.processing_status == "processed",
+        not_(content_guardrail_expression(Article)),
+    ]
+    if custom_keywords:
+        base_filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))
 
     total_articles = (
         db.query(func.count(Article.id))
-        .filter(Article.processing_status == "processed")
+        .filter(*base_filters)
         .scalar()
         or 0
     )
 
     rewritten_count = (
         db.query(func.count(Article.id))
-        .filter(Article.processing_status == "processed", Article.was_rewritten.is_(True))
+        .filter(*base_filters, Article.was_rewritten.is_(True))
         .scalar()
         or 0
     )
 
     good_news_count = (
         db.query(func.count(Article.id))
-        .filter(
-            Article.processing_status == "processed",
-            good_news_filter_expression(Article),
-        )
+        .filter(*base_filters, good_news_filter_expression(Article))
         .scalar()
         or 0
     )
 
     sources_count = (
         db.query(func.count(func.distinct(source_label)))
-        .filter(Article.processing_status == "processed")
+        .filter(*base_filters)
         .scalar()
         or 0
     )

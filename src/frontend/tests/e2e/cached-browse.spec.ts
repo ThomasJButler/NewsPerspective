@@ -48,10 +48,16 @@ function buildArticle(overrides: Partial<TestArticle> = {}): TestArticle {
   };
 }
 
-function buildArticleListResponse(article: TestArticle = stubbedArticle) {
+function buildArticleListResponse(
+  articleOrArticles: TestArticle | TestArticle[] = stubbedArticle
+) {
+  const articles = Array.isArray(articleOrArticles)
+    ? articleOrArticles
+    : [articleOrArticles];
+
   return {
-    articles: [article],
-    total: 1,
+    articles,
+    total: articles.length,
     page: 1,
     per_page: 20,
     has_more: false,
@@ -77,17 +83,197 @@ test("shows seeded cached articles without a saved key", async ({ page }, testIn
     })
   ).toBeVisible();
   await expect(
-    page.getByText("Excludes sports, entertainment, and politics stories.")
+    page.getByText("Excludes sports, entertainment, politics, and distressing content.")
   ).toBeVisible();
   await expect(page.getByText(/articles processed/)).toBeVisible();
 
   await captureScreenshot(page, testInfo, "cached-browse-home.png");
 });
 
+test("refreshes the feed and metadata immediately after saving blocked topics", async ({
+  page,
+}) => {
+  const visibleArticle = buildArticle({
+    id: "visible-story",
+    original_title: "Community garden opens new plots for families",
+    source_name: "Local News",
+    source_id: "local-news",
+    url: "https://example.com/visible-story",
+    category: "general",
+  });
+  const blockedArticle = buildArticle({
+    id: "blocked-story",
+    original_title: "Climate change plan draws broad support",
+    source_name: "Climate Desk",
+    source_id: "climate-desk",
+    url: "https://example.com/blocked-story",
+    category: "science",
+  });
+
+  let blockedTopics: string[] = [];
+
+  function getCurrentArticles() {
+    return blockedTopics.includes("climate")
+      ? [visibleArticle]
+      : [visibleArticle, blockedArticle];
+  }
+
+  function buildSourcesResponse(articles: TestArticle[]) {
+    const counts = new Map<string, { source_name: string; source_id: string; article_count: number }>();
+
+    for (const article of articles) {
+      const sourceName = article.source_name ?? "Unknown source";
+      const sourceId = article.source_id ?? "";
+      const existing = counts.get(sourceName);
+
+      if (existing) {
+        existing.article_count += 1;
+        continue;
+      }
+
+      counts.set(sourceName, {
+        source_name: sourceName,
+        source_id: sourceId,
+        article_count: 1,
+      });
+    }
+
+    return {
+      sources: Array.from(counts.values()).sort((left, right) =>
+        left.source_name.localeCompare(right.source_name)
+      ),
+    };
+  }
+
+  function buildCategoriesResponse(articles: TestArticle[]) {
+    const counts = new Map<string, number>();
+
+    for (const article of articles) {
+      const category = article.category ?? "general";
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+
+    return {
+      categories: Array.from(counts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    };
+  }
+
+  function buildStatsResponse(articles: TestArticle[]) {
+    return {
+      total_articles: articles.length,
+      rewritten_count: articles.filter((article) => article.was_rewritten).length,
+      good_news_count: articles.filter((article) => article.is_good_news).length,
+      sources_count: new Set(
+        articles.map((article) => article.source_name ?? "Unknown source")
+      ).size,
+      latest_fetch: "2026-03-09T12:00:00Z",
+    };
+  }
+
+  await page.route("**/api/articles?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildArticleListResponse(getCurrentArticles())),
+    });
+  });
+
+  await page.route("**/api/sources", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildSourcesResponse(getCurrentArticles())),
+    });
+  });
+
+  await page.route("**/api/categories", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildCategoriesResponse(getCurrentArticles())),
+    });
+  });
+
+  await page.route("**/api/stats", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildStatsResponse(getCurrentArticles())),
+    });
+  });
+
+  await page.route("**/api/refresh/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "idle",
+        message: "Idle.",
+        started_at: null,
+        finished_at: null,
+        new_articles: 0,
+        processed_articles: 0,
+        failed_articles: 0,
+      }),
+    });
+  });
+
+  await page.route("**/api/settings/guardrails", async (route) => {
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as { keywords: string[] };
+      blockedTopics = body.keywords;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ keywords: blockedTopics }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ keywords: blockedTopics }),
+    });
+  });
+
+  await page.goto("/");
+
+  await expect(
+    page.getByRole("heading", { level: 2, name: visibleArticle.original_title })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: blockedArticle.original_title })
+  ).toBeVisible();
+  await expect(page.getByText("2 articles processed · 0 headlines improved")).toBeVisible();
+
+  await page.getByRole("button", { name: "Settings" }).click();
+  await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
+  await page.getByRole("textbox", { name: "New blocked keyword" }).fill("climate");
+  await page.getByRole("button", { name: "Add" }).click();
+
+  await expect(page.getByText("climate")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: blockedArticle.original_title })
+  ).toHaveCount(0);
+  await expect(page.getByText("1 article processed · 0 headlines improved")).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Filter by source" }).click();
+  await expect(page.getByRole("option", { name: /Local News/ })).toBeVisible();
+  await expect(page.getByRole("option", { name: /Climate Desk/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("combobox", { name: "Filter by category" }).click();
+  await expect(page.getByRole("option", { name: /General \(1\)/ })).toBeVisible();
+  await expect(page.getByRole("option", { name: /Science/ })).toHaveCount(0);
+});
+
 test("filters seeded cached articles and opens article detail", async ({ page }, testInfo) => {
   await page.goto("/");
 
-  await page.getByRole("combobox").click();
+  await page.getByRole("combobox", { name: "Filter by source" }).click();
   await page.getByRole("option", { name: /Reuters/ }).click();
 
   await expect(page).toHaveURL(/source=Reuters/);
@@ -144,7 +330,7 @@ test("keeps home-page controls in sync when browser history changes", async ({ p
   await page.goto("/");
 
   const goodNewsSwitch = page.getByRole("switch", { name: "Good News Only" });
-  const sourceFilter = page.getByRole("combobox");
+  const sourceFilter = page.getByRole("combobox", { name: "Filter by source" });
   const searchBox = page.getByRole("searchbox", { name: "Search articles" });
 
   await goodNewsSwitch.click();

@@ -13,6 +13,8 @@
 - App entrypoint: `src/backend/main.py`
 - API routers:
   - `src/backend/routers/articles.py`
+  - `src/backend/routers/comparison.py`
+  - `src/backend/routers/settings.py`
   - `src/backend/routers/sources.py`
 - Refresh work is currently exposed from `sources.py`; there is no separate refresh router.
 - CORS currently allows `http://localhost:3000`.
@@ -40,7 +42,19 @@ The backend stores fetched articles in a single SQLite `articles` table with the
 | `sentiment_score` | REAL nullable | Clamped to `[-1.0, 1.0]` |
 | `is_good_news` | BOOLEAN | Positive-story flag |
 | `category` | TEXT nullable | Current NewsAPI category label |
+| `country` | TEXT | Source country code (`us` or `gb`), default `us` |
 | `processing_status` | TEXT | `pending`, `processed`, or `failed` |
+
+### Settings table
+
+The backend stores user-configurable settings in a `settings` key-value table:
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | TEXT | Primary key |
+| `value` | TEXT | JSON-encoded setting value |
+
+Currently the only key is `custom_guardrail_keywords`, which stores a JSON array of user-specified content guardrail keywords.
 
 ## Article visibility rules
 
@@ -59,14 +73,20 @@ Query params:
 - `good_news_only` boolean, default `false`
 - `source` optional string; compared against the normalized source label
 - `category` optional string
+- `country` optional string; filters by source country (`us` or `gb`)
 - `search` optional string; matches `original_title` or `rewritten_title` with `ILIKE`
+
+Content guardrails (applied to both the normal feed and Good News mode):
+- The base article query excludes stories matching built-in content guardrail keywords for `war`, `suicide`, `depression`, `death`, and `grief`. These stories do not appear in the normal feed or Good News results.
+- User-configurable guardrails: users can add custom keywords via `PUT /api/settings/guardrails`. Articles matching any custom keyword are also excluded from the article feed, comparison groups, and Good News stats.
+- Guardrail detection is keyword-based on the normalized title, description, and source name fields.
 
 Current `good_news_only` semantics:
 - Filters on the effective Good News set only.
 - Excludes `sports` and `entertainment` stories even if the stored AI result marked them as good news.
 - Excludes detected `politics` stories even if the stored AI result marked them as good news.
+- Excludes content-guardrailed stories (war, suicide, depression, death, grief) even if the stored AI result marked them as good news.
 - Current `politics` detection is app-derived: a story counts as politics when its normalized category is `politics` or its title/description/source text contains election/government/legislative keywords.
-- Does not yet enforce the roadmap-only content guardrails for `war`, `suicide`, `depression`, `death`, or `grief`.
 
 Ordering:
 - Newest `published_at` first, with null publication times sorted last.
@@ -96,6 +116,127 @@ Returns processed-source counts. The display label is normalized in this order:
 3. `"Unknown source"`
 
 Blank `source_id` values are returned as an empty string in the response.
+
+### `GET /api/categories`
+
+Returns processed-article category counts. Only includes categories from articles with `processing_status = "processed"` and a non-null `category` value.
+
+Response shape:
+
+```json
+{
+  "categories": [
+    {"name": "general", "count": 10},
+    {"name": "technology", "count": 5}
+  ]
+}
+```
+
+Ordering: highest count first, then alphabetical by category name.
+
+### `GET /api/comparison`
+
+Returns groups of related articles for side-by-side comparison. Uses fuzzy title matching (Jaccard similarity on normalized word sets) to group articles covering the same story from different sources or countries. Only includes articles with `processing_status = "processed"` and excludes content-guardrailed stories.
+
+Response shape:
+
+```json
+{
+  "groups": [
+    {
+      "representative_title": "Earthquake hits coastal city",
+      "articles": [
+        {
+          "id": "abc-123",
+          "original_title": "Major earthquake strikes coastal city",
+          "rewritten_title": "Earthquake hits coastal city",
+          "source_name": "BBC News",
+          "country": "gb",
+          "original_sentiment": "negative",
+          "sentiment_score": -0.5,
+          "url": "https://...",
+          "image_url": "https://...",
+          "published_at": "2026-03-21T10:00:00Z"
+        }
+      ],
+      "sources": ["BBC News", "CNN"],
+      "countries": ["gb", "us"]
+    }
+  ],
+  "total_groups": 1
+}
+```
+
+### `POST /api/comparison/analyse`
+
+Runs AI framing analysis on a group of related articles. Accepts a list of article IDs and returns a structured comparison of how different sources and countries frame the same story.
+
+Request body:
+
+```json
+{
+  "article_ids": ["abc-123", "def-456"]
+}
+```
+
+Validation:
+- Requires at least 2 article IDs (returns `422` otherwise).
+- All referenced articles must exist with `processing_status = "processed"` (returns `404` if fewer than 2 processed articles found).
+
+Response shape:
+
+```json
+{
+  "representative_title": "Earthquake hits coastal city",
+  "summary": "An earthquake struck a coastal city causing major damage...",
+  "framing_differences": [
+    "BBC uses 'strikes' suggesting sudden impact while CNN uses 'hits'",
+    "CNN quantifies damage as 'major' while BBC describes it as 'widespread'"
+  ],
+  "source_tones": [
+    {"source_name": "BBC News", "country": "gb", "tone": "Measured and factual."},
+    {"source_name": "CNN", "country": "us", "tone": "More urgent, emphasising scale."}
+  ]
+}
+```
+
+AI behavior:
+- Uses one OpenAI chat completion call per group.
+- If `OPENAI_API_KEY` is missing, returns default empty analysis.
+- Malformed AI output falls back to defaults.
+
+### `GET /api/settings/guardrails`
+
+Returns the user-configured content guardrail keywords.
+
+Response shape:
+
+```json
+{
+  "keywords": ["bitcoin", "crypto"]
+}
+```
+
+Returns an empty list when no custom keywords have been configured.
+
+### `PUT /api/settings/guardrails`
+
+Replaces the user-configured content guardrail keywords.
+
+Request body:
+
+```json
+{
+  "keywords": ["bitcoin", "crypto"]
+}
+```
+
+Normalization:
+- Keywords are lowercased and trimmed.
+- Blank and duplicate keywords are removed.
+- Maximum 50 keywords, each up to 100 characters.
+
+Response shape: same as `GET /api/settings/guardrails`.
 
 ### `GET /api/stats`
 
@@ -168,12 +309,20 @@ Current tracker semantics:
 
 ## Refresh pipeline behavior
 
-### News fetching
+### Pluggable news source architecture
+
+`src/backend/services/news_source.py` defines a `NewsSource` protocol and the `NewsFetchError` exception. Any class that implements `fetch_all_categories(country: str) -> list[dict]` satisfies the protocol and can be injected into `ArticleProcessor.process_new_articles(db, news_source)`.
+
+The built-in implementation is `NewsFetcher` in `src/backend/services/news_fetcher.py` (NewsAPI). Alternative sources (e.g. GNews, MediaStack, RSS) can be added by implementing the `NewsSource` protocol without modifying the processor.
+
+Each returned dict must include: `original_title`, `original_description`, `source_name`, `source_id`, `author`, `url`, `image_url`, `published_at`, `category`, `country`.
+
+### News fetching (NewsAPI — built-in source)
 
 `src/backend/services/news_fetcher.py` currently:
 
 - Calls NewsAPI `GET /v2/top-headlines`
-- Uses `country=us`
+- Fetches for both `country=us` and `country=gb`, tagging each article with its source country
 - Iterates these categories: `general`, `sports`, `technology`, `science`, `health`, `business`, `entertainment`
 - Requests up to `pageSize=100` per category
 - Deduplicates fetched articles by URL across categories
@@ -191,7 +340,7 @@ Retry behavior:
 
 `src/backend/services/article_processor.py` currently:
 
-1. Fetches all categories from NewsAPI
+1. Receives a `NewsSource` and fetches all categories for both US and GB
 2. Skips URLs already present in the database
 3. Inserts each new article first with `processing_status="pending"`
 4. Calls OpenAI once per new article for:
@@ -205,10 +354,10 @@ Retry behavior:
 6. Marks per-article AI failures as `failed` and continues
 
 Current classification boundary:
-- The backend persists the single-call AI `is_good_news` result after applying the shipped topic exclusions for `sports`, `entertainment`, and detected `politics`.
+- The backend persists the single-call AI `is_good_news` result after applying the shipped topic exclusions for `sports`, `entertainment`, detected `politics`, and content guardrails (`war`, `suicide`, `depression`, `death`, `grief`).
 - Article responses and Good News counts also apply those exclusions so older cached rows do not leak through the Good News UX.
 - Because NewsAPI is not currently fetched with a dedicated `politics` category, the backend derives the `politics` exclusion from the normalized article title/description/source text instead of the source category alone.
-- It does not yet apply roadmap-only guardrails that exclude `war`, `suicide`, `depression`, `death`, or `grief` stories from ingestion or browse results.
+- Content guardrails exclude stories matching war/suicide/depression/death/grief keywords from both the normal feed and Good News mode at query time. These stories are still stored in the database but hidden from browse results.
 
 If `OPENAI_API_KEY` is missing or OpenAI returns unusable output:
 - the AI service falls back to neutral defaults instead of aborting ingestion.
@@ -227,11 +376,11 @@ DATABASE_URL=sqlite:///./newsperspective.db
 ```
 
 Notes:
-- `NEWS_API_KEY` is intentionally not a backend environment variable in v2.
+- `NEWS_API_KEY` is intentionally not a backend environment variable in v3.
 - Read-only browse endpoints should continue working from cached SQLite data without any user key.
 
 ## Known limitations
 
 - Refresh state is per-process and resets on restart.
-- The current runtime excludes `sports`, `entertainment`, and detected `politics` stories from Good News, but the broader roadmap-only content guardrails remain future work.
+- The current runtime excludes `sports`, `entertainment`, and detected `politics` stories from Good News. Built-in content guardrails exclude `war`, `suicide`, `depression`, `death`, and `grief` stories from both the normal feed and Good News mode. User-configurable guardrails add custom keyword exclusions on top of the built-in set.
 - Trusted-machine manual evidence for the current real-key refresh flow is recorded in `logs/phase3_manual_integration_report.md`.

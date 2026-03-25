@@ -33,6 +33,7 @@ refresh_tracker_module = importlib.import_module("src.backend.services.refresh_t
 class BackendApiSmokeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        database.reconfigure_engine(f"sqlite:///{_DB_PATH}")
         database.Base.metadata.drop_all(bind=database.engine)
         database.Base.metadata.create_all(bind=database.engine)
 
@@ -602,6 +603,40 @@ class BackendApiSmokeTest(unittest.TestCase):
             },
         )
 
+    def test_categories_returns_processed_category_counts(self) -> None:
+        response = self.client.get("/api/categories")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        categories = {cat["name"]: cat["count"] for cat in body["categories"]}
+
+        # Only processed articles: general (2), business (1), science (1), health (1)
+        self.assertEqual(categories, {
+            "general": 2,
+            "business": 1,
+            "science": 1,
+            "health": 1,
+        })
+
+    def test_categories_ordered_by_count_desc_then_name_asc(self) -> None:
+        response = self.client.get("/api/categories")
+
+        self.assertEqual(response.status_code, 200)
+        names = [cat["name"] for cat in response.json()["categories"]]
+
+        # general has 2, then business/health/science each have 1 (alpha order)
+        self.assertEqual(names, ["general", "business", "health", "science"])
+
+    def test_categories_excludes_pending_and_failed(self) -> None:
+        response = self.client.get("/api/categories")
+
+        self.assertEqual(response.status_code, 200)
+        names = [cat["name"] for cat in response.json()["categories"]]
+
+        # article-3 (pending) has category=technology, article-7 (failed) has category=science
+        # technology should not appear; science count should only include processed rows
+        self.assertNotIn("technology", names)
+
     def test_stats_counts_processed_articles_and_normalized_sources_only(self) -> None:
         response = self.client.get("/api/stats")
 
@@ -665,6 +700,146 @@ class BackendApiSmokeTest(unittest.TestCase):
                 article = session.get(models.Article, article_id)
                 if article is not None:
                     session.delete(article)
+            session.commit()
+            session.close()
+
+    def test_articles_list_excludes_content_guardrailed_stories_from_normal_feed(self) -> None:
+        session = database.SessionLocal()
+        inserted_ids = ["article-war-feed", "article-suicide-feed", "article-death-feed"]
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add_all(
+                [
+                    models.Article(
+                        id="article-war-feed",
+                        original_title="Bombing campaign intensifies in border region",
+                        original_description="Military offensive continues with shelling.",
+                        source_name="World Desk",
+                        source_id="world-desk",
+                        url="https://example.com/article-war-feed",
+                        published_at=now,
+                        fetched_at=now,
+                        is_good_news=False,
+                        category="general",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="article-suicide-feed",
+                        original_title="Suicide prevention hotline sees record calls",
+                        original_description="Crisis deepens nationwide.",
+                        source_name="Health Desk",
+                        source_id="health-desk",
+                        url="https://example.com/article-suicide-feed",
+                        published_at=now,
+                        fetched_at=now,
+                        is_good_news=False,
+                        category="health",
+                        processing_status="processed",
+                    ),
+                    models.Article(
+                        id="article-death-feed",
+                        original_title="Death toll rises after earthquake",
+                        original_description="Rescue efforts continue.",
+                        source_name="World Desk",
+                        source_id="world-desk",
+                        url="https://example.com/article-death-feed",
+                        published_at=now,
+                        fetched_at=now,
+                        is_good_news=False,
+                        category="general",
+                        processing_status="processed",
+                    ),
+                ]
+            )
+            session.commit()
+
+            response = self.client.get("/api/articles")
+
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+
+            returned_ids = [a["id"] for a in body["articles"]]
+            self.assertNotIn("article-war-feed", returned_ids)
+            self.assertNotIn("article-suicide-feed", returned_ids)
+            self.assertNotIn("article-death-feed", returned_ids)
+            self.assertEqual(body["total"], 5)
+        finally:
+            for article_id in inserted_ids:
+                article = session.get(models.Article, article_id)
+                if article is not None:
+                    session.delete(article)
+            session.commit()
+            session.close()
+
+    def test_good_news_filter_excludes_content_guardrailed_stories(self) -> None:
+        session = database.SessionLocal()
+        article_id = "article-grief-good"
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add(
+                models.Article(
+                    id=article_id,
+                    original_title="Community mourning after tragedy",
+                    original_description="Funeral services held for victims.",
+                    source_name="Local Desk",
+                    source_id="local-desk",
+                    url="https://example.com/article-grief-good",
+                    published_at=now,
+                    fetched_at=now,
+                    is_good_news=True,
+                    category="general",
+                    processing_status="processed",
+                )
+            )
+            session.commit()
+
+            response = self.client.get("/api/articles", params={"good_news_only": "true"})
+
+            self.assertEqual(response.status_code, 200)
+            body = response.json()
+
+            self.assertEqual(body["total"], 2)
+            self.assertEqual([a["id"] for a in body["articles"]], ["article-6", "article-2"])
+        finally:
+            article = session.get(models.Article, article_id)
+            if article is not None:
+                session.delete(article)
+            session.commit()
+            session.close()
+
+    def test_stats_good_news_count_excludes_content_guardrailed_articles(self) -> None:
+        session = database.SessionLocal()
+        article_id = "article-war-stats"
+        now = datetime.now(timezone.utc)
+
+        try:
+            session.add(
+                models.Article(
+                    id=article_id,
+                    original_title="Armed conflict spreads to new provinces",
+                    original_description="Military offensive displaces thousands.",
+                    source_name="World Desk",
+                    source_id="world-desk",
+                    url="https://example.com/article-war-stats",
+                    published_at=now,
+                    fetched_at=now,
+                    is_good_news=True,
+                    category="general",
+                    processing_status="processed",
+                )
+            )
+            session.commit()
+
+            response = self.client.get("/api/stats")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["good_news_count"], 2)
+        finally:
+            article = session.get(models.Article, article_id)
+            if article is not None:
+                session.delete(article)
             session.commit()
             session.close()
 

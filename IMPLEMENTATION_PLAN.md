@@ -2,116 +2,63 @@
 
 ## 1. Current status summary and code review
 
-Updated on 2026-03-20 (sixth pass, Claude Code Opus 4.6, `master` branch). This pass merged `v2.0-UX` into `master` via PR #5, deleted stale v2 branches, and transitioned to Phase 6.
+Updated on 2026-03-25 (eighteenth pass, Codex GPT-5, `v3.0` branch).
 
 ### Verified runtime state
-- `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. The backend does not read a server-side `NEWS_API_KEY`.
-- Cached read-only endpoints work without a key.
-- `src/backend/services/article_processor.py` does one AI call per new article and stores sentiment, rewrite output, TLDR, and Good News state together.
-- Good News exclusions for `sports`, `entertainment`, and detected `politics` are enforced in backend logic (`utils/good_news.py`) and reflected in frontend behavior.
-- Exception chaining (`raise ... from exc`) is correctly used in `src/backend/routers/sources.py` lines 166 and 174.
-- Refresh timeout resume behavior is implemented in `src/frontend/app/page.tsx` (lines 294-356) and helper-covered in `src/frontend/lib/refresh-status.test.mjs`.
-- The visible-headline fallback lives in `src/frontend/lib/headlines.ts` (`getVisibleHeadline()`).
-- Root-level v1 runtime files remain absent. Legacy reference lives in `READMEOLD.md` and git history only.
-- Backend CORS allows `http://localhost:3000` only. Adequate for local development; will need updating if a deployment target is added.
-- No TODO/FIXME/HACK markers in production code (backend or frontend). All TODO markers are intentional placeholders in the manual-evidence capture helper script.
-- Backend article model schema matches `specs/BACKEND.md` persistence model exactly.
-- Frontend proxy (`next.config.ts`) rewrites `/api/*` to `BACKEND_ORIGIN` (default `http://localhost:8000`), matching spec.
-- All frontend components, hooks, types, and library files documented in `specs/FRONTEND.md` exist in the tree.
-- `specs/AI_PROMPTS.md` system prompt and user prompt template match actual strings in `src/backend/services/ai_service.py` exactly. No drift.
-- Next.js version in `package.json` is `16.1.7`, matching `specs/FRONTEND.md`.
+- `POST /api/refresh` requires a user-supplied `X-News-Api-Key`. Cached read-only endpoints still work without a key.
+- v3.0 feature work is shipped locally, including country-aware reading, Article Comparison, pluggable news sources, and user-configurable content guardrails.
+- The latest local review-fix slice is also implemented: blocked-topic saves refresh the feed immediately, custom blocked topics use whole-word / whole-phrase matching, and comparison grouping is transitive.
+- No open code-review findings remain in the active plan. Fully resolved history now lives in `specs/completedarchive/2026-03-25-implementation-completed-archive.md`.
 
-### Validation snapshot (2026-03-20, post headline rewrite visibility investigation)
+### Validation snapshot
 - `npm run lint` — passed.
 - `npm run typecheck` — passed.
-- `npx playwright test` — **11/11 passed** (both `cached-browse.spec.ts` and `refresh-path.spec.ts`).
-- Backend: `test_refresh_processing` **12/12 passed** (9 existing + 3 new validation tests). `test_api_smoke` 29, `test_config` 4, `test_manual_integration_evidence` 14 — all passed. Total: **59 backend tests**.
+- `src/backend/.venv/bin/python -m unittest src.backend.tests.test_api_smoke -v` — **35/35 passed**.
+- `src/backend/.venv/bin/python -m unittest src.backend.tests.test_refresh_processing -v` — **13/13 passed**.
+- `src/backend/.venv/bin/python -m unittest src.backend.tests.test_manual_integration_evidence -v` — **14/14 passed**.
+- `src/backend/.venv/bin/python -m unittest src.backend.tests.test_config -v` — **4/4 passed**.
+- `src/backend/.venv/bin/python -m unittest src.backend.tests.test_custom_guardrails -v` — **25/25 passed**.
+- `src/backend/.venv/bin/python -m unittest src.backend.tests.test_comparison -v` — **22/22 passed**.
+- `npx playwright test tests/e2e/cached-browse.spec.ts` — blocked in this sandbox because the backend test server could not bind `127.0.0.1:8000` (`[Errno 1] operation not permitted`).
 
-### Worktree state
-`master` working tree is **clean**. Branch is **up to date** with `origin/master`.
-
-### GitHub state (verified 2026-03-20)
-- ~~**PR #5**~~ Merged 2026-03-20. `v2.0-UX` → `master` (8 commits: test fix, security merge, spec alignment, e2e fix, package-lock, plan update). Fast-forward merge.
-- ~~**PR #4**~~ Merged 2026-03-20. Security dependency bump.
-- No open issues or PRs.
-- GitHub repo description is current v2 language.
-
-### Branch state
-**`master`** is the sole active branch. All v2 feature branches have been merged and deleted:
-- ~~`v2.0-UX`~~ — merged via PR #5, deleted (local + remote).
-- ~~`v2.0`~~ — deleted (local + remote). Content was in master via PR #3.
-- ~~`v2.0-Codex`~~ — deleted (local + remote). Superseded.
-- ~~`v2.0-Security`~~ — deleted (local + remote). Same as master.
-
-Legacy remote-only branches remain: `v1.1`, `v1.2`, `v1.3`, `v1.4`. Kept for historical reference; safe to remove if desired.
-
-### Open review findings
-All prior P1/P2/P3 findings are resolved. No new code-spec mismatches found in fifth-pass verification. Code-spec alignment is strong across all active specs.
+### Branch and worktree state
+- Active branch: `v3.0`.
+- `master` is commit `8b54903`.
+- Local branch is **26 commits ahead** of `master`.
+- PR #6 (`v3.0` → `master`) remains the intended merge path.
+- The worktree is not clean: the local review-fix slice and this archive-cleanup/doc-update slice are still uncommitted.
 
 ## 2. Active phase
 
-**Phase 7 — Feature buildout.** Phase 6 UX polish items are complete (headline rewrite visibility, feed thumbnails, header alignment, roadmap evaluation). Phase 7 promotes the highest-value roadmap items into active work based on the maturity assessment below.
+**Phase 10 — Release handoff and active-plan hygiene.** The implementation work is complete locally. The remaining work is release handoff, final browser validation outside this sandbox, and merge preparation. Ralph should not invent new feature work unless a new regression or missing requirement is discovered.
 
 ## 3. Ordered checklist
 
-### Completed (Phase 5)
-- [x] Full source verification (5 passes): backend model schema, routers, services, AI prompts, frontend components/hooks/lib/types, proxy config. Zero code-spec mismatches.
-- [x] Test isolation fix in `test_refresh_processing.py` — committed `7190477`.
-- [x] PR #4 security dependency bump — merged 2026-03-20.
-- [x] Spec alignment: `FRONTEND.md` version string, project structure; `ROADMAP.md` loop order; validation command docs in `README.md`/`CLAUDE.md`/`AGENTS.md`.
-- [x] GitHub repo description updated to v2 language.
-- [x] Playwright e2e — 11/11 passed after fixing stale Good News toggle assertion.
-- [x] Package-lock.json committed (`ce49ded`).
-
-- [x] PR #5: merge `v2.0-UX` → `master` — merged 2026-03-20 (fast-forward, 8 commits).
-- [x] Branch cleanup: deleted local+remote `v2.0`, `v2.0-Codex`, `v2.0-Security`, `v2.0-UX`. Legacy `v1.*` remotes retained.
-- [x] Legacy boundary: `READMEOLD.md` and git history only; no new root-level v1 files.
-
-### Active (Phase 6 — UX polish)
-- [x] [P2] **Evaluate headline rewrite visibility.** Investigated end-to-end. No display bug: `getVisibleHeadline()` correctly surfaces rewrites. "Not always appearing" is by-design — the AI only rewrites sensationalized/misleading headlines; fair, factual headlines keep their original form. Fixed one robustness gap: `_validate_result` now normalizes `needs_rewrite` to `false` when `rewritten_title` is null/empty, preventing `rewritten_count` stat inflation. Added 3 unit tests.
-- [x] [P3] **Add article card thumbnails.** Per `specs/ROADMAP.md`: "Add a small thumbnail to article cards in the main feed." Added a 96×96 thumbnail on the right side of each article card using `next/image` with `unoptimized` (matching detail page pattern). Hidden on mobile (`hidden sm:block`), gracefully absent when `image_url` is null. Validated with `npm run lint` and `npm run typecheck`.
-- [x] [P3] **Header/feed layout alignment.** Per `specs/ROADMAP.md`: "Align the header content with the article stack so the layout feels tidy and streamlined." Added `max-w-3xl` to the header container div in `header.tsx` so the header content width matches the `max-w-3xl` main content area in `page.tsx`. Validated with `npm run lint` and `npm run typecheck`.
-- [x] [P3] **Evaluate broader roadmap items** (content guardrails, country-aware reading, topic filtering, About modal, accessibility audit, processing visibility, Fact Checker Mode) against current codebase maturity. Assessment complete — see §3a below for findings and promoted items.
-
-### Roadmap evaluation results (Phase 6 → Phase 7 gate)
-
-| Item | Complexity | Prerequisites | Recommendation |
-|------|-----------|---------------|----------------|
-| Content guardrails | **Small** | None — keyword exclusion mechanism in `good_news.py` is proven and extensible | **Promote** — expand existing keyword lists for war/suicide/depression/death/grief |
-| About modal | **Small** | None — ShadCN `Dialog` infrastructure proven via `settings-dialog.tsx` | **Promote** — pure UI, no backend changes, improves discoverability |
-| Accessibility pass | **Small–Medium** | None — good foundation exists (aria-labels, live regions); gaps are CSS focus states and `prefers-reduced-motion` | **Promote** — foundational; should land before large new features |
-| Topic filtering UI | **Medium–Small** | Backend `category` query param already works; need `/api/categories` endpoint + frontend `CategoryFilter` component | **Promote** — backend plumbing exists, mostly frontend UI work |
-| Country-aware reading | **Medium** | Requires new `country` DB column, pipeline changes, frontend selector, `/api/countries` endpoint. `news_fetcher.py` already accepts `country` param | **Defer** — multi-layer schema change; revisit after simpler items ship |
-| Processing visibility | **Medium–Large** | Requires in-flight article UI, skeleton states, progressive polling or SSE | **Defer** — heaviest lift; best done after simpler features prove the UX patterns |
-| Fact Checker Mode | **Large** | Requires cross-source article matching, country filtering, comparison UI — depends on country-aware reading | **Defer** — depends on country and topic infrastructure not yet built |
-
-### Active (Phase 7 — Feature buildout)
-Promoted items in priority order:
-- [ ] [P2] **Content guardrails.** Add keyword-based exclusions for war, suicide, depression, death, and grief to `good_news.py`. Expand `apply_good_news_rules()` and `good_news_filter_expression()`. Update frontend toggle hint. Add tests for new exclusions.
-- [ ] [P3] **About modal.** Create `about-modal.tsx` using ShadCN `Dialog`. Add About button to header near theme toggle. Include app explanation, GitHub link, Buy Me a Coffee link. Copy can be placeholder initially.
-- [ ] [P3] **Accessibility pass.** Add `prefers-reduced-motion` check to spinner animations. Ensure visible focus states via `focus-visible` utilities. Add semantic landmarks to main content area. Test keyboard navigation through all controls.
-- [ ] [P3] **Topic filtering UI.** Add `/api/categories` endpoint returning category names and counts. Create `CategoryFilter` component (pattern matches `SourceFilter`). Wire into page state and URL query params.
+- [x] [P2] Archive bulky completed Ralph-loop history into `specs/completedarchive/2026-03-25-implementation-completed-archive.md`.
+- [x] [P2] Update Ralph prompts so `IMPLEMENTATION_PLAN.md` stays active-only and bulky completed history moves into dated archive files.
+- [ ] [P2] Commit the current local review-fix + archive-cleanup slice without mixing unrelated worktree changes.
+- [ ] [P2] Run `npx playwright test tests/e2e/cached-browse.spec.ts` in an environment that can bind `127.0.0.1:8000`.
+- [ ] [P2] Push `v3.0` and merge PR #6 into `master`.
+- [ ] [P3] Record the post-merge state in `IMPLEMENTATION_PLAN.md` and archive any newly stale completed detail if the plan grows bulky again.
+- [ ] [P3] Demo video: record with OBS, edit with DaVinci Resolve, upload to YouTube, and link from README and About modal.
 
 ## 4. Notes / discoveries that matter for the next loop
 
-- **SOCKS proxy test isolation.** The `AIService.__init__` mock fix prevents `OpenAI()` client setup from leaking into the test path. Root cause is environment proxy variables (`ALL_PROXY`), not a missing dependency. Do not install `socksio` or clear proxy vars as a workaround.
-- **Test count.** Full backend count is 59 tests across `test_api_smoke` (29), `test_refresh_processing` (12), `test_manual_integration_evidence` (14), and `test_config` (4).
-- **Frontend helper tests** use `node --test --experimental-strip-types`. Experimental warnings are expected and not regressions.
-- **`logs/phase3_manual_integration_report.md`** is present and matches the v2 boundary. Refresh only if the refresh contract or visible refresh UI copy changes.
-- **Manual evidence helper** intentionally leaves human-fill `TODO` placeholders. That is the design, not a broken implementation.
-- **Code-spec alignment is strong.** Fifth-pass full source verification found zero mismatches between active specs and running code.
-- **`specs/ROADMAP.md` exception-chaining reference** was already removed in a prior pass. The ROADMAP no longer incorrectly says exception chaining is pending.
+- Ralph loop behavior is prompt-driven. `loop.sh` and `loop-claude.sh` are thin wrappers and were intentionally left unchanged.
+- `PROMPT_plan.md` is now the place where Ralph is told to archive bulky completed history into dated files under `specs/completedarchive/`.
+- `PROMPT_build.md` now explicitly treats manual release handoff as a valid endgame slice and warns build runs not to invent fresh coding work when only handoff tasks remain.
+- The active plan should stay focused on current state, blockers, validation, and next actions. Historical completion detail belongs in `specs/completedarchive/`.
+- Network access is still blocked in this environment. `git push` and GitHub API operations must be done manually by the user.
+- The Playwright blocker here is local sandboxing, not an app assertion failure: the backend test server could not bind `127.0.0.1:8000`.
+- Existing local code changes from the review-fix slice are still present and should be considered part of the next commit unless the user explicitly wants a different split.
+- Ralph is now on the right endgame track only if the next iteration is treated as release handoff, not another feature build.
 
 ## 5. Next recommended build slice
 
-**Content guardrails.**
+**Release handoff slice: commit the current local work, then validate the targeted Playwright path outside the sandbox.**
 
-Expand the proven keyword exclusion mechanism in `src/backend/utils/good_news.py` to cover roadmap-specified content guardrails (war, suicide, depression, death, grief). Steps:
-
-1. Add keyword tuples for each guardrail category in `good_news.py`.
-2. Create helper functions matching the `is_politics_story()` pattern.
-3. Update `apply_good_news_rules()` to apply the new exclusions.
-4. Update `good_news_filter_expression()` SQL filter to include new keyword checks.
-5. Update frontend `good-news-toggle.tsx` hint text to reflect expanded exclusions.
-6. Add unit tests for each new exclusion category.
-7. Update `specs/BACKEND.md` and `specs/ROADMAP.md` to reflect that these guardrails are now shipped.
+1. Review and stage only the intended files for the current local review-fix + archive-cleanup slice.
+2. Create one concise commit for that slice.
+3. Run `npx playwright test tests/e2e/cached-browse.spec.ts` on a machine that can start the backend test server on `127.0.0.1:8000`.
+4. If that passes, `git push origin v3.0` and merge PR #6.
+5. After merge, update the plan to reflect the merged state and keep only any still-active post-merge work.

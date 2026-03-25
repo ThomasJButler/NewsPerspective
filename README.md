@@ -1,35 +1,35 @@
-# NewsPerspective v2
+# NewsPerspective
 
-NewsPerspective v2 is a two-part app:
+**See the news. Not the spin.**
 
-- FastAPI backend in `src/backend/`
-- Next.js frontend in `src/frontend/`
+NewsPerspective uses AI to rewrite sensationalised headlines, generate TLDR summaries, and analyse sentiment across US and UK news sources. Stay informed without the fear-mongering, exaggeration, and ad clutter.
 
-The active product flow is: browse cached processed articles without a NewsAPI key, then trigger refreshes by sending a user-supplied key in the `X-News-Api-Key` header. The old root-level v1 runtime files were removed on 2026-03-10; use git history or `READMEOLD.md` for legacy reference.
+- Sensationalised headlines are rewritten to be calm and factual
+- Every article gets a short TLDR summary
+- Sentiment analysis shows the tone of each story
+- Good News filter surfaces genuinely positive stories
+- Content guardrails hide war, death, and other distressing topics
+- Country and category filters let you focus on what matters
+- No ads, no tracking, no account required
 
-## Runtime overview
+## Quick Start
 
-- Backend entrypoint: `uvicorn src.backend.main:app --reload --port 8000`
-- Frontend entrypoint: `cd src/frontend && npm run dev`
-- Frontend proxy: `src/frontend/next.config.ts` rewrites `/api/*` to `BACKEND_ORIGIN` and defaults to `http://localhost:8000`
-- Database: SQLite via `DATABASE_URL`
-- OpenAI config: `OPENAI_API_KEY` and optional `OPENAI_MODEL`
-- NewsAPI key: request-scoped only, never stored as a backend env var
+You need three things: Python 3.11+, Node 22+, and a free [NewsAPI key](https://newsapi.org/register). An [OpenAI API key](https://platform.openai.com/api-keys) powers the AI analysis.
 
-## Local setup
-
-Node is pinned via `.nvmrc` to `22.17.0`.
-
-Create the backend environment from the repo root:
+### 1. Clone and set up the backend
 
 ```bash
+git clone https://github.com/ThomasJButler/NewsPerspective.git
+cd NewsPerspective
+
 python3 -m venv src/backend/.venv
 source src/backend/.venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r src/backend/requirements.txt
+pip install -r src/backend/requirements.txt
 ```
 
-Create a repo-root `.env` from `.env.template`:
+### 2. Configure environment
+
+Copy `.env.template` to `.env` at the repo root and add your OpenAI key:
 
 ```env
 OPENAI_API_KEY=your_openai_api_key
@@ -37,25 +37,18 @@ OPENAI_MODEL=gpt-4o-mini
 DATABASE_URL=sqlite:///./newsperspective.db
 ```
 
-`NEWS_API_KEY` is intentionally absent from backend env config. Refresh requests must send the user's key in the `X-News-Api-Key` header.
+Your NewsAPI key is never stored on the server. You enter it in the browser and it stays in your browser's local storage.
 
-## Run locally
-
-Start the backend from the repo root:
+### 3. Start the backend
 
 ```bash
 source src/backend/.venv/bin/activate
 uvicorn src.backend.main:app --reload --port 8000
 ```
 
-If you are already inside `src/backend`, this equivalent command now works too:
+### 4. Start the frontend
 
-```bash
-source .venv/bin/activate
-uvicorn main:app --reload --port 8000
-```
-
-In a second shell, start the frontend:
+In a second terminal:
 
 ```bash
 cd src/frontend
@@ -63,93 +56,80 @@ npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+### 5. Open and refresh
 
-Useful manual checks:
+Open [http://localhost:3000](http://localhost:3000). Cached articles are browseable immediately. To fetch fresh headlines, enter your NewsAPI key in the inline setup card and hit the refresh button.
 
-```bash
-curl http://localhost:8000/api/articles
+## How It Works
 
-curl --config - <<EOF
-url = "http://localhost:8000/api/refresh"
-request = POST
-header = "X-News-Api-Key: ${NEWS_API_KEY:?set NEWS_API_KEY in this shell first}"
-EOF
-
-curl http://localhost:8000/api/refresh/status
+```text
+Browser (Next.js 16 + React 19 + ShadCN UI)
+    │
+    │  /api/* proxy
+    ▼
+Backend (FastAPI + SQLite)
+    │
+    ├── NewsAPI /v2/top-headlines (US + UK, 7 categories)
+    │
+    └── OpenAI chat completions (one call per article)
+            → sentiment, rewrite decision, TLDR, good-news flag
 ```
 
-If cached browse is empty, seed deterministic local data first:
+1. You hit refresh. The frontend sends your NewsAPI key in the `X-News-Api-Key` header.
+2. The backend fetches headlines from NewsAPI across both US and UK sources in 7 categories (general, sports, technology, science, health, business, entertainment).
+3. Each new article gets a single OpenAI analysis call that decides whether the headline needs rewriting, generates a TLDR, scores sentiment, and flags good news.
+4. Processed articles are stored in SQLite and served to the frontend. Read-only browsing works without any API key.
 
-```bash
-source src/backend/.venv/bin/activate
-python -m src.backend.scripts.seed_manual_integration_data
+## Personalise the AI
+
+The AI prompt that analyses each article lives in `src/backend/services/ai_service.py`. You can customise it to match your reading preferences.
+
+Here is a Claude/ChatGPT prompt you can use to generate a personalised version:
+
+```
+I'm setting up NewsPerspective (https://github.com/ThomasJButler/NewsPerspective).
+The AI system prompt is in src/backend/services/ai_service.py.
+
+Help me customise the analysis prompt for my preferences:
+
+- Topics I care about: [e.g. technology, climate, local UK news]
+- Topics I want to avoid: [e.g. celebrity gossip, US politics]
+- Tone I prefer: [e.g. formal and concise / casual and explanatory]
+- Good news criteria: [e.g. only scientific breakthroughs / any positive community story]
+- TLDR length: [e.g. 1 sentence / 2-3 sentences / detailed paragraph]
+
+Generate a replacement system prompt that keeps the JSON response
+format but adjusts the analysis rules and rewrite style to match.
 ```
 
-## Trusted-machine refresh evidence
+## NewsAPI Free Tier
 
-Phase 3 trusted-machine refresh evidence was captured on 2026-03-12 and is
-stored in `logs/phase3_manual_integration_report.md`.
+The free NewsAPI plan gives you 100 requests per day with articles delayed by ~24 hours. NewsPerspective fetches 7 categories across 2 countries, so each refresh uses ~14 requests. That means roughly 7 refreshes per day on the free plan.
 
-If you need to refresh that artifact on a trusted local machine, export
-`NEWS_API_KEY` in the current shell, keep the backend on
-`http://localhost:8000` and the frontend on `http://localhost:3000`, then
-capture the backend report:
+This works well for the app's purpose: it gives the AI time to analyse and contextualise stories rather than racing to publish raw headlines.
 
-```bash
-source src/backend/.venv/bin/activate
-export NEWS_API_KEY=your_real_key
-python -m src.backend.scripts.capture_manual_integration_evidence \
-  --output /tmp/phase3-manual-integration.md
-```
+If the project grows, a future premium hosted version may use a business-tier NewsAPI plan for real-time coverage. The self-hosted version will always remain free and ad-free.
 
-The helper reads `NEWS_API_KEY` from the caller environment so the real key
-does not need to appear in argv. That shell variable is only a local helper
-input; the backend still does not read a server-side `NEWS_API_KEY`.
+## Docker
 
-With that same local app stack still running, exercise the documented
-refresh-path Playwright entrypoint from `src/frontend`:
+A Docker Compose workflow is included for quick local testing:
 
 ```bash
-cd src/frontend
-npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts
-```
-
-Then open `http://localhost:3000` and compare the cached-browse and refresh UI
-outcomes against `logs/phase3_manual_integration_report.md`, or update the
-artifact if you are intentionally replacing the recorded evidence.
-
-## Docker app flow
-
-The supported container workflow lives under `src/frontend/compose.yaml`. It starts a seeded backend and the frontend dev server together.
-
-Start the app stack:
-
-```bash
+# Start the app stack (seeds demo data automatically)
 docker compose -f src/frontend/compose.yaml up --build app
-```
 
-Run the seeded Playwright cached-browse spec against that stack:
-
-```bash
+# Run Playwright e2e tests against the stack
 docker compose -f src/frontend/compose.yaml run --rm playwright
-```
 
-Stop the stack:
-
-```bash
+# Stop
 docker compose -f src/frontend/compose.yaml down
 ```
 
-If dependencies changed and you need a clean container `node_modules` volume:
+## Development
 
-```bash
-docker compose -f src/frontend/compose.yaml down -v
-```
+### Validation
 
-## Validation commands
-
-Backend:
+Backend tests (108 tests across 6 modules):
 
 ```bash
 source src/backend/.venv/bin/activate
@@ -157,9 +137,11 @@ python -m unittest src.backend.tests.test_api_smoke -v
 python -m unittest src.backend.tests.test_refresh_processing -v
 python -m unittest src.backend.tests.test_manual_integration_evidence -v
 python -m unittest src.backend.tests.test_config -v
+python -m unittest src.backend.tests.test_comparison -v
+python -m unittest src.backend.tests.test_custom_guardrails -v
 ```
 
-Frontend:
+Frontend checks:
 
 ```bash
 cd src/frontend
@@ -168,50 +150,47 @@ npm run typecheck
 npm run test:e2e
 ```
 
-If `next build` is needed in this repo, prefer:
+If ports 3000/8000 are already in use from a running local stack, use `npm run test:e2e:reuse` instead.
 
-```bash
-cd src/frontend
-npx next build --webpack
+### Project Structure
+
+```text
+src/
+├── backend/
+│   ├── main.py              # FastAPI app entrypoint
+│   ├── models.py            # SQLAlchemy article model
+│   ├── routers/             # API route handlers
+│   ├── services/            # AI, news fetching, article processing
+│   ├── utils/               # Good news rules, content guardrails
+│   └── tests/               # Backend test suite
+└── frontend/
+    ├── app/                  # Next.js App Router pages
+    ├── components/           # React components (ShadCN UI)
+    ├── hooks/                # Custom React hooks
+    ├── lib/                  # API client, utilities
+    ├── types/                # TypeScript type definitions
+    └── tests/e2e/            # Playwright browser tests
 ```
 
-For Playwright specifically, `npm run test:e2e` owns `127.0.0.1:8000` and `127.0.0.1:3000` so it can seed a clean backend database and start both servers itself. If those ports are already occupied because you already launched the app, use the reuse path instead:
+### Tech Stack
 
-```bash
-cd src/frontend
-npm run test:e2e:reuse
-```
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16, React 19, ShadCN UI, Tailwind CSS 4 |
+| Backend | FastAPI, SQLAlchemy, OpenAI Python SDK |
+| Database | SQLite |
+| News source | NewsAPI (free tier compatible) |
+| AI | OpenAI chat completions (default: gpt-4o-mini) |
+| Testing | Python unittest, Playwright |
 
-## Ralph loop
+## Contributing
 
-Repo-local loop files:
+Contributions are welcome. Please open an issue first to discuss what you would like to change.
 
-- `AGENTS.md`
-- `PROMPT_plan.md`
-- `PROMPT_build.md`
-- `IMPLEMENTATION_PLAN.md`
-- `loop.sh`
+By submitting a pull request, you agree that your contributions may be subject to a Contributor License Agreement (CLA). This allows the project to maintain flexibility for future licensing while keeping the open-source version available under AGPLv3.
 
-Suggested workflow:
+## License
 
-```bash
-./loop.sh plan 1
-./loop.sh build 1
-```
+[AGPLv3](LICENSE) — free to use, modify, and distribute. If you run a modified version as a network service, you must share your changes under the same license.
 
-Add `coach` or `homer` to enable the corresponding explanation mode:
-
-```bash
-./loop.sh build 1 coach
-./loop.sh build 1 homer
-```
-
-On a trusted local machine, if Codex needs permission to write `.git` during build-mode commits:
-
-```bash
-RALPH_ALLOW_UNSAFE_SANDBOX=1 ./loop.sh build 1
-```
-
-## Legacy boundary
-
-`READMEOLD.md` is legacy reference material. The old root-level v1 runtime files were removed from the checked-out repo on 2026-03-10, so use git history or the archived legacy docs if older implementation details need to be recovered.
+Built by [Tom Butler](https://github.com/ThomasJButler).

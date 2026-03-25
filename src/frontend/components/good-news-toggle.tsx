@@ -31,7 +31,7 @@ export function GoodNewsToggle({
         id="good-news-toggle-hint"
         className="text-xs text-muted-foreground"
       >
-        Excludes sports, entertainment, and politics stories.
+        Excludes sports, entertainment, politics, and distressing content.
       </p>
     </div>
   );

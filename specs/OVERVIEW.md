@@ -1,4 +1,4 @@
-# NewsPerspective v2.0 - Overview
+# NewsPerspective v3.0 - Overview
 
 ## Mission
 
@@ -8,7 +8,7 @@ NewsPerspective helps readers compare sensational framing against a calmer, fact
 2. Generate short TLDR summaries from the article description so the story can be understood quickly.
 3. Surface genuinely positive stories with a dedicated good-news filter.
 
-For future-facing product direction, content guardrails, and roadmap items that are not yet part of the active implementation slice, see `specs/ROADMAP.md`.
+For future-facing product direction and roadmap items that are not yet part of the active implementation slice, see `specs/ROADMAP.md`. Content guardrails (built-in keyword exclusions and user-configurable blocked topics) are shipped.
 
 ## Core Principles
 
@@ -40,7 +40,7 @@ For future-facing product direction, content guardrails, and roadmap items that 
         ┌───────▼────────┐      ┌───────▼─────────────────┐
         │ NewsAPI        │      │ OpenAI chat completions │
         │ /v2/top-headlines      │ Single analysis call    │
-        │ country=us             │ per article             │
+        │ country=us, country=gb │ per article             │
         └────────┬───────┘      └────────┬─────────────────┘
                  │                        │
                  └──────────────┬─────────┘
@@ -56,8 +56,8 @@ For future-facing product direction, content guardrails, and roadmap items that 
 - Each article is analysed in a single OpenAI call that returns sentiment, rewrite decision/output, TLDR, and the good-news flag.
 - The shipped good-news filter now excludes `sports`, `entertainment`, and detected `politics` stories in addition to the backend `is_good_news` signal.
 - The current `politics` exclusion is app-derived from the article title/description/source text because the existing NewsAPI fetch categories do not include a dedicated `politics` feed.
-- The broader roadmap-only content guardrails remain future work until they are promoted into the active specs and implemented.
-- SQLite is the active persistence layer for v2.
+- Content guardrails are shipped: built-in keyword exclusions (war, suicide, depression, death, grief) apply in both feeds, and users can configure additional blocked topics via `GET/PUT /api/settings/guardrails`.
+- SQLite is the active persistence layer for v3.
 
 ## What Changed From v1
 

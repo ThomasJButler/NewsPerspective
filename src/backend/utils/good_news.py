@@ -1,8 +1,68 @@
 from __future__ import annotations
 
-from sqlalchemy import and_, func, not_, or_
+import json
+import re
+import string
+
+from sqlalchemy import and_, func, literal, not_, or_
+from sqlalchemy.orm import Session
 
 GOOD_NEWS_EXCLUDED_CATEGORIES = frozenset({"sports", "entertainment"})
+
+# Content guardrail keywords — applied to both the normal feed and Good News mode.
+# Rationale: these topics are difficult to rewrite safely, can be emotionally
+# triggering, and increase the risk of harmful misinterpretation.
+CONTENT_GUARDRAIL_WAR_KEYWORDS = (
+    "warfare",
+    "warzone",
+    "war zone",
+    "airstrike",
+    "air strike",
+    "bombing",
+    "bombed",
+    "missile strike",
+    "missile attack",
+    "shelling",
+    "military offensive",
+    "armed conflict",
+    "troops deployed",
+)
+CONTENT_GUARDRAIL_SUICIDE_KEYWORDS = (
+    "suicide",
+    "suicidal",
+    "self-harm",
+    "self harm",
+)
+CONTENT_GUARDRAIL_DEPRESSION_KEYWORDS = (
+    "depression",
+    "depressed",
+    "mental health crisis",
+)
+CONTENT_GUARDRAIL_DEATH_KEYWORDS = (
+    "death toll",
+    "killed",
+    "murder",
+    "homicide",
+    "fatal shooting",
+    "fatally",
+    "found dead",
+)
+CONTENT_GUARDRAIL_GRIEF_KEYWORDS = (
+    "grief",
+    "grieving",
+    "mourning",
+    "mourners",
+    "funeral",
+    "vigil",
+)
+CONTENT_GUARDRAIL_KEYWORDS = (
+    CONTENT_GUARDRAIL_WAR_KEYWORDS
+    + CONTENT_GUARDRAIL_SUICIDE_KEYWORDS
+    + CONTENT_GUARDRAIL_DEPRESSION_KEYWORDS
+    + CONTENT_GUARDRAIL_DEATH_KEYWORDS
+    + CONTENT_GUARDRAIL_GRIEF_KEYWORDS
+)
+
 POLITICS_TOPIC_KEYWORDS = (
     "politic",
     "election",
@@ -23,6 +83,9 @@ POLITICS_TOPIC_KEYWORDS = (
     "republican",
 )
 
+CUSTOM_GUARDRAIL_PUNCTUATION = string.punctuation
+CUSTOM_GUARDRAIL_SPACE_COLLAPSE_PASSES = 8
+
 
 def normalize_category(category: str | None) -> str | None:
     if category is None:
@@ -41,6 +104,25 @@ def normalize_text(*values: str | None) -> str:
     return " ".join(parts)
 
 
+def normalize_custom_guardrail_text(*values: str | None) -> str:
+    text = normalize_text(*values)
+    if not text:
+        return " "
+
+    translation_table = str.maketrans({
+        char: " " for char in CUSTOM_GUARDRAIL_PUNCTUATION
+    })
+    normalized = text.translate(translation_table)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return f" {normalized} " if normalized else " "
+
+
+def normalize_custom_guardrail_keyword(keyword: str | None) -> str | None:
+    normalized = normalize_custom_guardrail_text(keyword)
+    stripped = normalized.strip()
+    return stripped or None
+
+
 def is_politics_story(
     category: str | None,
     title: str | None = None,
@@ -55,6 +137,15 @@ def is_politics_story(
     return any(keyword in normalized_text for keyword in POLITICS_TOPIC_KEYWORDS)
 
 
+def is_guardrailed_story(
+    title: str | None = None,
+    description: str | None = None,
+    source_name: str | None = None,
+) -> bool:
+    normalized = normalize_text(title, description, source_name)
+    return any(keyword in normalized for keyword in CONTENT_GUARDRAIL_KEYWORDS)
+
+
 def apply_good_news_rules(
     is_good_news: bool,
     category: str | None,
@@ -67,6 +158,11 @@ def apply_good_news_rules(
         normalized_category in GOOD_NEWS_EXCLUDED_CATEGORIES
         or is_politics_story(
             category,
+            title=title,
+            description=description,
+            source_name=source_name,
+        )
+        or is_guardrailed_story(
             title=title,
             description=description,
             source_name=source_name,
@@ -91,6 +187,73 @@ def politics_story_expression(article_model):
     return or_(normalized_category == "politics", *keyword_matches)
 
 
+def content_guardrail_expression(article_model):
+    normalized_text = func.lower(
+        func.trim(
+            func.coalesce(article_model.original_title, "")
+            + " "
+            + func.coalesce(article_model.original_description, "")
+            + " "
+            + func.coalesce(article_model.source_name, "")
+        )
+    )
+    keyword_matches = [
+        normalized_text.like(f"%{keyword}%") for keyword in CONTENT_GUARDRAIL_KEYWORDS
+    ]
+    return or_(*keyword_matches)
+
+
+def custom_guardrail_expression(article_model, keywords: list[str]):
+    """SQL expression that matches articles containing any of the given keywords."""
+    if not keywords:
+        # Always-false expression — nothing extra to exclude.
+        return and_(False)
+
+    normalized_text = func.lower(
+        func.trim(
+            func.coalesce(article_model.original_title, "")
+            + " "
+            + func.coalesce(article_model.original_description, "")
+            + " "
+            + func.coalesce(article_model.source_name, "")
+        )
+    )
+    for char in CUSTOM_GUARDRAIL_PUNCTUATION:
+        normalized_text = func.replace(normalized_text, char, " ")
+    for _ in range(CUSTOM_GUARDRAIL_SPACE_COLLAPSE_PASSES):
+        normalized_text = func.replace(normalized_text, "  ", " ")
+    normalized_text = literal(" ") + func.trim(normalized_text) + literal(" ")
+
+    keyword_matches = [
+        normalized_text.like(f"% {normalized_keyword} %")
+        for kw in keywords
+        for normalized_keyword in [normalize_custom_guardrail_keyword(kw)]
+        if normalized_keyword is not None
+    ]
+    if not keyword_matches:
+        return and_(False)
+    return or_(*keyword_matches)
+
+
+CUSTOM_GUARDRAILS_SETTING_KEY = "custom_guardrail_keywords"
+
+
+def load_custom_guardrail_keywords(db: Session) -> list[str]:
+    """Load user-defined guardrail keywords from the settings table."""
+    from ..models import Setting
+
+    row = db.query(Setting).filter(Setting.key == CUSTOM_GUARDRAILS_SETTING_KEY).first()
+    if row is None:
+        return []
+    try:
+        keywords = json.loads(row.value)
+        if isinstance(keywords, list):
+            return [str(k) for k in keywords if str(k).strip()]
+        return []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 def good_news_filter_expression(article_model):
     normalized_category = func.lower(func.trim(func.coalesce(article_model.category, "")))
     return and_(
@@ -99,6 +262,7 @@ def good_news_filter_expression(article_model):
             or_(
                 normalized_category.in_(tuple(GOOD_NEWS_EXCLUDED_CATEGORIES)),
                 politics_story_expression(article_model),
+                content_guardrail_expression(article_model),
             )
         ),
     )

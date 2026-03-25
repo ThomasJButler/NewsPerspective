@@ -22,6 +22,9 @@ Do not amend existing commits.
 - Verify before you conclude something is missing.
 - Prefer a single ordered checklist in `IMPLEMENTATION_PLAN.md`.
 - Keep completed items concise.
+- Treat `IMPLEMENTATION_PLAN.md` as the active working plan, not a long-term history ledger.
+- When completed history becomes bulky, move fully closed material into a new dated file under `specs/completedarchive/` and leave a concise active summary in the plan.
+- If the remaining unchecked work is manual release handoff rather than implementation, say that explicitly and do not manufacture new coding tasks.
 - Expand the next active phase into concrete, testable steps.
 - Carry forward current code-review findings with explicit priority and convert them into ordered checklist items when they need implementation work.
 - Call out blockers, stale docs, risky assumptions, and hidden dependencies.
@@ -40,9 +43,9 @@ Keep or rewrite the file into this shape:
 ## Focus for this repo
 Use the current repo state to plan around:
 - high-priority correctness regressions from recent code review
-- Phase 3 integration testing
+- targeted validation and release handoff for v3.0
 - developer-experience cleanup
-- documentation alignment for v2
+- documentation alignment for v3.0
 - safe handling of legacy v1 files
 - any gaps between specs, backend, frontend, and top-level docs
 

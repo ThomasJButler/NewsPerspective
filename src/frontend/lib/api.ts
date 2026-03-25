@@ -1,6 +1,10 @@
 import type {
   ArticleListResponse,
   Article,
+  CategoriesResponse,
+  ComparisonAnalysis,
+  ComparisonResponse,
+  GuardrailsResponse,
   SourcesResponse,
   StatsResponse,
   RefreshErrorCode,
@@ -15,6 +19,7 @@ interface FetchArticlesParams {
   good_news_only?: boolean;
   source?: string;
   category?: string;
+  country?: string;
   search?: string;
 }
 
@@ -89,6 +94,7 @@ export async function fetchArticles(
   if (params.good_news_only) searchParams.set("good_news_only", "true");
   if (params.source) searchParams.set("source", params.source);
   if (params.category) searchParams.set("category", params.category);
+  if (params.country) searchParams.set("country", params.country);
   if (params.search) searchParams.set("search", params.search);
 
   const res = await fetch(`/api/articles?${searchParams.toString()}`);
@@ -110,6 +116,12 @@ export async function fetchArticle(id: string): Promise<Article> {
 export async function fetchSources(): Promise<SourcesResponse> {
   const res = await fetch("/api/sources");
   if (!res.ok) throw new Error(`Failed to fetch sources: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchCategories(): Promise<CategoriesResponse> {
+  const res = await fetch("/api/categories");
+  if (!res.ok) throw new Error(`Failed to fetch categories: ${res.status}`);
   return res.json();
 }
 
@@ -135,5 +147,41 @@ export async function refreshArticles(
 export async function fetchRefreshStatus(): Promise<RefreshStatusResponse> {
   const res = await fetch("/api/refresh/status");
   if (!res.ok) throw new Error(`Failed to fetch refresh status: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchComparisonGroups(): Promise<ComparisonResponse> {
+  const res = await fetch("/api/comparison");
+  if (!res.ok) throw new Error(`Failed to fetch comparison groups: ${res.status}`);
+  return res.json();
+}
+
+export async function analyseComparisonGroup(
+  articleIds: string[]
+): Promise<ComparisonAnalysis> {
+  const res = await fetch("/api/comparison/analyse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ article_ids: articleIds }),
+  });
+  if (!res.ok) throw new Error(`Failed to analyse comparison group: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchGuardrails(): Promise<GuardrailsResponse> {
+  const res = await fetch("/api/settings/guardrails");
+  if (!res.ok) throw new Error(`Failed to fetch guardrails: ${res.status}`);
+  return res.json();
+}
+
+export async function updateGuardrails(
+  keywords: string[]
+): Promise<GuardrailsResponse> {
+  const res = await fetch("/api/settings/guardrails", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keywords }),
+  });
+  if (!res.ok) throw new Error(`Failed to update guardrails: ${res.status}`);
   return res.json();
 }

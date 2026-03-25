@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 
 if __package__ in (None, ""):
     repo_root = Path(__file__).resolve().parents[2]
@@ -11,16 +12,24 @@ if __package__ in (None, ""):
     if repo_root_str not in sys.path:
         sys.path.insert(0, repo_root_str)
 
-    from src.backend.database import Base, engine
-    from src.backend.routers import articles, sources
+    import src.backend.database as database
+    from src.backend.routers import articles, comparison, settings, sources
 else:
-    from .database import Base, engine
-    from .routers import articles, sources
+    from . import database
+    from .routers import articles, comparison, settings, sources
+
+Base = database.Base
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=database.engine)
+    # Migrate existing databases: add country column if missing
+    existing_columns = {col["name"] for col in inspect(database.engine).get_columns("articles")}
+    if "country" not in existing_columns:
+        with database.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN country VARCHAR NOT NULL DEFAULT 'us'"))
+            conn.commit()
     yield
 
 
@@ -40,4 +49,6 @@ app.add_middleware(
 )
 
 app.include_router(articles.router)
+app.include_router(comparison.router)
+app.include_router(settings.router)
 app.include_router(sources.router)
