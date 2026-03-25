@@ -14,7 +14,7 @@ NewsPerspective uses AI to rewrite sensationalised headlines, generate TLDR summ
 
 ## Quick Start
 
-You need three things: Python 3.11+, Node 22+, and a free [NewsAPI key](https://newsapi.org/register). An [OpenAI API key](https://platform.openai.com/api-keys) powers the AI analysis.
+You need Python 3.11+, the repo-pinned Node `22.17.0` runtime (see `.nvmrc`), and an [OpenAI API key](https://platform.openai.com/api-keys) for the AI analysis. A free [NewsAPI key](https://newsapi.org/register) is optional during setup and only needed when you want to fetch fresh headlines.
 
 ### 1. Clone and set up the backend
 
@@ -58,7 +58,7 @@ npm run dev
 
 ### 5. Open and refresh
 
-Open [http://localhost:3000](http://localhost:3000). Cached articles are browseable immediately. To fetch fresh headlines, enter your NewsAPI key in the inline setup card and hit the refresh button.
+Open [http://localhost:3000](http://localhost:3000). Cached articles are browseable immediately without a saved NewsAPI key. When you want fresh headlines, enter your NewsAPI key in the inline setup card or settings dialog and then hit refresh.
 
 ## How It Works
 
