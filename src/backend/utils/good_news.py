@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
+import string
 
-from sqlalchemy import and_, func, not_, or_
+from sqlalchemy import and_, func, literal, not_, or_
 from sqlalchemy.orm import Session
 
 GOOD_NEWS_EXCLUDED_CATEGORIES = frozenset({"sports", "entertainment"})
@@ -81,6 +83,9 @@ POLITICS_TOPIC_KEYWORDS = (
     "republican",
 )
 
+CUSTOM_GUARDRAIL_PUNCTUATION = string.punctuation
+CUSTOM_GUARDRAIL_SPACE_COLLAPSE_PASSES = 8
+
 
 def normalize_category(category: str | None) -> str | None:
     if category is None:
@@ -97,6 +102,25 @@ def normalize_text(*values: str | None) -> str:
         if isinstance(value, str) and value.strip()
     ]
     return " ".join(parts)
+
+
+def normalize_custom_guardrail_text(*values: str | None) -> str:
+    text = normalize_text(*values)
+    if not text:
+        return " "
+
+    translation_table = str.maketrans({
+        char: " " for char in CUSTOM_GUARDRAIL_PUNCTUATION
+    })
+    normalized = text.translate(translation_table)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return f" {normalized} " if normalized else " "
+
+
+def normalize_custom_guardrail_keyword(keyword: str | None) -> str | None:
+    normalized = normalize_custom_guardrail_text(keyword)
+    stripped = normalized.strip()
+    return stripped or None
 
 
 def is_politics_story(
@@ -184,6 +208,7 @@ def custom_guardrail_expression(article_model, keywords: list[str]):
     if not keywords:
         # Always-false expression — nothing extra to exclude.
         return and_(False)
+
     normalized_text = func.lower(
         func.trim(
             func.coalesce(article_model.original_title, "")
@@ -193,10 +218,17 @@ def custom_guardrail_expression(article_model, keywords: list[str]):
             + func.coalesce(article_model.source_name, "")
         )
     )
+    for char in CUSTOM_GUARDRAIL_PUNCTUATION:
+        normalized_text = func.replace(normalized_text, char, " ")
+    for _ in range(CUSTOM_GUARDRAIL_SPACE_COLLAPSE_PASSES):
+        normalized_text = func.replace(normalized_text, "  ", " ")
+    normalized_text = literal(" ") + func.trim(normalized_text) + literal(" ")
+
     keyword_matches = [
-        normalized_text.like(f"%{kw.strip().lower()}%")
+        normalized_text.like(f"% {normalized_keyword} %")
         for kw in keywords
-        if kw.strip()
+        for normalized_keyword in [normalize_custom_guardrail_keyword(kw)]
+        if normalized_keyword is not None
     ]
     if not keyword_matches:
         return and_(False)

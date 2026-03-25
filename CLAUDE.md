@@ -10,7 +10,8 @@ Legacy v1 runtime files were removed from the repo root on 2026-03-10. Use git h
 ## Ralph operating rules
 - Read `IMPLEMENTATION_PLAN.md` before changing code.
 - In plan mode, update the plan only. Do not implement.
-- In build mode, execute exactly one highest-priority unchecked task or one tightly related sub-slice of that task.
+- In build mode, execute exactly one highest-priority unchecked implementation task or one tightly related sub-slice of that task.
+- If the top remaining unchecked items are manual release or handoff steps, do not invent new code work; prepare the handoff state or record the blocker and stop.
 - Keep `CLAUDE.md` operational and compact. Status, discoveries, and sequencing belong in `IMPLEMENTATION_PLAN.md`.
 - Prefer small, reversible edits over broad refactors.
 - Confirm a feature is actually missing before building it.

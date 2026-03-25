@@ -139,6 +139,25 @@ class CustomGuardrailsTest(unittest.TestCase):
     def setUp(self) -> None:
         self._clear_custom_guardrails()
 
+    def _insert_articles(self, *articles: models.Article) -> None:
+        session = database.SessionLocal()
+        try:
+            session.add_all(list(articles))
+            session.commit()
+        finally:
+            session.close()
+
+    def _delete_articles(self, *article_ids: str) -> None:
+        session = database.SessionLocal()
+        try:
+            for article_id in article_ids:
+                article = session.get(models.Article, article_id)
+                if article is not None:
+                    session.delete(article)
+            session.commit()
+        finally:
+            session.close()
+
     # ---- Settings endpoint tests ----
 
     def test_get_guardrails_returns_empty_by_default(self) -> None:
@@ -232,6 +251,122 @@ class CustomGuardrailsTest(unittest.TestCase):
         self.assertIn("art-normal", ids)
         self.assertNotIn("art-crypto", ids)
         self.assertNotIn("art-election", ids)
+
+    def test_articles_custom_guardrails_do_not_match_ai_inside_other_words(self) -> None:
+        now = datetime.now(timezone.utc)
+        article_id = "art-ai-false-positive"
+        self._insert_articles(
+            models.Article(
+                id=article_id,
+                original_title="Mayor said main street can reopen",
+                original_description="Residents said repairs stayed on schedule.",
+                source_name="City Desk",
+                source_id="city-desk",
+                url=f"https://example.com/{article_id}",
+                published_at=now,
+                fetched_at=now,
+                category="general",
+                processing_status="processed",
+            )
+        )
+
+        try:
+            self.client.put(
+                "/api/settings/guardrails",
+                json={"keywords": ["ai"]},
+            )
+            response = self.client.get("/api/articles")
+            ids = [a["id"] for a in response.json()["articles"]]
+            self.assertIn(article_id, ids)
+        finally:
+            self._delete_articles(article_id)
+
+    def test_articles_custom_guardrails_do_not_match_us_inside_business(self) -> None:
+        now = datetime.now(timezone.utc)
+        article_id = "art-us-false-positive"
+        self._insert_articles(
+            models.Article(
+                id=article_id,
+                original_title="Business summit opens in London",
+                original_description="Executives discuss hiring and exports.",
+                source_name="Market Desk",
+                source_id="market-desk",
+                url=f"https://example.com/{article_id}",
+                published_at=now,
+                fetched_at=now,
+                category="business",
+                processing_status="processed",
+            )
+        )
+
+        try:
+            self.client.put(
+                "/api/settings/guardrails",
+                json={"keywords": ["us"]},
+            )
+            response = self.client.get("/api/articles")
+            ids = [a["id"] for a in response.json()["articles"]]
+            self.assertIn(article_id, ids)
+        finally:
+            self._delete_articles(article_id)
+
+    def test_articles_custom_guardrails_match_standalone_ai_word(self) -> None:
+        now = datetime.now(timezone.utc)
+        article_id = "art-ai-standalone"
+        self._insert_articles(
+            models.Article(
+                id=article_id,
+                original_title="AI tools help doctors review scans",
+                original_description="Hospitals expand pilot programmes.",
+                source_name="Health Tech",
+                source_id="health-tech",
+                url=f"https://example.com/{article_id}",
+                published_at=now,
+                fetched_at=now,
+                category="health",
+                processing_status="processed",
+            )
+        )
+
+        try:
+            self.client.put(
+                "/api/settings/guardrails",
+                json={"keywords": ["ai"]},
+            )
+            response = self.client.get("/api/articles")
+            ids = [a["id"] for a in response.json()["articles"]]
+            self.assertNotIn(article_id, ids)
+        finally:
+            self._delete_articles(article_id)
+
+    def test_articles_custom_guardrails_match_multiword_phrase_after_normalization(self) -> None:
+        now = datetime.now(timezone.utc)
+        article_id = "art-climate-phrase"
+        self._insert_articles(
+            models.Article(
+                id=article_id,
+                original_title="Climate-change plan draws cross-party support",
+                original_description="Ministers outline a new target.",
+                source_name="Policy Desk",
+                source_id="policy-desk",
+                url=f"https://example.com/{article_id}",
+                published_at=now,
+                fetched_at=now,
+                category="general",
+                processing_status="processed",
+            )
+        )
+
+        try:
+            self.client.put(
+                "/api/settings/guardrails",
+                json={"keywords": ["climate change"]},
+            )
+            response = self.client.get("/api/articles")
+            ids = [a["id"] for a in response.json()["articles"]]
+            self.assertNotIn(article_id, ids)
+        finally:
+            self._delete_articles(article_id)
 
     def test_clearing_custom_guardrails_restores_articles(self) -> None:
         self.client.put(

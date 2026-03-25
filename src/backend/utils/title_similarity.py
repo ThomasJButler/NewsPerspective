@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import string
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -75,29 +74,39 @@ def group_articles(
         words = _normalize_title(article.original_title or "")
         word_sets.append(words)
 
-    grouped: set[int] = set()
     groups: list[ArticleGroup] = []
+    adjacency: list[set[int]] = [set() for _ in articles]
 
-    for i, article_i in enumerate(articles):
-        if i in grouped:
-            continue
+    for i, _article_i in enumerate(articles):
         if len(word_sets[i]) < _MIN_WORDS:
             continue
-
-        # Find all ungrouped articles similar to this one.
-        members = [i]
         for j in range(i + 1, len(articles)):
-            if j in grouped:
-                continue
             if len(word_sets[j]) < _MIN_WORDS:
                 continue
             if _jaccard(word_sets[i], word_sets[j]) >= threshold:
-                members.append(j)
+                adjacency[i].add(j)
+                adjacency[j].add(i)
 
+    visited: set[int] = set()
+
+    for i, _article_i in enumerate(articles):
+        if i in visited or len(word_sets[i]) < _MIN_WORDS or not adjacency[i]:
+            continue
+
+        stack = [i]
+        component: list[int] = []
+        while stack:
+            current = stack.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            component.append(current)
+            stack.extend(neighbor for neighbor in adjacency[current] if neighbor not in visited)
+
+        members = sorted(component)
         if len(members) < min_group_size:
             continue
 
-        # Use the first article's title as the representative.
         group = ArticleGroup(
             representative_title=articles[members[0]].original_title,
             article_ids=[articles[m].id for m in members],
@@ -112,7 +121,6 @@ def group_articles(
             ),
         )
         groups.append(group)
-        grouped.update(members)
 
     # Sort by group size descending, then alphabetically by representative title.
     groups.sort(key=lambda g: (-len(g.article_ids), g.representative_title))

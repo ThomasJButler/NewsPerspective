@@ -197,7 +197,11 @@ function HomeContent() {
     searchValue,
   ]);
 
-  const loadArticles = useCallback(async (pageNum: number, append = false) => {
+  const loadArticles = useCallback(async (
+    pageNum: number,
+    append = false,
+    throwOnError = false
+  ) => {
     const requestId = ++latestArticleRequestIdRef.current;
     const requestQuery = articleQueryRef.current;
 
@@ -234,6 +238,10 @@ function HomeContent() {
         description: err instanceof Error ? err.message : "Please try again later.",
         variant: "destructive",
       });
+
+      if (throwOnError) {
+        throw err;
+      }
     } finally {
       if (latestArticleRequestIdRef.current === requestId) {
         setLoading(false);
@@ -589,6 +597,9 @@ function HomeContent() {
         onOpenChange={setSettingsOpen}
         apiKey={apiKey}
         onUpdateKey={handleSaveApiKey}
+        onGuardrailsUpdated={async () => {
+          await Promise.all([loadArticles(1, false, true), loadMetadata()]);
+        }}
         onClearKey={() => {
           clearApiKey();
           setApiKeyFeedback({

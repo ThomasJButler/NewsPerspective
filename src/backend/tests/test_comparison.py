@@ -116,6 +116,38 @@ class TitleSimilarityUnitTest(unittest.TestCase):
         groups = title_similarity.group_articles(articles)
         self.assertEqual(len(groups), 0)
 
+    def test_group_articles_uses_transitive_similarity_chain(self):
+        """A~B and B~C should form one group even when A !~ C."""
+        now = datetime.now(timezone.utc)
+        articles = [
+            _make_article(
+                "a1",
+                "Earthquake hits coastal city causing widespread damage",
+                "BBC News",
+                "gb",
+                now,
+            ),
+            _make_article(
+                "a2",
+                "Coastal city earthquake prompts rescue shelters",
+                "Reuters",
+                "us",
+                now - timedelta(minutes=10),
+            ),
+            _make_article(
+                "a3",
+                "Earthquake survivors seek aid in rescue shelters",
+                "CNN",
+                "us",
+                now - timedelta(minutes=20),
+            ),
+        ]
+
+        groups = title_similarity.group_articles(articles)
+
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0].article_ids, ["a1", "a2", "a3"])
+
 
 class ComparisonEndpointTest(unittest.TestCase):
     """Integration tests for GET /api/comparison."""
