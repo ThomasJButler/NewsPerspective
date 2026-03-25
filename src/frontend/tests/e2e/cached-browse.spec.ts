@@ -252,13 +252,14 @@ test("refreshes the feed and metadata immediately after saving blocked topics", 
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
   await page.getByRole("textbox", { name: "New blocked keyword" }).fill("climate");
-  await page.getByRole("button", { name: "Add" }).click();
+  await page.getByRole("button", { name: "Add blocked topic" }).click();
 
   await expect(page.getByText("climate")).toBeVisible();
   await expect(
     page.getByRole("heading", { level: 2, name: blockedArticle.original_title })
   ).toHaveCount(0);
   await expect(page.getByText("1 article processed · 0 headlines improved")).toBeVisible();
+  await page.getByRole("button", { name: "Close settings" }).click();
 
   await page.getByRole("combobox", { name: "Filter by source" }).click();
   await expect(page.getByRole("option", { name: /Local News/ })).toBeVisible();

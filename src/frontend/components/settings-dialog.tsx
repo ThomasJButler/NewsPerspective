@@ -182,6 +182,7 @@ function BlockedTopicsSection({
             <Button
               type="submit"
               size="sm"
+              aria-label="Add blocked topic"
               disabled={!newKeyword.trim() || saving}
             >
               Add
@@ -341,6 +342,7 @@ export function SettingsDialog({
             <Button
               variant="outline"
               size="sm"
+              aria-label="Close settings"
               onClick={() => handleOpenChange(false)}
             >
               Close
