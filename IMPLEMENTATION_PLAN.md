@@ -16,14 +16,16 @@ Updated on 2026-03-25 (build slice, Codex GPT-5).
 - Backend and frontend source still match the shipped v3 runtime contract in `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`: cached browse works without a saved NewsAPI key, refresh uses the `X-News-Api-Key` header, SQLite remains the active store, comparison and content guardrails are present, and refresh status is process-local with persistent frontend status UX.
 - `src/backend/main.py` still reports version `3.0.0`.
 - Frontend runtime prerequisites are repo-pinned to Node `22.17.0` via `.nvmrc`, and `src/frontend/package.json` requires `>=22.17.0 <23`.
+- The remaining `phase3` manual-evidence references are limited to the trusted-machine helper/report path, helper tests, and supporting docs/spec notes. For the current release handoff, keep that naming as historical terminology instead of churning the path/docs/tests for a cosmetic v3 rename.
 - No new backend or frontend correctness regression was verified in the inspected runtime paths during this planning review/build slice.
 
 ### Current code review / validation findings
 - No open P1/P2 runtime correctness regressions are currently verified in repo code, inspected tests, or today's spot checks.
-- [P4] Manual-evidence tooling/docs still use older `phase3` naming (`logs/phase3_manual_integration_report.md`, helper-script text, backend spec note, frontend README, and related tests). This is consistent repo-wide today, but it is remaining v3 terminology and DX debt rather than a runtime bug.
+- The retained `phase3` manual-evidence naming is an intentional historical path decision for the existing trusted-machine helper/report artifact, not an active defect or release blocker.
 - [P4] `logs/phase3_manual_integration_report.md` remains useful as historical trusted-machine runtime evidence, but it still reflects a 2026-03-12 trusted-machine run rather than current-loop validation.
 
 ### Latest validation snapshot
+- `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_manual_integration_evidence -v` — passed on 2026-03-25 (**14/14 passed**, 0.002s).
 - `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke.BackendApiSmokeTest.test_backend_entrypoint_imports_as_top_level_module -v` — passed on 2026-03-25 (**1/1 passed**, 0.061s).
 - `cd src/frontend && npm run lint` — passed on 2026-03-25. In this shell, `npm` printed an `nvm` help preamble before the normal lint output, but the command still exited `0`.
 - `cd src/frontend && npm run typecheck` — passed on 2026-03-25. In this shell, `npm` printed the same `nvm` help preamble before the normal typecheck output, but the command still exited `0`.
@@ -32,7 +34,7 @@ Updated on 2026-03-25 (build slice, Codex GPT-5).
 
 ## 2. Active phase
 
-**Phase 12 — release-facing docs alignment and handoff.** The verified remaining work is documentation cleanup plus optional trusted-machine handoff evidence. Do not invent new product or infrastructure tasks unless a new defect or spec mismatch is discovered.
+**Phase 12 — release-facing docs alignment and handoff.** The naming-decision cleanup is complete; the only remaining work is optional trusted-machine handoff evidence refresh. Do not invent new product or infrastructure tasks unless a new defect or spec mismatch is discovered.
 
 ## 3. Ordered checklist
 
@@ -41,7 +43,7 @@ Updated on 2026-03-25 (build slice, Codex GPT-5).
 - [x] Re-read the active specs and inspect enough backend/frontend source to confirm the shipped v3 contract still matches code.
 - [x] Re-run the smallest meaningful backend/frontend validation sample on the current branch.
 - [x] [P2] Update `README.md` Quick Start prerequisites and setup wording so they match the shipped runtime: Node `22.17.0`/repo pinning, cached browsing without a saved NewsAPI key, and NewsAPI key requirement only when the user chooses refresh.
-- [ ] [P4] Decide whether `phase3` manual-evidence naming should remain as historical terminology for the current trusted-machine report path or be renamed for v3 consistency. If renamed, update the helper script, tests, specs/docs, and default output path together in one coordinated slice.
+- [x] [P4] Decide whether `phase3` manual-evidence naming should remain as historical terminology for the current trusted-machine report path or be renamed for v3 consistency. Decision: keep the existing `phase3` helper/report path as historical terminology for this release handoff; do not churn helper docs/tests/spec references solely for a cosmetic v3 rename.
 - [ ] [P4] If release handoff needs fresh trusted-machine evidence after the README fix, rerun the manual refresh evidence flow and refresh `logs/phase3_manual_integration_report.md`; otherwise treat the existing 2026-03-12 report as historical runtime evidence only and stop.
 
 ## 4. Notes / discoveries that matter for the next loop
@@ -51,19 +53,19 @@ Updated on 2026-03-25 (build slice, Codex GPT-5).
 - The top-level `README.md` Quick Start now matches the shipped cached-browse contract and the repo-pinned frontend Node requirement.
 - The frontend runtime requirement remains pinned in repo metadata: `.nvmrc` is `22.17.0`, and `src/frontend/package.json` requires `>=22.17.0 <23`.
 - The trusted-machine report at `logs/phase3_manual_integration_report.md` is dated 2026-03-12. Treat it as historical runtime evidence only unless a human explicitly wants fresh handoff evidence rerun.
-- The `phase3` evidence/report naming is spread across backend helper text, backend tests, backend spec notes, and `src/frontend/README.md`. Treat any rename as coordinated cleanup rather than as an opportunistic one-line edit.
+- This slice explicitly keeps the `phase3` evidence/report naming as historical terminology for the existing helper/report artifact. A future rename would be cosmetic churn across helper docs/tests/spec references and is not part of the active handoff queue.
 - Frontend validation commands currently exit successfully in this environment, but the shell prints an `nvm` usage preamble before `npm run lint` and `npm run typecheck`. Treat that as environment-local noise unless it is reproduced as a repo setup issue on a trusted local machine.
 - A fresh manual evidence rerun is a trusted-machine task that depends on an already running local backend/frontend stack and a real exported `NEWS_API_KEY`; it is not something to manufacture inside the normal build loop if no human handoff refresh is needed.
 - Keep the v1/v3 boundary intact. No root-level legacy runtime files should be recreated unless a future plan item explicitly covers archival or migration work.
 
 ## 5. Next recommended build slice
 
-**Release-handoff slice:** decide whether the remaining `phase3` manual-evidence naming should stay as historical terminology or be renamed in one coordinated docs/test/helper pass.
+**Optional release-handoff slice:** refresh trusted-machine manual evidence only if a human wants current post-docs proof.
 
 Scope:
-1. Decide explicitly whether `logs/phase3_manual_integration_report.md` and related references are historical names worth keeping or low-priority terminology debt worth renaming now.
-2. If keeping the name, record that handoff decision and stop.
-3. If renaming, update the helper script, tests, specs/docs, and default output path together in one coordinated slice.
-4. Do not invent new product/runtime work; the remaining queue after that is optional trusted-machine evidence refresh only.
+1. If no fresh handoff evidence is needed, keep treating `logs/phase3_manual_integration_report.md` as historical runtime evidence and stop.
+2. If a human wants fresh evidence, rerun the manual refresh evidence flow on a trusted local machine with a real exported `NEWS_API_KEY`.
+3. Refresh `logs/phase3_manual_integration_report.md` only from that trusted-machine run and summarize the new evidence in this plan.
+4. Do not invent new product/runtime work beyond that optional evidence refresh.
 
-After that slice, the remaining queue is optional trusted-machine evidence refresh, not new feature or correctness work.
+After that slice, there is no remaining implementation queue unless a fresh defect or spec mismatch is discovered.
