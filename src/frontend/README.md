@@ -1,6 +1,6 @@
 # Frontend
 
-Next.js frontend for NewsPerspective v2. The app proxies `/api/*` requests to the FastAPI backend, supports cached browsing without a saved NewsAPI key, and includes seeded Playwright coverage for both the cached-browse and refresh-path flows.
+Next.js frontend for NewsPerspective v3.0. The app proxies `/api/*` requests to the FastAPI backend, supports cached browsing without a saved NewsAPI key, and includes seeded Playwright coverage for both the cached-browse and refresh-path flows.
 
 ## Local run
 
@@ -36,7 +36,7 @@ npm run test:e2e:reuse
 
 That script expects your existing frontend at `http://127.0.0.1:3000` and the backend behind its normal `/api/*` proxy path.
 
-Phase 3 trusted-machine refresh evidence is recorded in `../../logs/phase3_manual_integration_report.md`.
+Trusted-machine refresh evidence is currently recorded in `../../logs/phase3_manual_integration_report.md`.
 
 If you need to refresh that evidence on a trusted local machine, run only the refresh-path spec against that existing local stack:
 
