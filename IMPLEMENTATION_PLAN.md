@@ -2,7 +2,7 @@
 
 ## 1. Current status summary
 
-Updated on 2026-03-30 (project audit and cleanup pass, Claude Code).
+Updated on 2026-03-30 (project audit and cleanup pass, Claude Code; frontend production build revalidated in Ralph build loop).
 
 ### Project scope
 
@@ -13,7 +13,7 @@ NewsPerspective v3.0 is a **self-hosted personal news reader**. It runs locally 
 - Backend (`src/backend/`): FastAPI + SQLite, version `3.0.0`. All core features shipped: cached browse, refresh with `X-News-Api-Key` header, single AI call per article (sentiment, rewrite, TLDR, good-news flag), content guardrails, article comparison, good news filtering (excludes sports, entertainment, politics).
 - Frontend (`src/frontend/`): Next.js 16 + React 19 + ShadCN UI, version `3.0.0`. All core features shipped: article feed with filters, search, settings dialog, API key management, refresh status polling, comparison view, about modal, dark mode.
 - Backend tests: 61 test methods across 6 test modules. P1 test isolation fix (AIService `__init__` mock) was already applied.
-- Frontend static checks: lint and typecheck pass. 7 helper tests pass. Playwright e2e tests exist for cached-browse and refresh-path flows.
+- Frontend static checks: lint, typecheck, and production build pass (2026-03-30). 7 helper tests pass. Playwright e2e tests exist for cached-browse and refresh-path flows.
 - Specs: `specs/OVERVIEW.md`, `specs/BACKEND.md`, `specs/FRONTEND.md` are current. `specs/ROADMAP.md` updated to remove speculative monetisation language.
 
 ### Cleanup completed this pass
@@ -39,7 +39,7 @@ NewsPerspective v3.0 is a **self-hosted personal news reader**. It runs locally 
 - [x] Rewrite IMPLEMENTATION_PLAN.md with fresh audit results
 - [x] Run full backend test suite and confirm all pass (113/113 passed, 2026-03-30)
 - [x] Run frontend lint + typecheck and confirm all pass (2026-03-30)
-- [ ] Run `cd src/frontend && npm run build` and confirm production build succeeds
+- [x] Run `cd src/frontend && npm run build` and confirm production build succeeds (passed, 2026-03-30)
 - [ ] Manual QA: fresh database, no saved key (see checklist below)
 - [ ] Manual QA: refresh with valid and invalid keys
 - [ ] Manual QA: guardrails, good news filter, comparison view
@@ -73,4 +73,4 @@ Run through these with the app running locally (`uvicorn` on 8000, `npm run dev`
 
 ## 6. Next recommended action
 
-Run the automated validation (backend tests, frontend lint/typecheck, production build), then work through the manual QA checklist. If everything passes, the v3.0 MVP is done.
+Start the manual QA checklist with a fresh database and no saved key, then continue through refresh, guardrails, comparison, settings, and restart-persistence checks. If those pass, the v3.0 MVP is done.
