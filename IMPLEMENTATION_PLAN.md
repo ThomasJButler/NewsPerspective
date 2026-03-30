@@ -1,70 +1,76 @@
 # IMPLEMENTATION_PLAN.md
 
-## 1. Current status summary and code review
+## 1. Current status summary
 
-Updated on 2026-03-25 (build slice, Codex GPT-5).
+Updated on 2026-03-30 (project audit and cleanup pass, Claude Code).
 
-### Verified repo state
-- Current branch is `v3.0-MVP`.
-- At the start of this slice, `HEAD` was `cedb8db`, while `origin/v3.0-MVP` was `298c5f2`; the local branch was ahead by 2 commits and the worktree was otherwise clean.
-- The worktree was clean at the start of this build slice.
-- Reviewed repo-local planning scratch context in `twinkly-yawning-minsky.md` and the completed-plan archive under `specs/completedarchive/`. The older `v2.0` findings in that scratch file appear resolved/superseded by the shipped v3 code/spec state and do not reopen the active queue.
-- `gh issue list --limit 10` returned no visible open GitHub issues from this environment, and `gh pr status` reports no pull request attached to `v3.0-MVP`.
-- Legacy v1 runtime files remain absent from the repo root. Keep using git history or archived docs for legacy reference instead of recreating root-level runtime files.
+### Project scope
+
+NewsPerspective v3.0 is a **self-hosted personal news reader**. It runs locally with user-supplied API keys (OpenAI + NewsAPI free tier). It is not a live deployment or hosted service — the NewsAPI free tier restricts requests to localhost.
 
 ### Verified implementation state
-- Backend and frontend source still match the shipped v3 runtime contract in `specs/OVERVIEW.md`, `specs/BACKEND.md`, and `specs/FRONTEND.md`: cached browse works without a saved NewsAPI key, refresh uses the `X-News-Api-Key` header, SQLite remains the active store, comparison and content guardrails are present, and refresh status is process-local with persistent frontend status UX.
-- `src/backend/main.py` still reports version `3.0.0`.
-- Frontend runtime prerequisites are repo-pinned to Node `22.17.0` via `.nvmrc`, and `src/frontend/package.json` requires `>=22.17.0 <23`.
-- The remaining `phase3` manual-evidence references are limited to the trusted-machine helper/report path, helper tests, and supporting docs/spec notes. For the current release handoff, keep that naming as historical terminology instead of churning the path/docs/tests for a cosmetic v3 rename.
-- The manual-evidence contract is still intentionally a trusted-machine flow: specs point at `logs/phase3_manual_integration_report.md` as historical evidence, and the frontend spec still says real-key refresh validation cannot be completed in this Codex environment without a real exported `NEWS_API_KEY`.
-- No new backend or frontend correctness regression was verified in the inspected runtime paths during this planning review/build slice.
 
-### Current code review / validation findings
-- No open P1/P2 runtime correctness regressions are currently verified in repo code, inspected tests, or today's spot checks.
-- The retained `phase3` manual-evidence naming is an intentional historical path decision for the existing trusted-machine helper/report artifact, not an active defect or release blocker.
-- No active release blocker is verified in-repo. A fresh trusted-machine rerun remains optional human-triggered handoff work only, not a mandatory follow-up for the normal build loop.
+- Backend (`src/backend/`): FastAPI + SQLite, version `3.0.0`. All core features shipped: cached browse, refresh with `X-News-Api-Key` header, single AI call per article (sentiment, rewrite, TLDR, good-news flag), content guardrails, article comparison, good news filtering (excludes sports, entertainment, politics).
+- Frontend (`src/frontend/`): Next.js 16 + React 19 + ShadCN UI, version `3.0.0`. All core features shipped: article feed with filters, search, settings dialog, API key management, refresh status polling, comparison view, about modal, dark mode.
+- Backend tests: 61 test methods across 6 test modules. P1 test isolation fix (AIService `__init__` mock) was already applied.
+- Frontend static checks: lint and typecheck pass. 7 helper tests pass. Playwright e2e tests exist for cached-browse and refresh-path flows.
+- Specs: `specs/OVERVIEW.md`, `specs/BACKEND.md`, `specs/FRONTEND.md` are current. `specs/ROADMAP.md` updated to remove speculative monetisation language.
 
-### Latest validation snapshot
-- `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_manual_integration_evidence -v` — passed on 2026-03-25 (**14/14 passed**, 0.002s).
-- `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_api_smoke.BackendApiSmokeTest.test_backend_entrypoint_imports_as_top_level_module -v` — passed on 2026-03-25 (**1/1 passed**, 0.061s).
-- `cd src/frontend && npm run lint` — passed on 2026-03-25. In this shell, `npm` printed an `nvm` help preamble before the normal lint output, but the command still exited `0`.
-- `cd src/frontend && npm run typecheck` — passed on 2026-03-25. In this shell, `npm` printed the same `nvm` help preamble before the normal typecheck output, but the command still exited `0`.
-- `README.md` Quick Start wording was re-read against `specs/OVERVIEW.md`, `specs/FRONTEND.md`, `.nvmrc`, and `src/frontend/package.json` on 2026-03-25 after the docs-only edit; the prerequisite and NewsAPI-key wording now match the shipped runtime contract.
-- `source src/backend/.venv/bin/activate && python -m unittest src.backend.tests.test_manual_integration_evidence -v` — rerun on 2026-03-25 during this release-handoff slice; passed again (**14/14 passed**, 0.002s).
-- Not rerun in this planning pass: full backend unittest suite, `npm run build`, `npm run test:e2e`, or the trusted-machine real-key manual refresh evidence flow.
+### Cleanup completed this pass
+
+- Deleted `twinkly-yawning-minsky.md` (superseded scratch planning doc)
+- Deleted `READMEOLD.md` (legacy v1 stub — git history is sufficient)
+- Deleted `RALPH_CODEX_MIGRATION_NOTES.md` (one-time migration guide, no longer needed)
+- Deleted `next-steps.txt` (QA checklist folded into this plan below)
+- Updated `README.md` to frame the project as self-hosted/personal, removed CLA language, clarified localhost-only NewsAPI restriction
+- Updated `specs/ROADMAP.md` to remove speculative monetisation direction
 
 ## 2. Active phase
 
-**Phase 12 complete — release-facing docs alignment and handoff prep.** No implementation work remains in the normal loop. Only resume for a human-requested trusted-machine evidence refresh or a newly discovered defect/spec mismatch.
+**Finishing up.** The project is functionally complete. Remaining work is local validation and manual QA before considering the v3.0 MVP done.
 
 ## 3. Ordered checklist
 
-- [x] Verify current branch, origin alignment, worktree state, and GitHub issue/PR status instead of relying on a stale prior handoff snapshot.
-- [x] Re-read recent repo-local planning/review context and confirm older findings were either still active or already resolved before carrying them forward.
-- [x] Re-read the active specs and inspect enough backend/frontend source to confirm the shipped v3 contract still matches code.
-- [x] Re-run the smallest meaningful backend/frontend validation sample on the current branch.
-- [x] [P2] Update `README.md` Quick Start prerequisites and setup wording so they match the shipped runtime: Node `22.17.0`/repo pinning, cached browsing without a saved NewsAPI key, and NewsAPI key requirement only when the user chooses refresh.
-- [x] [P4] Decide whether `phase3` manual-evidence naming should remain as historical terminology for the current trusted-machine report path or be renamed for v3 consistency. Decision: keep the existing `phase3` helper/report path as historical terminology for this release handoff; do not churn helper docs/tests/spec references solely for a cosmetic v3 rename.
-- [x] [P4] No fresh trusted-machine evidence rerun was requested in this build loop, so `logs/phase3_manual_integration_report.md` remains the 2026-03-12 historical runtime artifact and the release-handoff queue stops here. A future rerun should happen only on a trusted local machine with a real exported `NEWS_API_KEY`.
+- [x] Project audit: read all docs, specs, source, and test state
+- [x] Delete scratch/historical files (twinkly-yawning-minsky.md, READMEOLD.md, RALPH_CODEX_MIGRATION_NOTES.md, next-steps.txt)
+- [x] Verify P1 test isolation fix is already applied (confirmed: `__init__` mock present in both tests)
+- [x] Update README.md for personal/local project framing
+- [x] Update specs/ROADMAP.md to remove stale monetisation and loop order sections
+- [x] Rewrite IMPLEMENTATION_PLAN.md with fresh audit results
+- [x] Run full backend test suite and confirm all pass (113/113 passed, 2026-03-30)
+- [x] Run frontend lint + typecheck and confirm all pass (2026-03-30)
+- [ ] Run `cd src/frontend && npm run build` and confirm production build succeeds
+- [ ] Manual QA: fresh database, no saved key (see checklist below)
+- [ ] Manual QA: refresh with valid and invalid keys
+- [ ] Manual QA: guardrails, good news filter, comparison view
+- [ ] Manual QA: settings dialog key management
+- [ ] Manual QA: refresh status persistence across restart
 
-## 4. Notes / discoveries that matter for the next loop
+## 4. Manual QA checklist
 
-- Before this slice, the active branch state was `cedb8db` while `origin/v3.0-MVP` was `298c5f2`; do not reuse older plan text that still points at earlier branch alignment snapshots.
-- The repo does contain older planning scratch context in `twinkly-yawning-minsky.md`, but it is not the active queue. Its earlier P1/P2 findings were checked against current specs/source and should not be revived unless a fresh validation run reproduces them.
-- The top-level `README.md` Quick Start now matches the shipped cached-browse contract and the repo-pinned frontend Node requirement.
-- The frontend runtime requirement remains pinned in repo metadata: `.nvmrc` is `22.17.0`, and `src/frontend/package.json` requires `>=22.17.0 <23`.
-- The trusted-machine report at `logs/phase3_manual_integration_report.md` is dated 2026-03-12. Treat it as historical runtime evidence only unless a human explicitly wants fresh handoff evidence rerun.
-- This slice explicitly keeps the `phase3` evidence/report naming as historical terminology for the existing helper/report artifact. A future rename would be cosmetic churn across helper docs/tests/spec references and is not part of the active handoff queue.
-- Frontend validation commands currently exit successfully in this environment, but the shell prints an `nvm` usage preamble before `npm run lint` and `npm run typecheck`. Treat that as environment-local noise unless it is reproduced as a repo setup issue on a trusted local machine.
-- A fresh manual evidence rerun is a trusted-machine task that depends on an already running local backend/frontend stack and a real exported `NEWS_API_KEY`; it is not something to manufacture inside the normal build loop if no human handoff refresh is needed.
-- Keep the v1/v3 boundary intact. No root-level legacy runtime files should be recreated unless a future plan item explicitly covers archival or migration work.
-- The active Ralph queue is now empty. The next loop should stop immediately unless a human explicitly requests fresh trusted-machine evidence or a new defect/spec mismatch is discovered.
+Run through these with the app running locally (`uvicorn` on 8000, `npm run dev` on 3000).
 
-## 5. Next recommended build slice
+1. **Fresh database, no saved key** — app loads, inline onboarding card visible, empty-state copy shown
+2. **Refresh blocked without key** — clicking refresh without a saved key shows guidance, does not start backend refresh
+3. **Seeded data path** — `python -m src.backend.scripts.seed_manual_integration_data` populates articles; they appear without needing a key
+4. **Valid NewsAPI key** — save key in inline form or settings, trigger refresh, see processing state, see terminal success, feed/stats update
+5. **Invalid NewsAPI key** — use fake key, trigger refresh, see clean error state, no fake success
+6. **Duplicate refresh** — start refresh, trigger again mid-flight, UI attaches to existing refresh instead of showing dual success
+7. **Settings key management** — add, update, remove key; cached browsing still works after removal; onboarding card returns
+8. **Guardrails** — add blocked topic in settings, matching stories disappear, remove topic, stories return
+9. **Good News filter** — enable, confirm sports/entertainment/politics excluded
+10. **Comparison view** — open `/comparison`, confirm grouping and AI analysis renders
+11. **Refresh status persistence** — complete refresh, restart backend, reload frontend, confirm no broken in-progress state
+12. **Production build** — `cd src/frontend && npm run build` completes successfully
 
-**No automatic next slice.**
+## 5. Notes
 
-Only resume the loop if one of these becomes true:
-1. A human explicitly asks for fresh trusted-machine refresh evidence after docs changes.
-2. A new defect or spec mismatch is reproduced.
+- The Ralph loop files (`AGENTS.md`, `PROMPT_*.md`, `loop*.sh`) remain at root for future iteration use.
+- The `logs/` directory contains historical runtime logs and the `phase3_manual_integration_report.md` — these are fine to keep as historical artifacts.
+- The `specs/completedarchive/` directory has two dated archive files from prior implementation passes.
+- The `.env.template` correctly documents that `NEWS_API_KEY` is not a backend env var.
+- Docker workflow (`src/frontend/compose.yaml`, `Dockerfile`) exists for quick local testing and Playwright e2e.
+
+## 6. Next recommended action
+
+Run the automated validation (backend tests, frontend lint/typecheck, production build), then work through the manual QA checklist. If everything passes, the v3.0 MVP is done.
