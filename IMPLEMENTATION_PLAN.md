@@ -40,7 +40,7 @@ NewsPerspective v3.0 is a **self-hosted personal news reader**. It runs locally 
 - [x] Run full backend test suite and confirm all pass (113/113 passed, 2026-03-30)
 - [x] Run frontend lint + typecheck and confirm all pass (2026-03-30)
 - [x] Run `cd src/frontend && npm run build` and confirm production build succeeds (passed, 2026-03-30)
-- [ ] Manual QA: fresh database, no saved key (see checklist below)
+- [x] Manual QA: fresh database, no saved key (passed 2026-03-30 against disposable SQLite DB; inline onboarding card and no-key empty state confirmed in live app)
 - [ ] Manual QA: refresh with valid and invalid keys
 - [ ] Manual QA: guardrails, good news filter, comparison view
 - [ ] Manual QA: settings dialog key management
@@ -70,7 +70,8 @@ Run through these with the app running locally (`uvicorn` on 8000, `npm run dev`
 - The `specs/completedarchive/` directory has two dated archive files from prior implementation passes.
 - The `.env.template` correctly documents that `NEWS_API_KEY` is not a backend env var.
 - Docker workflow (`src/frontend/compose.yaml`, `Dockerfile`) exists for quick local testing and Playwright e2e.
+- Fresh/no-key manual QA was revalidated on 2026-03-30 with `DATABASE_URL` pointed at `output/manual-qa/fresh-no-key.db`; `GET /api/articles` returned an empty cached feed and the live frontend showed the inline `Fetch fresh headlines` onboarding plus the no-key empty-state copy.
 
 ## 6. Next recommended action
 
-Start the manual QA checklist with a fresh database and no saved key, then continue through refresh, guardrails, comparison, settings, and restart-persistence checks. If those pass, the v3.0 MVP is done.
+Continue the manual QA checklist with `Refresh blocked without key`, then proceed through valid/invalid refresh handling, guardrails, comparison, settings key management, and restart-persistence checks. If those pass, the v3.0 MVP is done.
