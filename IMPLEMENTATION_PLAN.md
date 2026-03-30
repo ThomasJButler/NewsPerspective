@@ -2,7 +2,7 @@
 
 ## 1. Current status summary
 
-Updated on 2026-03-30 (project audit and cleanup pass, Claude Code; frontend production build revalidated in Ralph build loop).
+Updated on 2026-03-30 (project audit and cleanup pass, Claude Code; frontend production build and invalid-key refresh QA revalidated in Ralph build loop).
 
 ### Project scope
 
@@ -41,7 +41,8 @@ NewsPerspective v3.0 is a **self-hosted personal news reader**. It runs locally 
 - [x] Run frontend lint + typecheck and confirm all pass (2026-03-30)
 - [x] Run `cd src/frontend && npm run build` and confirm production build succeeds (passed, 2026-03-30)
 - [x] Manual QA: fresh database, no saved key (passed 2026-03-30 against disposable SQLite DB; inline onboarding card and no-key empty state confirmed in live app)
-- [ ] Manual QA: refresh with valid and invalid keys
+- [x] Manual QA: invalid-key refresh handling (passed 2026-03-30 against disposable local stack; backend 401 contract, Settings invalid-key guidance, destructive toast, and no false success state confirmed)
+- [ ] Manual QA: valid-key refresh handling on a trusted machine with `NEWS_API_KEY`
 - [ ] Manual QA: guardrails, good news filter, comparison view
 - [ ] Manual QA: settings dialog key management
 - [ ] Manual QA: refresh status persistence across restart
@@ -55,6 +56,7 @@ Run through these with the app running locally (`uvicorn` on 8000, `npm run dev`
 3. **Seeded data path** — `python -m src.backend.scripts.seed_manual_integration_data` populates articles; they appear without needing a key
 4. **Valid NewsAPI key** — save key in inline form or settings, trigger refresh, see processing state, see terminal success, feed/stats update
 5. **Invalid NewsAPI key** — use fake key, trigger refresh, see clean error state, no fake success
+   Validated on 2026-03-30 in this environment against a disposable local stack: `POST /api/refresh` returned a structured `401 invalid_api_key`, the frontend reopened Settings with the saved-key rejection message, showed the destructive `Refresh failed` toast, and did not show any success state.
 6. **Duplicate refresh** — start refresh, trigger again mid-flight, UI attaches to existing refresh instead of showing dual success
 7. **Settings key management** — add, update, remove key; cached browsing still works after removal; onboarding card returns
 8. **Guardrails** — add blocked topic in settings, matching stories disappear, remove topic, stories return
@@ -71,7 +73,9 @@ Run through these with the app running locally (`uvicorn` on 8000, `npm run dev`
 - The `.env.template` correctly documents that `NEWS_API_KEY` is not a backend env var.
 - Docker workflow (`src/frontend/compose.yaml`, `Dockerfile`) exists for quick local testing and Playwright e2e.
 - Fresh/no-key manual QA was revalidated on 2026-03-30 with `DATABASE_URL` pointed at `output/manual-qa/fresh-no-key.db`; `GET /api/articles` returned an empty cached feed and the live frontend showed the inline `Fetch fresh headlines` onboarding plus the no-key empty-state copy.
+- Invalid-key refresh QA was revalidated on 2026-03-30 with `DATABASE_URL` pointed at `output/manual-qa/invalid-key-qa.db`; seeded cached articles stayed browseable, `POST /api/refresh` with `X-News-Api-Key: invalid-key` returned `401 {"detail":{"code":"invalid_api_key",...}}`, and the live frontend showed the expected Settings guidance plus destructive toast without any false success UI.
+- A real-key refresh cannot be completed in this Codex environment because `NEWS_API_KEY` is not exposed here; that remaining acceptance step still requires a trusted local machine.
 
 ## 6. Next recommended action
 
-Continue the manual QA checklist with `Refresh blocked without key`, then proceed through valid/invalid refresh handling, guardrails, comparison, settings key management, and restart-persistence checks. If those pass, the v3.0 MVP is done.
+Complete the trusted-machine `Valid NewsAPI key` QA with a real `NEWS_API_KEY`, then continue the remaining manual QA items for guardrails, comparison, settings key management, and refresh-status persistence across restart. If those pass, the v3.0 MVP is done.
