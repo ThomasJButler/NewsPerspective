@@ -43,7 +43,7 @@ NewsPerspective v3.0 is a **self-hosted personal news reader**. It runs locally 
 - [x] Manual QA: fresh database, no saved key (passed 2026-03-30 against disposable SQLite DB; inline onboarding card and no-key empty state confirmed in live app)
 - [x] Manual QA: invalid-key refresh handling (passed 2026-03-30 against disposable local stack; backend 401 contract, Settings invalid-key guidance, destructive toast, and no false success state confirmed)
 - [ ] Manual QA: valid-key refresh handling on a trusted machine with `NEWS_API_KEY`
-  Trusted-machine blocker: this Codex environment currently reports `NEWS_API_KEY_UNSET`, so the real-key acceptance step cannot run here. Use the existing helper flow on a trusted local machine:
+  Trusted-machine blocker: this Codex environment currently reports `NEWS_API_KEY_UNSET` (rechecked in the 2026-03-30 Ralph build loop), so the real-key acceptance step cannot run here. The helper/reporting support still validates locally via `python -m unittest src.backend.tests.test_manual_integration_evidence -v`. Use the existing helper flow on a trusted local machine:
   `python -m src.backend.scripts.capture_manual_integration_evidence --output logs/phase3_manual_integration_report.md`
   then
   `cd src/frontend && npm run test:e2e:reuse -- tests/e2e/refresh-path.spec.ts`
@@ -80,6 +80,7 @@ Run through these with the app running locally (`uvicorn` on 8000, `npm run dev`
 - Fresh/no-key manual QA was revalidated on 2026-03-30 with `DATABASE_URL` pointed at `output/manual-qa/fresh-no-key.db`; `GET /api/articles` returned an empty cached feed and the live frontend showed the inline `Fetch fresh headlines` onboarding plus the no-key empty-state copy.
 - Invalid-key refresh QA was revalidated on 2026-03-30 with `DATABASE_URL` pointed at `output/manual-qa/invalid-key-qa.db`; seeded cached articles stayed browseable, `POST /api/refresh` with `X-News-Api-Key: invalid-key` returned `401 {"detail":{"code":"invalid_api_key",...}}`, and the live frontend showed the expected Settings guidance plus destructive toast without any false success UI.
 - `python -m unittest src.backend.tests.test_manual_integration_evidence -v` passed on 2026-03-30 in this environment, which revalidates the helper/reporting logic for the trusted-machine evidence flow but does not substitute for a real-key run.
+- The 2026-03-30 Ralph build loop rechecked that `NEWS_API_KEY` is still unset in this environment, so the trusted-machine real-key step remains blocked here even though the helper/reporting test still passes.
 - A real-key refresh cannot be completed in this Codex environment because `NEWS_API_KEY` is not exposed here; that remaining acceptance step still requires a trusted local machine.
 
 ## 6. Next recommended action
