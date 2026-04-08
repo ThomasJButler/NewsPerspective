@@ -31,6 +31,7 @@ class SeedArticle:
     original_sentiment: str
     sentiment_score: float
     is_good_news: bool
+    country: str = "us"
 
 
 SEED_ARTICLES: tuple[SeedArticle, ...] = (
@@ -47,6 +48,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="negative",
         sentiment_score=-0.2,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="bus-route-restoration",
@@ -61,6 +63,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.4,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="flood-defence-upgrade",
@@ -75,6 +78,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="neutral",
         sentiment_score=0.1,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="school-breakfast-clubs",
@@ -89,6 +93,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.6,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="port-strike-talks",
@@ -159,6 +164,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="neutral",
         sentiment_score=0.0,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="pension-digital-service",
@@ -173,6 +179,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.3,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="startup-funding-dip",
@@ -187,6 +194,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="negative",
         sentiment_score=-0.3,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="rail-ticket-trial",
@@ -201,6 +209,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.2,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="river-cleanup-volunteers",
@@ -215,6 +224,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.8,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="university-lab-funding",
@@ -229,6 +239,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.4,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="housing-target-review",
@@ -243,6 +254,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="negative",
         sentiment_score=-0.2,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="community-clinic-opening",
@@ -257,6 +269,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.7,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="local-ai-curriculum",
@@ -271,6 +284,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.3,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="market-stall-grants",
@@ -285,6 +299,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.5,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="bridge-repair-diversion",
@@ -299,6 +314,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="negative",
         sentiment_score=-0.1,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="library-late-hours",
@@ -313,6 +329,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.4,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="farm-water-reservoir",
@@ -327,6 +344,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="neutral",
         sentiment_score=0.1,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="export-orders-rebound",
@@ -355,6 +373,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.4,
         is_good_news=True,
+        country="gb",
     ),
     SeedArticle(
         slug="coastal-train-disruption",
@@ -369,6 +388,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="negative",
         sentiment_score=-0.5,
         is_good_news=False,
+        country="gb",
     ),
     SeedArticle(
         slug="repair-cafe-network",
@@ -383,6 +403,7 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         original_sentiment="positive",
         sentiment_score=0.6,
         is_good_news=True,
+        country="gb",
     ),
 )
 
@@ -419,6 +440,7 @@ def upsert_seed_articles() -> tuple[int, int]:
                 "sentiment_score": seed_article.sentiment_score,
                 "is_good_news": seed_article.is_good_news,
                 "category": seed_article.category,
+                "country": seed_article.country,
                 "processing_status": "processed",
             }
 

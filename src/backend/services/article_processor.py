@@ -25,9 +25,17 @@ def _parse_datetime(value: str | None) -> datetime | None:
 class ArticleProcessor:
     def process_new_articles(self, db: Session, news_source: NewsSource) -> dict[str, int]:
         """Fetch, deduplicate, analyse, and persist articles."""
-        us_articles = news_source.fetch_all_categories(country="us")
-        gb_articles = news_source.fetch_all_categories(country="gb")
-        articles = us_articles + gb_articles
+        articles: list[dict] = []
+        fetch_errors: list[str] = []
+        for country in ("us", "gb"):
+            try:
+                articles.extend(news_source.fetch_all_categories(country=country))
+            except Exception as exc:
+                logger.warning("Fetch failed for country=%s: %s — continuing", country, exc)
+                fetch_errors.append(f"{country}: {exc}")
+
+        if not articles and fetch_errors:
+            raise NewsFetchError(f"All country fetches failed: {'; '.join(fetch_errors)}")
 
         if not articles:
             logger.info("No articles returned from NewsFetcher.")

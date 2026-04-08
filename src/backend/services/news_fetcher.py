@@ -47,7 +47,11 @@ class NewsFetcher:
                 logger.warning("Daily request limit reached — stopping fetches")
                 break
 
-            articles = self.fetch_top_headlines(country=country, category=category)
+            try:
+                articles = self.fetch_top_headlines(country=country, category=category)
+            except NewsFetchError as exc:
+                logger.warning("Failed to fetch %s for %s: %s — skipping", category, country, exc)
+                continue
             for article in articles:
                 url = article.get("url", "")
                 if url and url not in seen_urls:

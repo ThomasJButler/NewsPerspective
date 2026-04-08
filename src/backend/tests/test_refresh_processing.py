@@ -86,7 +86,7 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         self.assertNotIn(api_key, message)
         self.assertIn("apiKey=[redacted]", message)
 
-    def test_process_new_articles_propagates_news_fetch_errors(self) -> None:
+    def test_process_new_articles_raises_when_all_country_fetches_fail(self) -> None:
         expected_error = news_fetcher.NewsFetchError(
             "NewsAPI returned an error: post-validation quota exceeded"
         )
@@ -99,7 +99,17 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         with self.assertRaises(news_fetcher.NewsFetchError) as raised:
             processor.process_new_articles(db=_DummySession(), news_source=source)
 
-        self.assertIs(raised.exception, expected_error)
+        self.assertIn("All country fetches failed", str(raised.exception))
+        self.assertEqual(source.fetch_all_categories.call_count, 2)
+
+    def test_process_new_articles_returns_zero_when_all_fetches_return_empty(self) -> None:
+        source = MagicMock()
+        source.fetch_all_categories.return_value = []
+
+        processor = article_processor.ArticleProcessor()
+        result = processor.process_new_articles(db=_DummySession(), news_source=source)
+
+        self.assertEqual(result, {"new_articles": 0, "processed_articles": 0, "failed_articles": 0})
 
     def test_fetcher_raises_after_429_retry_exhaustion(self) -> None:
         api_key = "secret-news-api-key"
@@ -151,7 +161,7 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         self.assertEqual([call.args[0] for call in mocked_sleep.call_args_list], [1, 2])
         self.assertEqual(fetcher.request_count, 3)
 
-    def test_fetch_all_categories_raises_when_later_category_fetch_fails(self) -> None:
+    def test_fetch_all_categories_skips_failed_category(self) -> None:
         fetcher = news_fetcher.NewsFetcher(api_key="valid-key")
         general_articles = [
             {
@@ -179,15 +189,32 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
             "fetch_top_headlines",
             side_effect=[general_articles, later_failure],
         ) as mocked_fetch_top_headlines:
-            with self.assertRaises(news_fetcher.NewsFetchError) as raised:
-                fetcher.fetch_all_categories()
+            result = fetcher.fetch_all_categories()
 
-        self.assertIs(raised.exception, later_failure)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["url"], "https://example.com/general-success")
         self.assertEqual(mocked_fetch_top_headlines.call_count, 2)
 
-    def test_process_new_articles_leaves_db_empty_when_category_fetch_aborts(self) -> None:
+    def test_fetch_all_categories_returns_empty_when_all_categories_fail(self) -> None:
+        fetcher = news_fetcher.NewsFetcher(api_key="valid-key")
+        failure = news_fetcher.NewsFetchError("category fetch failed")
+
+        with patch.object(
+            news_fetcher,
+            "CATEGORIES",
+            ["general", "sports"],
+        ), patch.object(
+            fetcher,
+            "fetch_top_headlines",
+            side_effect=failure,
+        ):
+            result = fetcher.fetch_all_categories()
+
+        self.assertEqual(result, [])
+
+    def test_process_new_articles_leaves_db_empty_when_all_fetches_fail(self) -> None:
         session = database.SessionLocal()
-        failure = news_fetcher.NewsFetchError("sports category failed after general succeeded")
+        failure = news_fetcher.NewsFetchError("all categories failed")
 
         source = MagicMock()
         source.fetch_all_categories.side_effect = failure
@@ -199,6 +226,59 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
                 processor.process_new_articles(db=session, news_source=source)
 
             self.assertEqual(session.query(models.Article).count(), 0)
+        finally:
+            session.close()
+
+    def test_process_new_articles_saves_us_articles_when_gb_fetch_fails(self) -> None:
+        session = database.SessionLocal()
+        us_articles = [
+            {
+                "original_title": "US headline",
+                "original_description": "A US story.",
+                "source_name": "US Source",
+                "source_id": "us-source",
+                "author": "Reporter",
+                "url": "https://example.com/us-article",
+                "image_url": "https://example.com/us-article.jpg",
+                "published_at": "2026-03-11T10:00:00Z",
+                "category": "general",
+                "country": "us",
+            }
+        ]
+        gb_failure = news_fetcher.NewsFetchError("GB fetch failed")
+
+        source = MagicMock()
+        source.fetch_all_categories.side_effect = [us_articles, gb_failure]
+
+        analysis_result = {
+            "rewritten_title": "Calmer US headline",
+            "tldr": "Summary.",
+            "needs_rewrite": True,
+            "sentiment": "neutral",
+            "sentiment_score": 0.0,
+            "is_good_news": False,
+        }
+
+        try:
+            with patch.object(
+                article_processor.AIService,
+                "__init__",
+                lambda self: None,
+            ), patch.object(
+                article_processor.AIService,
+                "analyse_article",
+                return_value=analysis_result,
+            ):
+                processor = article_processor.ArticleProcessor()
+                summary = processor.process_new_articles(db=session, news_source=source)
+
+            self.assertEqual(summary["new_articles"], 1)
+            self.assertEqual(summary["processed_articles"], 1)
+            self.assertEqual(session.query(models.Article).count(), 1)
+
+            saved = session.query(models.Article).one()
+            self.assertEqual(saved.country, "us")
+            self.assertEqual(saved.original_title, "US headline")
         finally:
             session.close()
 
