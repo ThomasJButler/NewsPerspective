@@ -30,7 +30,7 @@ class ArticleProcessor:
         for country in ("us", "gb"):
             try:
                 articles.extend(news_source.fetch_all_categories(country=country))
-            except Exception as exc:
+            except NewsFetchError as exc:
                 logger.warning("Fetch failed for country=%s: %s — continuing", country, exc)
                 fetch_errors.append(f"{country}: {exc}")
 

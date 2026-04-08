@@ -41,6 +41,7 @@ class NewsFetcher:
         """Fetch headlines across all categories with deduplication by URL."""
         all_articles = []
         seen_urls: set[str] = set()
+        failed_categories = 0
 
         for category in CATEGORIES:
             if self.request_count >= DAILY_REQUEST_LIMIT:
@@ -51,6 +52,7 @@ class NewsFetcher:
                 articles = self.fetch_top_headlines(country=country, category=category)
             except NewsFetchError as exc:
                 logger.warning("Failed to fetch %s for %s: %s — skipping", category, country, exc)
+                failed_categories += 1
                 continue
             for article in articles:
                 url = article.get("url", "")
@@ -59,6 +61,9 @@ class NewsFetcher:
                     article["category"] = category
                     article["country"] = country
                     all_articles.append(article)
+
+        if not all_articles and failed_categories == len(CATEGORIES):
+            raise NewsFetchError(f"All category fetches failed for country={country}.")
 
         logger.info(f"Fetched {len(all_articles)} unique articles across {len(CATEGORIES)} categories")
         return all_articles

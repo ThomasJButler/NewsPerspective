@@ -26,5 +26,5 @@ Fix UK news, complete QA, ship v3.0.
 ## 4. Notes
 
 - Previous QA items (automated test coverage, frontend static checks, doc alignment) were completed in prior loops.
-- The remaining trusted-machine QA steps require a running local stack and a real `NEWS_API_KEY`.
+- The remaining trusted-machine QA steps require a running local stack and a real NewsAPI key entered in the browser.
 - App is intentionally self-hosted/localhost-only (NewsAPI free tier constraint). "Production ready" means reliable local operation, not cloud deployment.

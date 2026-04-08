@@ -195,7 +195,7 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
         self.assertEqual(result[0]["url"], "https://example.com/general-success")
         self.assertEqual(mocked_fetch_top_headlines.call_count, 2)
 
-    def test_fetch_all_categories_returns_empty_when_all_categories_fail(self) -> None:
+    def test_fetch_all_categories_raises_when_all_categories_fail(self) -> None:
         fetcher = news_fetcher.NewsFetcher(api_key="valid-key")
         failure = news_fetcher.NewsFetchError("category fetch failed")
 
@@ -208,9 +208,10 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
             "fetch_top_headlines",
             side_effect=failure,
         ):
-            result = fetcher.fetch_all_categories()
+            with self.assertRaises(news_fetcher.NewsFetchError) as raised:
+                fetcher.fetch_all_categories()
 
-        self.assertEqual(result, [])
+        self.assertIn("All category fetches failed", str(raised.exception))
 
     def test_process_new_articles_leaves_db_empty_when_all_fetches_fail(self) -> None:
         session = database.SessionLocal()
