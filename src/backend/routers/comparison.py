@@ -81,12 +81,18 @@ def analyse_comparison_group(
     if len(body.article_ids) < 2:
         raise HTTPException(status_code=422, detail="At least 2 article IDs required.")
 
+    custom_keywords = load_custom_guardrail_keywords(db)
+    guardrail_filters = [
+        Article.id.in_(body.article_ids),
+        Article.processing_status == "processed",
+        not_(content_guardrail_expression(Article)),
+    ]
+    if custom_keywords:
+        guardrail_filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))
+
     articles = (
         db.query(Article)
-        .filter(
-            Article.id.in_(body.article_ids),
-            Article.processing_status == "processed",
-        )
+        .filter(*guardrail_filters)
         .all()
     )
 

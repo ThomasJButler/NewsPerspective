@@ -234,4 +234,4 @@ Known caveats:
 
 - `npm run test:e2e` fails before assertions if ports `3000` or `8000` are already occupied by an existing local app stack; use `npm run test:e2e:reuse` in that case.
 - Real-key refresh validation is still a trusted-machine/manual task because this Codex environment does not expose `NEWS_API_KEY`.
-- `npm run build` may still be environment-sensitive in sandboxed runs because Turbopack can fail while binding worker ports; `npx next build --webpack` was the last known successful fallback in earlier validation.
+- `npm run build` passed on 2026-03-25 in this environment using the default `next build` Turbopack path, so no separate webpack fallback is currently documented.

@@ -152,7 +152,7 @@ def get_stats(db: Session = Depends(get_db)):
 
     latest_fetch = (
         db.query(func.max(Article.fetched_at))
-        .filter(Article.processing_status == "processed")
+        .filter(*base_filters)
         .scalar()
     )
 

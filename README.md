@@ -2,7 +2,7 @@
 
 **See the news. Not the spin.**
 
-NewsPerspective uses AI to rewrite sensationalised headlines, generate TLDR summaries, and analyse sentiment across US and UK news sources. Stay informed without the fear-mongering, exaggeration, and ad clutter.
+A self-hosted personal news reader that uses AI to rewrite sensationalised headlines, generate TLDR summaries, and analyse sentiment across US and UK news sources. You run it locally with your own API keys — no hosted service, no account, no tracking.
 
 - Sensationalised headlines are rewritten to be calm and factual
 - Every article gets a short TLDR summary
@@ -14,7 +14,7 @@ NewsPerspective uses AI to rewrite sensationalised headlines, generate TLDR summ
 
 ## Quick Start
 
-You need three things: Python 3.11+, Node 22+, and a free [NewsAPI key](https://newsapi.org/register). An [OpenAI API key](https://platform.openai.com/api-keys) powers the AI analysis.
+You need Python 3.11+, the repo-pinned Node `22.17.0` runtime (see `.nvmrc`), and an [OpenAI API key](https://platform.openai.com/api-keys) for the AI analysis. A free [NewsAPI key](https://newsapi.org/register) is optional during setup and only needed when you want to fetch fresh headlines.
 
 ### 1. Clone and set up the backend
 
@@ -58,7 +58,7 @@ npm run dev
 
 ### 5. Open and refresh
 
-Open [http://localhost:3000](http://localhost:3000). Cached articles are browseable immediately. To fetch fresh headlines, enter your NewsAPI key in the inline setup card and hit the refresh button.
+Open [http://localhost:3000](http://localhost:3000). Read-only browsing works without a saved NewsAPI key, but a fresh local database starts empty. Enter your NewsAPI key in the inline setup card or settings dialog and then hit refresh to fetch headlines, or seed cached demo data first with `python -m src.backend.scripts.seed_manual_integration_data`.
 
 ## How It Works
 
@@ -104,11 +104,9 @@ format but adjusts the analysis rules and rewrite style to match.
 
 ## NewsAPI Free Tier
 
-The free NewsAPI plan gives you 100 requests per day with articles delayed by ~24 hours. NewsPerspective fetches 7 categories across 2 countries, so each refresh uses ~14 requests. That means roughly 7 refreshes per day on the free plan.
+The free NewsAPI plan gives you 100 requests per day with articles delayed by ~24 hours and restricted to localhost requests. NewsPerspective fetches 7 categories across 2 countries, so each refresh uses ~14 requests. That means roughly 7 refreshes per day on the free plan.
 
-This works well for the app's purpose: it gives the AI time to analyse and contextualise stories rather than racing to publish raw headlines.
-
-If the project grows, a future premium hosted version may use a business-tier NewsAPI plan for real-time coverage. The self-hosted version will always remain free and ad-free.
+This works well for the app's purpose: it gives the AI time to analyse and contextualise stories rather than racing to publish raw headlines. The free tier is localhost-only, which is why NewsPerspective is designed as a self-hosted app rather than a live web service.
 
 ## Docker
 
@@ -129,7 +127,7 @@ docker compose -f src/frontend/compose.yaml down
 
 ### Validation
 
-Backend tests (108 tests across 6 modules):
+Backend tests (116 tests across 6 modules):
 
 ```bash
 source src/backend/.venv/bin/activate
@@ -185,9 +183,7 @@ src/
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you would like to change.
-
-By submitting a pull request, you agree that your contributions may be subject to a Contributor License Agreement (CLA). This allows the project to maintain flexibility for future licensing while keeping the open-source version available under AGPLv3.
+This is a personal project, but contributions are welcome. Please open an issue first to discuss what you would like to change.
 
 ## License
 

@@ -125,34 +125,12 @@ Planned message for the About experience or similar UI:
 - clean UX and design are part of the mission
 - the product exists to help people cut through manipulative framing and make news consumption feel calmer and more human
 
-## Monetization Direction
-
-Free mode should remain ad-free. No ads in free mode, ever.
-
-If the app becomes widely used, future monetization may be one of:
-
-- a one-time app purchase
-- a small monthly subscription
-
-Reason:
-
-- a business-tier NewsAPI setup could materially improve the experience
-- that future model would allow latest-news coverage and more advanced filtering/personalization without requiring user-supplied NewsAPI keys
-- that future business-tier NewsAPI cost may be on the order of hundreds of dollars per month, so any paid plan should offset a real infrastructure cost rather than introduce ads
-- the goal would be to offset real platform/API cost, not turn the product into an ad-driven experience
-
-If a paid tier ever exists, it should remain aligned with the core mission:
-
-- better filtering
-- better personalization
-- better access to current stories
-- still no ads
-
 ## Data And Source Constraints
 
-- The current free NewsAPI flow is limited to recent coverage rather than true live same-day exhaustiveness.
-- The current 24-hour-ish window can still be used productively because it gives the app time to analyse and contextualize stories instead of racing to publish raw headlines.
+- NewsPerspective is a self-hosted personal project. The free NewsAPI tier restricts requests to localhost and delays articles by ~24 hours.
+- The 24-hour window works well for the app's purpose: it gives the AI time to analyse and contextualise stories instead of racing to publish raw headlines.
+- If the project grows, alternative news sources (Guardian API, RSS, NewsData.io) could be explored via the pluggable news source architecture.
 
-## Near-Term Loop Order
+## Build Queue
 
 The immediate execution sequence is tracked in `IMPLEMENTATION_PLAN.md`. This roadmap captures product direction only; it does not own the build queue.
