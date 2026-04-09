@@ -13,21 +13,11 @@ You run it locally with your own API keys - no hosted service, no account, no tr
 - Country and category filters let you focus on what matters
 - No ads, no tracking, no account required
   
-  <table>                                                             
-    <tr>                                                            
-      <td align="center"><strong>Desktop</strong></td>
-      <td align="center"><strong>Mobile</strong></td>
-    </tr>                                                             
-    <tr>
-      <td><img src="https://github.com/user-attachments/assets/039f967
-  c-d531-4cd7-8fdb-30e085549180" alt="Desktop view" height="420"      
-  /></td>                            
-      <td><img src="https://github.com/user-attachments/assets/8f2551f
-  7-002b-4683-8b7b-2778fd31758e" alt="Mobile view" height="420"       
-  /></td>                            
-    </tr>                                                             
-  </table>
-
+  <p align="center">                                                  
+    <img width="420" height="953" alt="image" src="https://github.com/user-attachments/assets/854255c5-f98b-40bf-b1f4-37251063c5f9" alt="Desktop view" height="420" />         
+    &nbsp;&nbsp;
+    <img width="420" height="953" alt="image" src="https://github.com/user-attachments/assets/defb9015-7e2e-4725-be7a-1e286d43874e" />   
+  </p> 
 
 ## Quick Start
 
