@@ -27,7 +27,10 @@ const SENTIMENT_COLORS = {
 } as const;
 
 function formatShortDate(iso: string): string {
-  const date = new Date(iso);
+  // ECMAScript parses bare ISO date strings ("2026-04-09") as UTC midnight,
+  // which shifts the rendered label one day earlier for users west of UTC.
+  // Append a time component so the date is parsed in the user's local zone.
+  const date = new Date(`${iso}T00:00:00`);
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 

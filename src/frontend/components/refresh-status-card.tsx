@@ -161,7 +161,7 @@ export function RefreshStatusCard({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium leading-tight">{presentation.title}</p>
         {presentation.description && (
-          <p className="text-xs text-muted-foreground leading-snug mt-0.5 truncate">
+          <p className="text-xs text-muted-foreground leading-snug mt-0.5 break-words">
             {presentation.description}
           </p>
         )}

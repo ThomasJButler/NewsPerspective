@@ -21,6 +21,7 @@ export function GoodNewsToggle({
         id="good-news-toggle"
         checked={checked}
         onCheckedChange={onCheckedChange}
+        aria-describedby="good-news-toggle-hint"
       />
       <label
         htmlFor="good-news-toggle"
@@ -34,6 +35,14 @@ export function GoodNewsToggle({
         />
         Good News Only
       </label>
+      {/*
+        Visually hidden hint kept in the DOM so screen readers can describe
+        what the toggle excludes. The native `title` tooltip above handles
+        the sighted hover case; this span handles the assistive-tech case.
+      */}
+      <span id="good-news-toggle-hint" className="sr-only">
+        Excludes sports, entertainment, politics, and distressing content.
+      </span>
     </div>
   );
 }
