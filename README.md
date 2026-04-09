@@ -2,7 +2,8 @@
 
 **See the news. Not the spin.**
 
-A self-hosted personal news reader that uses AI to rewrite sensationalised headlines, generate TLDR summaries, and analyse sentiment across US and UK news sources. You run it locally with your own API keys — no hosted service, no account, no tracking.
+A self-hosted personal news reader that uses AI to rewrite sensationalised headlines, generate TLDR summaries, and analyse sentiment across US and UK news sources. 
+You run it locally with your own API keys - no hosted service, no account, no tracking.
 
 - Sensationalised headlines are rewritten to be calm and factual
 - Every article gets a short TLDR summary
@@ -11,6 +12,22 @@ A self-hosted personal news reader that uses AI to rewrite sensationalised headl
 - Content guardrails hide war, death, and other distressing topics
 - Country and category filters let you focus on what matters
 - No ads, no tracking, no account required
+  
+  <table>                                                             
+    <tr>                                                            
+      <td align="center"><strong>Desktop</strong></td>
+      <td align="center"><strong>Mobile</strong></td>
+    </tr>                                                             
+    <tr>
+      <td><img src="https://github.com/user-attachments/assets/039f967
+  c-d531-4cd7-8fdb-30e085549180" alt="Desktop view" height="420"      
+  /></td>                            
+      <td><img src="https://github.com/user-attachments/assets/8f2551f
+  7-002b-4683-8b7b-2778fd31758e" alt="Mobile view" height="420"       
+  /></td>                            
+    </tr>                                                             
+  </table>
+
 
 ## Quick Start
 
