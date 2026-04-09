@@ -107,7 +107,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
               href={article.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-sm font-medium text-primary hover:underline"
+              className="inline-block text-sm font-semibold text-[color:var(--brand)] hover:underline underline-offset-4"
             >
               Read Full Article →
             </a>

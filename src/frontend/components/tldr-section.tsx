@@ -6,11 +6,11 @@ interface TldrSectionProps {
 
 export function TldrSection({ tldr }: TldrSectionProps) {
   return (
-    <div className="bg-muted/50 rounded-lg px-4 py-3 border-l-4 border-primary/30">
+    <div className="bg-muted/50 rounded-lg px-6 py-5 border-l-4 border-[color:var(--brand)] space-y-3">
       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         TLDR
       </span>
-      <p className="mt-1 text-sm leading-relaxed">{tldr}</p>
+      <p className="text-sm leading-relaxed">{tldr}</p>
     </div>
   );
 }

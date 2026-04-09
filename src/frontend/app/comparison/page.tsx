@@ -132,7 +132,7 @@ function ComparisonGroupCard({ group }: { group: ComparisonGroup }) {
                       href={article.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-block text-xs font-medium text-primary hover:underline"
+                      className="inline-block text-xs font-semibold text-[color:var(--brand)] hover:underline underline-offset-4"
                     >
                       Read Full Article →
                     </a>

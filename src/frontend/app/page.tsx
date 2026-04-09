@@ -562,25 +562,30 @@ function HomeContent() {
           </div>
         )}
 
-        <nav aria-label="Article filters" className="flex flex-wrap items-center gap-4 mb-4">
+        <nav
+          aria-label="Article filters"
+          className="mb-4 flex flex-col gap-3 rounded-xl border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+        >
           <GoodNewsToggle
             checked={goodNewsOnly}
             onCheckedChange={setGoodNewsOnly}
           />
-          <CountryFilter
-            value={countryFilter}
-            onValueChange={setCountryFilter}
-          />
-          <CategoryFilter
-            categories={categories}
-            value={effectiveCategoryFilter}
-            onValueChange={setCategoryFilter}
-          />
-          <SourceFilter
-            sources={sources}
-            value={effectiveSourceFilter}
-            onValueChange={setSourceFilter}
-          />
+          <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
+            <CountryFilter
+              value={countryFilter}
+              onValueChange={setCountryFilter}
+            />
+            <CategoryFilter
+              categories={categories}
+              value={effectiveCategoryFilter}
+              onValueChange={setCategoryFilter}
+            />
+            <SourceFilter
+              sources={sources}
+              value={effectiveSourceFilter}
+              onValueChange={setSourceFilter}
+            />
+          </div>
         </nav>
 
         <RefreshStatusCard refreshStatus={refreshStatus} stats={stats} />
