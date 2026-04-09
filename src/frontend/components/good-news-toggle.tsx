@@ -27,12 +27,6 @@ export function GoodNewsToggle({
         htmlFor="good-news-toggle"
         className="flex items-center gap-1.5 text-sm font-medium cursor-pointer select-none whitespace-nowrap"
       >
-        <Sparkles
-          className={`h-3.5 w-3.5 transition-colors ${
-            checked ? "text-brand" : "text-muted-foreground"
-          }`}
-          aria-hidden="true"
-        />
         Good News Only
       </label>
       {/*
