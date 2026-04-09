@@ -1,5 +1,6 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 interface GoodNewsToggleProps {
@@ -12,27 +13,36 @@ export function GoodNewsToggle({
   onCheckedChange,
 }: GoodNewsToggleProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <Switch
-          id="good-news-toggle"
-          checked={checked}
-          onCheckedChange={onCheckedChange}
-          aria-describedby="good-news-toggle-hint"
-        />
-        <label
-          htmlFor="good-news-toggle"
-          className="text-sm font-medium cursor-pointer select-none"
-        >
-          Good News Only
-        </label>
-      </div>
-      <p
-        id="good-news-toggle-hint"
-        className="text-xs text-muted-foreground"
+    <div
+      className="flex items-center gap-2.5 shrink-0"
+      title="Excludes sports, entertainment, politics, and distressing content."
+    >
+      <Switch
+        id="good-news-toggle"
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        aria-describedby="good-news-toggle-hint"
+      />
+      <label
+        htmlFor="good-news-toggle"
+        className="flex items-center gap-1.5 text-sm font-medium cursor-pointer select-none whitespace-nowrap"
       >
+        <Sparkles
+          className={`h-3.5 w-3.5 transition-colors ${
+            checked ? "text-brand" : "text-muted-foreground"
+          }`}
+          aria-hidden="true"
+        />
+        Good News Only
+      </label>
+      {/*
+        Visually hidden hint kept in the DOM so screen readers can describe
+        what the toggle excludes. The native `title` tooltip above handles
+        the sighted hover case; this span handles the assistive-tech case.
+      */}
+      <span id="good-news-toggle-hint" className="sr-only">
         Excludes sports, entertainment, politics, and distressing content.
-      </p>
+      </span>
     </div>
   );
 }

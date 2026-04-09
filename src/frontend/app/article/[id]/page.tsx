@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getVisibleHeadline } from "@/lib/headlines";
 import { formatDate } from "@/lib/utils";
+import { DEMO_ARTICLE_LABEL, isDemoArticle } from "@/lib/demo-articles";
 import { toast } from "@/hooks/use-toast";
 import type { Article } from "@/types/article";
 
@@ -195,14 +196,20 @@ function ArticleDetailRequest({
 
         {article.tldr && <TldrSection tldr={article.tldr} />}
 
-        <a
-          href={article.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block font-medium text-primary hover:underline"
-        >
-          Read Full Article →
-        </a>
+        {isDemoArticle(article) ? (
+          <span className="inline-block italic text-muted-foreground">
+            {DEMO_ARTICLE_LABEL}
+          </span>
+        ) : (
+          <a
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block font-semibold text-[color:var(--brand)] hover:underline underline-offset-4"
+          >
+            Read Full Article →
+          </a>
+        )}
       </article>
     </div>
   );

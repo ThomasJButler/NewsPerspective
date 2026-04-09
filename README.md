@@ -108,6 +108,8 @@ The free NewsAPI plan gives you 100 requests per day with articles delayed by ~2
 
 This works well for the app's purpose: it gives the AI time to analyse and contextualise stories rather than racing to publish raw headlines. The free tier is localhost-only, which is why NewsPerspective is designed as a self-hosted app rather than a live web service.
 
+**Note on UK headlines:** NewsAPI recently restricted `/v2/top-headlines?country=` to `us` only. NewsPerspective works around this by fetching UK headlines via specific source IDs (BBC News, The Guardian, Independent, Financial Times, BBC Sport, Daily Mail, TalkSport, Business Insider UK) — all batched into a single request. UK coverage still works on the free Developer tier from localhost. To add or remove UK outlets, edit `UK_SOURCE_CATEGORIES` in `src/backend/services/news_fetcher.py`.
+
 ## Docker
 
 A Docker Compose workflow is included for quick local testing:

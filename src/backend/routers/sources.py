@@ -1,8 +1,9 @@
 import re
+from datetime import datetime, timedelta, timezone
 
 import requests as http_requests
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
-from sqlalchemy import func, not_
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
+from sqlalchemy import case, func, not_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -10,11 +11,15 @@ from ..models import Article
 from ..schemas import (
     CategoriesResponse,
     CategoryItem,
+    DailyArticleCount,
+    DailyRewriteRate,
+    HistoricalStatsResponse,
     RefreshErrorCode,
     RefreshErrorDetail,
     RefreshErrorResponse,
     RefreshResponse,
     RefreshStatusResponse,
+    SentimentMix,
     SourceItem,
     SourcesResponse,
     StatsResponse,
@@ -162,6 +167,107 @@ def get_stats(db: Session = Depends(get_db)):
         good_news_count=good_news_count,
         sources_count=sources_count,
         latest_fetch=latest_fetch,
+    )
+
+
+def _stats_base_filters(db: Session) -> list:
+    """Shared filter list for stats endpoints: processed + guardrails + custom."""
+    custom_keywords = load_custom_guardrail_keywords(db)
+    filters = [
+        Article.processing_status == "processed",
+        not_(content_guardrail_expression(Article)),
+    ]
+    if custom_keywords:
+        filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))
+    return filters
+
+
+@router.get("/stats/historical", response_model=HistoricalStatsResponse)
+def get_historical_stats(
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db),
+) -> HistoricalStatsResponse:
+    """Time-series + distribution data for the /stats page charts.
+
+    Returns `days` (default 30, max 365) of daily article counts and rewrite
+    rates, plus a snapshot sentiment distribution. All aggregations honour
+    the same processed + guardrail filters used by /api/stats so numbers
+    stay consistent with the home feed and header strip.
+    """
+    base_filters = _stats_base_filters(db)
+
+    today = datetime.now(timezone.utc).date()
+    window_start = today - timedelta(days=days - 1)
+
+    # Group by the day portion of fetched_at. func.date returns an ISO
+    # string like "2026-04-09" in SQLite.
+    day_expr = func.date(Article.fetched_at)
+
+    rewritten_expr = func.sum(
+        case((Article.was_rewritten.is_(True), 1), else_=0)
+    )
+
+    daily_rows = (
+        db.query(
+            day_expr.label("day"),
+            func.count(Article.id).label("count"),
+            rewritten_expr.label("rewritten"),
+        )
+        .filter(
+            *base_filters,
+            Article.fetched_at.isnot(None),
+            day_expr >= window_start.isoformat(),
+        )
+        .group_by(day_expr)
+        .order_by(day_expr.asc())
+        .all()
+    )
+
+    # Left-fill missing days with zeros so the chart lines are continuous.
+    by_day: dict[str, tuple[int, int]] = {}
+    for row in daily_rows:
+        day_key = row.day if isinstance(row.day, str) else str(row.day)
+        rewritten = int(row.rewritten or 0)
+        by_day[day_key] = (int(row.count or 0), rewritten)
+
+    articles_over_time: list[DailyArticleCount] = []
+    rewrite_rate: list[DailyRewriteRate] = []
+    for offset in range(days):
+        day_iso = (window_start + timedelta(days=offset)).isoformat()
+        total, rewritten = by_day.get(day_iso, (0, 0))
+        articles_over_time.append(DailyArticleCount(date=day_iso, count=total))
+        rate = (rewritten / total) if total > 0 else 0.0
+        rewrite_rate.append(
+            DailyRewriteRate(
+                date=day_iso,
+                total=total,
+                rewritten=rewritten,
+                rate=rate,
+            )
+        )
+
+    # Sentiment mix snapshot — same filters, no time window.
+    sentiment_rows = (
+        db.query(
+            Article.original_sentiment.label("sentiment"),
+            func.count(Article.id).label("count"),
+        )
+        .filter(*base_filters)
+        .group_by(Article.original_sentiment)
+        .all()
+    )
+
+    mix = {"positive": 0, "neutral": 0, "negative": 0}
+    for row in sentiment_rows:
+        key = (row.sentiment or "").lower()
+        if key in mix:
+            mix[key] += int(row.count or 0)
+
+    return HistoricalStatsResponse(
+        days=days,
+        articles_over_time=articles_over_time,
+        rewrite_rate=rewrite_rate,
+        sentiment_mix=SentimentMix(**mix),
     )
 
 

@@ -55,6 +55,31 @@ export interface StatsResponse {
   latest_fetch: string | null;
 }
 
+export interface DailyArticleCount {
+  date: string;
+  count: number;
+}
+
+export interface DailyRewriteRate {
+  date: string;
+  total: number;
+  rewritten: number;
+  rate: number;
+}
+
+export interface SentimentMix {
+  positive: number;
+  neutral: number;
+  negative: number;
+}
+
+export interface HistoricalStatsResponse {
+  days: number;
+  articles_over_time: DailyArticleCount[];
+  rewrite_rate: DailyRewriteRate[];
+  sentiment_mix: SentimentMix;
+}
+
 export interface RefreshResponse {
   status: string;
   message: string;

@@ -213,6 +213,93 @@ class RefreshProcessingRegressionTest(unittest.TestCase):
 
         self.assertIn("All category fetches failed", str(raised.exception))
 
+    def test_fetch_all_categories_gb_uses_sources_batch(self) -> None:
+        """country=gb should batch UK sources into one request, not iterate categories.
+
+        NewsAPI deprecated country=gb on /v2/top-headlines. The fetcher must
+        delegate to the sources-based path and assign country='gb' plus a
+        per-source category from UK_SOURCE_CATEGORIES.
+        """
+        fetcher = news_fetcher.NewsFetcher(api_key="valid-key")
+
+        newsapi_response = {
+            "status": "ok",
+            "totalResults": 3,
+            "articles": [
+                {
+                    "title": "BBC story about UK politics",
+                    "description": "A UK news piece.",
+                    "source": {"id": "bbc-news", "name": "BBC News"},
+                    "author": "BBC Reporter",
+                    "url": "https://bbc.co.uk/story-1",
+                    "urlToImage": "https://bbc.co.uk/story-1.jpg",
+                    "publishedAt": "2026-03-11T10:00:00Z",
+                },
+                {
+                    "title": "FT market analysis",
+                    "description": "Markets moved today.",
+                    "source": {"id": "financial-times", "name": "Financial Times"},
+                    "author": "FT Journalist",
+                    "url": "https://ft.com/story-2",
+                    "urlToImage": "https://ft.com/story-2.jpg",
+                    "publishedAt": "2026-03-11T11:00:00Z",
+                },
+                {
+                    "title": "BBC Sport football result",
+                    "description": "Premier League fixture.",
+                    "source": {"id": "bbc-sport", "name": "BBC Sport"},
+                    "author": "Sport Reporter",
+                    "url": "https://bbc.co.uk/sport-3",
+                    "urlToImage": "https://bbc.co.uk/sport-3.jpg",
+                    "publishedAt": "2026-03-11T12:00:00Z",
+                },
+            ],
+        }
+
+        class _MockResponse:
+            status_code = 200
+
+            def raise_for_status(self) -> None:  # pragma: no cover - no-op
+                return None
+
+            def json(self) -> dict:
+                return newsapi_response
+
+        with patch.object(
+            news_fetcher.requests,
+            "get",
+            return_value=_MockResponse(),
+        ) as mocked_get:
+            result = fetcher.fetch_all_categories(country="gb")
+
+        # One batched request for UK, not one per category.
+        self.assertEqual(mocked_get.call_count, 1)
+
+        # The call must use sources=, not country=gb.
+        params = mocked_get.call_args.kwargs["params"]
+        self.assertIn("sources", params)
+        self.assertNotIn("country", params)
+        source_ids = params["sources"].split(",")
+        self.assertIn("bbc-news", source_ids)
+        self.assertIn("financial-times", source_ids)
+        self.assertIn("bbc-sport", source_ids)
+
+        # Articles are tagged with country=gb and per-source categories.
+        self.assertEqual(len(result), 3)
+        by_url = {a["url"]: a for a in result}
+
+        bbc = by_url["https://bbc.co.uk/story-1"]
+        self.assertEqual(bbc["country"], "gb")
+        self.assertEqual(bbc["category"], "general")
+
+        ft = by_url["https://ft.com/story-2"]
+        self.assertEqual(ft["country"], "gb")
+        self.assertEqual(ft["category"], "business")
+
+        sport = by_url["https://bbc.co.uk/sport-3"]
+        self.assertEqual(sport["country"], "gb")
+        self.assertEqual(sport["category"], "sports")
+
     def test_process_new_articles_leaves_db_empty_when_all_fetches_fail(self) -> None:
         session = database.SessionLocal()
         failure = news_fetcher.NewsFetchError("all categories failed")

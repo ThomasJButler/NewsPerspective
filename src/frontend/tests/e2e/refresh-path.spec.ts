@@ -334,8 +334,10 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
 
   await expect(page.getByText("Refresh complete", { exact: true })).toBeVisible();
   await expect(page.getByText("Added 2 new articles.", { exact: true })).toBeVisible();
+  // Refresh status card collapsed to a compact header: title is now the
+  // bare "Added N articles" string (no "Latest refresh" prefix, no period).
   await expect(
-    page.getByText("Latest refresh added 2 articles.", { exact: true })
+    page.getByText("Added 2 articles", { exact: true })
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
@@ -343,7 +345,9 @@ test("completes an accepted refresh and reloads cached data after polling", asyn
       name: "Fresh article arrives after refresh completes",
     })
   ).toBeVisible();
-  await expect(page.getByText("3 articles processed · 1 headline improved")).toBeVisible();
+  // StatsBar splits metrics into sibling spans; assert each piece.
+  await expect(page.getByText("3 articles processed")).toBeVisible();
+  await expect(page.getByText("1 headline improved")).toBeVisible();
 
   await page.getByRole("combobox", { name: "Filter by source" }).click();
   await expect(page.getByRole("option", { name: "Fresh News (2)" })).toBeVisible();
@@ -574,11 +578,9 @@ test("keeps the last successful refresh visible after the backend tracker resets
 
   await page.goto("/");
 
+  // Idle state renders only the title + relative timestamp label ("last
+  // refreshed just now"). The verbose description was dropped during the
+  // card redesign because it added no information to the ready state.
   await expect(page.getByText("Ready to refresh", { exact: true })).toBeVisible();
-  await expect(page.getByText("Last refreshed", { exact: false })).toBeVisible();
-  await expect(
-    page.getByText(
-      "No refresh is running. Cached headlines still reflect the latest successful fetch."
-    )
-  ).toBeVisible();
+  await expect(page.getByText("last refreshed", { exact: false })).toBeVisible();
 });

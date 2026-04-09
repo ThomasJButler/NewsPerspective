@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 
 GOOD_NEWS_EXCLUDED_CATEGORIES = frozenset({"sports", "entertainment"})
 
+# Categories excluded from the comparison view — sports and entertainment headlines
+# form huge same-story clusters that dominate the sort order, and they are poor
+# examples of editorial framing (the point of the comparison view).
+COMPARISON_EXCLUDED_CATEGORIES = frozenset({"sports", "entertainment"})
+
 # Content guardrail keywords — applied to both the normal feed and Good News mode.
 # Rationale: these topics are difficult to rewrite safely, can be emotionally
 # triggering, and increase the risk of harmful misinterpretation.

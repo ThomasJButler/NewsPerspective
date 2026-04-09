@@ -64,6 +64,35 @@ class StatsResponse(BaseModel):
     latest_fetch: datetime | None = None
 
 
+class DailyArticleCount(BaseModel):
+    """One day's total processed article count for the stats page."""
+    date: str  # ISO date, e.g. "2026-04-09"
+    count: int
+
+
+class DailyRewriteRate(BaseModel):
+    """One day's rewrite rate — total vs rewritten headlines."""
+    date: str
+    total: int
+    rewritten: int
+    rate: float  # 0.0 – 1.0
+
+
+class SentimentMix(BaseModel):
+    """Snapshot sentiment distribution across all filtered articles."""
+    positive: int
+    neutral: int
+    negative: int
+
+
+class HistoricalStatsResponse(BaseModel):
+    """Time-series + distribution data for the /stats page charts."""
+    days: int
+    articles_over_time: list[DailyArticleCount]
+    rewrite_rate: list[DailyRewriteRate]
+    sentiment_mix: SentimentMix
+
+
 class ComparisonArticleSummary(BaseModel):
     """Abbreviated article within a comparison group."""
     id: str

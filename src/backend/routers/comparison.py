@@ -13,7 +13,12 @@ from ..schemas import (
     ComparisonSourceTone,
 )
 from ..services.ai_service import AIService
-from ..utils.good_news import content_guardrail_expression, custom_guardrail_expression, load_custom_guardrail_keywords
+from ..utils.good_news import (
+    COMPARISON_EXCLUDED_CATEGORIES,
+    content_guardrail_expression,
+    custom_guardrail_expression,
+    load_custom_guardrail_keywords,
+)
 from ..utils.source_normalization import normalized_source_label
 from ..utils.title_similarity import group_articles
 
@@ -29,6 +34,7 @@ def get_comparison_groups(
     base_filter = [
         Article.processing_status == "processed",
         not_(content_guardrail_expression(Article)),
+        Article.category.notin_(COMPARISON_EXCLUDED_CATEGORIES),
     ]
     if custom_keywords:
         base_filter.append(not_(custom_guardrail_expression(Article, custom_keywords)))
@@ -86,6 +92,7 @@ def analyse_comparison_group(
         Article.id.in_(body.article_ids),
         Article.processing_status == "processed",
         not_(content_guardrail_expression(Article)),
+        Article.category.notin_(COMPARISON_EXCLUDED_CATEGORIES),
     ]
     if custom_keywords:
         guardrail_filters.append(not_(custom_guardrail_expression(Article, custom_keywords)))

@@ -82,8 +82,10 @@ test("shows seeded cached articles without a saved key", async ({ page }, testIn
       name: "NHS expands virtual wards to ease hospital demand",
     })
   ).toBeVisible();
+  // The Good News description now lives in a title tooltip on the toggle
+  // wrapper. Assert the switch control is rendered with the correct label.
   await expect(
-    page.getByText("Excludes sports, entertainment, politics, and distressing content.")
+    page.getByRole("switch", { name: "Good News Only" })
   ).toBeVisible();
   await expect(page.getByText(/articles processed/)).toBeVisible();
 
@@ -247,7 +249,9 @@ test("refreshes the feed and metadata immediately after saving blocked topics", 
   await expect(
     page.getByRole("heading", { level: 2, name: blockedArticle.original_title })
   ).toBeVisible();
-  await expect(page.getByText("2 articles processed · 0 headlines improved")).toBeVisible();
+  // StatsBar splits the metrics into sibling spans for layout; assert each piece.
+  await expect(page.getByText("2 articles processed")).toBeVisible();
+  await expect(page.getByText("0 headlines improved")).toBeVisible();
 
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
@@ -258,7 +262,8 @@ test("refreshes the feed and metadata immediately after saving blocked topics", 
   await expect(
     page.getByRole("heading", { level: 2, name: blockedArticle.original_title })
   ).toHaveCount(0);
-  await expect(page.getByText("1 article processed · 0 headlines improved")).toBeVisible();
+  await expect(page.getByText("1 article processed")).toBeVisible();
+  await expect(page.getByText("0 headlines improved")).toBeVisible();
   await page.getByRole("button", { name: "Close settings" }).click();
 
   await page.getByRole("combobox", { name: "Filter by source" }).click();
@@ -320,9 +325,15 @@ test("filters seeded cached articles and opens article detail", async ({ page },
     })
   ).toBeVisible();
   await expect(page.getByText("Reuters")).toBeVisible();
+  // This seed article is a demo row (id "manual-seed-008"), so the detail
+  // page should surface the demo label instead of a live Read Full Article
+  // link. The link must be absent to prevent users landing on example.com.
+  await expect(
+    page.getByText("Demo article — add your NewsAPI key for live stories")
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Read Full Article →" })
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   await captureScreenshot(page, testInfo, "cached-browse-article-detail.png");
 });

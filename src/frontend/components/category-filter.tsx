@@ -22,7 +22,7 @@ export function CategoryFilter({
 }: CategoryFilterProps) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="w-[180px]" aria-label="Filter by category">
+      <SelectTrigger className="w-[150px]" aria-label="Filter by category">
         <SelectValue placeholder="All Categories" />
       </SelectTrigger>
       <SelectContent>

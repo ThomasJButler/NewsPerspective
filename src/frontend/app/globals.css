@@ -22,6 +22,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -49,23 +51,27 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Warm paper-like off-white — easier on the eyes than pure #fff for long reading. */
+  --background: oklch(0.985 0.004 85);
+  /* Softer near-black with a hint of cool tint — reads calmer than pure black. */
+  --foreground: oklch(0.18 0.01 260);
+  /* Cards stay pure white so they lift subtly above the warm background. */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.18 0.01 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.18 0.01 260);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.97 0.003 255);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.96 0.004 255);
+  /* Darker than stock oklch(0.556 0 0) so body metadata hits WCAG AA for small text. */
+  --muted-foreground: oklch(0.47 0.012 260);
+  --accent: oklch(0.96 0.004 255);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.9 0.005 260);
+  --input: oklch(0.9 0.005 260);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -80,25 +86,31 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --brand: oklch(0.66 0.13 160);
+  --brand-foreground: oklch(0.985 0 0);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  /* Deep navy-tinted black instead of pure #000 — less fatiguing in dark rooms. */
+  --background: oklch(0.17 0.012 255);
+  /* Soft near-white — easier on the eyes than pure white at 100% brightness. */
+  --foreground: oklch(0.96 0.005 260);
+  /* Cards lift slightly above the background so they feel like distinct layers. */
+  --card: oklch(0.215 0.012 255);
+  --card-foreground: oklch(0.96 0.005 260);
+  --popover: oklch(0.215 0.012 255);
+  --popover-foreground: oklch(0.96 0.005 260);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.275 0.01 255);
+  --secondary-foreground: oklch(0.96 0.005 260);
+  --muted: oklch(0.275 0.01 255);
+  /* Higher than stock oklch(0.708 0 0) so article metadata stays readable. */
+  --muted-foreground: oklch(0.76 0.012 260);
+  --accent: oklch(0.275 0.01 255);
+  --accent-foreground: oklch(0.96 0.005 260);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
@@ -114,6 +126,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --brand: oklch(0.73 0.15 160);
+  --brand-foreground: oklch(0.145 0 0);
 }
 
 @layer base {

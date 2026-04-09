@@ -22,7 +22,7 @@ export function SourceFilter({
 }: SourceFilterProps) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="w-[180px]" aria-label="Filter by source">
+      <SelectTrigger className="w-[150px]" aria-label="Filter by source">
         <SelectValue placeholder="All Sources" />
       </SelectTrigger>
       <SelectContent>

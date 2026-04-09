@@ -1,14 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { RefreshStatusResponse, StatsResponse } from "@/types/article";
 
 interface RefreshStatusCardProps {
@@ -16,96 +9,112 @@ interface RefreshStatusCardProps {
   refreshStatus: RefreshStatusResponse | null;
 }
 
-type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+type Tone = "processing" | "completed" | "failed" | "idle";
+
+interface Presentation {
+  tone: Tone;
+  title: string;
+  description: string | null;
+  timestamp: string | null;
+  timestampLabel: string | null;
+}
 
 function formatArticleCount(count: number) {
   return `${count} article${count === 1 ? "" : "s"}`;
 }
 
-function getRefreshPresentation(
+function getPresentation(
   stats: StatsResponse | null,
   refreshStatus: RefreshStatusResponse | null
-): {
-  badge: string;
-  badgeVariant: BadgeVariant;
-  title: string;
-  description: string;
-} {
-  if (!refreshStatus) {
-    if (stats?.latest_fetch) {
-      return {
-        badge: "Ready",
-        badgeVariant: "outline",
-        title: "Ready to refresh",
-        description:
-          "No refresh is running. Cached headlines still reflect the latest successful fetch.",
-      };
-    }
+): Presentation {
+  const latestFetch = stats?.latest_fetch ?? null;
 
+  if (refreshStatus?.status === "processing") {
     return {
-      badge: "Idle",
-      badgeVariant: "outline",
-      title: "No refresh history yet",
-      description:
-        "Browse cached articles now, then add your NewsAPI key whenever you want to fetch fresh headlines.",
-    };
-  }
-
-  if (refreshStatus.status === "processing") {
-    return {
-      badge: "Processing",
-      badgeVariant: "default",
+      tone: "processing",
       title: "Refresh in progress",
       description:
-        "Fetching and processing articles in the background while cached headlines stay available.",
+        "Fetching and processing articles while cached headlines stay available.",
+      timestamp: refreshStatus.started_at,
+      timestampLabel: "started",
     };
   }
 
-  if (refreshStatus.status === "failed") {
+  if (refreshStatus?.status === "failed") {
     return {
-      badge: "Failed",
-      badgeVariant: "destructive",
+      tone: "failed",
       title: "Latest refresh failed",
       description: refreshStatus.message,
+      timestamp: refreshStatus.finished_at,
+      timestampLabel: "finished",
     };
   }
 
-  if (refreshStatus.status === "completed") {
-    if (refreshStatus.new_articles > 0) {
+  if (refreshStatus?.status === "completed") {
+    const newCount = refreshStatus.new_articles;
+    if (newCount > 0) {
       return {
-        badge: "Completed",
-        badgeVariant: "secondary",
-        title: `Latest refresh added ${formatArticleCount(refreshStatus.new_articles)}.`,
-        description: `Processed ${formatArticleCount(refreshStatus.processed_articles)} in the latest run.`,
+        tone: "completed",
+        title: `Added ${formatArticleCount(newCount)}`,
+        description: null,
+        timestamp: refreshStatus.finished_at,
+        timestampLabel: "finished",
       };
     }
-
     return {
-      badge: "Completed",
-      badgeVariant: "secondary",
-      title: "Latest refresh finished with no new articles.",
-      description: `Processed ${formatArticleCount(refreshStatus.processed_articles)} without adding anything new to the cache.`,
+      tone: "completed",
+      title: "Refresh finished with no new articles",
+      description: null,
+      timestamp: refreshStatus.finished_at,
+      timestampLabel: "finished",
     };
   }
 
-  if (stats?.latest_fetch) {
+  if (latestFetch) {
     return {
-      badge: "Ready",
-      badgeVariant: "outline",
+      tone: "idle",
       title: "Ready to refresh",
-      description:
-        "No refresh is running. Cached headlines still reflect the latest successful fetch.",
+      description: null,
+      timestamp: latestFetch,
+      timestampLabel: "last refreshed",
     };
   }
 
   return {
-    badge: "Idle",
-    badgeVariant: "outline",
+    tone: "idle",
     title: "No refresh history yet",
     description:
-      "Browse cached articles now, then add your NewsAPI key whenever you want to fetch fresh headlines.",
+      "Browse cached articles, then add your NewsAPI key to fetch fresh headlines.",
+    timestamp: null,
+    timestampLabel: null,
   };
 }
+
+const TONE_STYLES: Record<
+  Tone,
+  { border: string; dot: string; ring: string }
+> = {
+  processing: {
+    border: "border-l-[color:var(--brand)]",
+    dot: "bg-[color:var(--brand)]",
+    ring: "bg-[color:var(--brand)]",
+  },
+  completed: {
+    border: "border-l-[color:var(--brand)]",
+    dot: "bg-[color:var(--brand)]",
+    ring: "bg-transparent",
+  },
+  failed: {
+    border: "border-l-destructive",
+    dot: "bg-destructive",
+    ring: "bg-transparent",
+  },
+  idle: {
+    border: "border-l-border",
+    dot: "bg-muted-foreground/50",
+    ring: "bg-transparent",
+  },
+};
 
 export function RefreshStatusCard({
   stats,
@@ -115,51 +124,59 @@ export function RefreshStatusCard({
     return null;
   }
 
-  const presentation = getRefreshPresentation(stats, refreshStatus);
-  const lastRefreshed = stats?.latest_fetch;
-  const startedAt = refreshStatus?.status === "processing"
-    ? refreshStatus.started_at
-    : null;
-  const finishedAt =
-    refreshStatus?.status === "completed" || refreshStatus?.status === "failed"
-      ? refreshStatus.finished_at
-      : null;
+  const presentation = getPresentation(stats, refreshStatus);
+  const styles = TONE_STYLES[presentation.tone];
+  const isProcessing = presentation.tone === "processing";
 
   return (
-    <Card
-      className="mb-6 gap-4 border-dashed"
+    <div
       role="status"
       aria-live="polite"
       aria-label="Refresh status"
+      className={cn(
+        "mb-4 flex items-center gap-3 rounded-md border border-l-4 bg-muted/20 px-4 py-2.5",
+        styles.border
+      )}
     >
-      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Badge variant={presentation.badgeVariant}>{presentation.badge}</Badge>
-          <div className="space-y-1">
-            <CardTitle>{presentation.title}</CardTitle>
-            <CardDescription>{presentation.description}</CardDescription>
-          </div>
+      <span
+        className="relative flex h-2.5 w-2.5 shrink-0"
+        aria-hidden="true"
+      >
+        {isProcessing && (
+          <span
+            className={cn(
+              "absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping",
+              styles.ring
+            )}
+          />
+        )}
+        <span
+          className={cn(
+            "relative inline-flex h-2.5 w-2.5 rounded-full",
+            styles.dot
+          )}
+        />
+      </span>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium leading-tight">{presentation.title}</p>
+        {presentation.description && (
+          <p className="text-xs text-muted-foreground leading-snug mt-0.5 break-words">
+            {presentation.description}
+          </p>
+        )}
+      </div>
+
+      {presentation.timestamp && presentation.timestampLabel && (
+        <div className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+          <span className="hidden sm:inline">
+            {presentation.timestampLabel}{" "}
+          </span>
+          <time dateTime={presentation.timestamp}>
+            {formatDate(presentation.timestamp)}
+          </time>
         </div>
-      </CardHeader>
-      <CardContent className="grid gap-2 text-sm text-muted-foreground">
-        {lastRefreshed && (
-          <p>
-            Last refreshed{" "}
-            <time dateTime={lastRefreshed}>{formatDate(lastRefreshed)}</time>.
-          </p>
-        )}
-        {startedAt && (
-          <p>
-            Started <time dateTime={startedAt}>{formatDate(startedAt)}</time>.
-          </p>
-        )}
-        {finishedAt && (
-          <p>
-            Last refresh finished{" "}
-            <time dateTime={finishedAt}>{formatDate(finishedAt)}</time>.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
