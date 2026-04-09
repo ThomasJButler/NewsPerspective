@@ -29,10 +29,19 @@ class ArticleProcessor:
         fetch_errors: list[str] = []
         for country in ("us", "gb"):
             try:
-                articles.extend(news_source.fetch_all_categories(country=country))
+                country_articles = news_source.fetch_all_categories(country=country)
             except NewsFetchError as exc:
                 logger.warning("Fetch failed for country=%s: %s — continuing", country, exc)
                 fetch_errors.append(f"{country}: {exc}")
+                continue
+
+            if not country_articles:
+                logger.warning(
+                    "Country=%s returned zero articles. Check NewsAPI status, plan "
+                    "limits, or (for gb) the UK_SOURCE_CATEGORIES list in news_fetcher.",
+                    country,
+                )
+            articles.extend(country_articles)
 
         if not articles and fetch_errors:
             raise NewsFetchError(f"All country fetches failed: {'; '.join(fetch_errors)}")

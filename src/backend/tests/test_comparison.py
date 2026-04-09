@@ -116,6 +116,66 @@ class TitleSimilarityUnitTest(unittest.TestCase):
         groups = title_similarity.group_articles(articles)
         self.assertEqual(len(groups), 0)
 
+    def test_group_articles_sort_prefers_country_diversity(self):
+        """Mixed-country groups must sort before larger single-country groups."""
+        now = datetime.now(timezone.utc)
+        articles = [
+            # US-only group of 4 — would come first under the old size-only sort.
+            _make_article(
+                "tech1",
+                "Startup unveils quantum computing chip breakthrough",
+                "Wired",
+                "us",
+                now,
+            ),
+            _make_article(
+                "tech2",
+                "Quantum computing startup claims chip breakthrough",
+                "Verge",
+                "us",
+                now - timedelta(hours=1),
+            ),
+            _make_article(
+                "tech3",
+                "Quantum computing chip breakthrough announced by startup",
+                "Ars Technica",
+                "us",
+                now - timedelta(hours=2),
+            ),
+            _make_article(
+                "tech4",
+                "Breakthrough quantum computing chip revealed by startup",
+                "MIT",
+                "us",
+                now - timedelta(hours=3),
+            ),
+            # Mixed-country group of 2 — must come first under the new sort.
+            _make_article(
+                "eq1",
+                "Earthquake strikes coastal city causing widespread damage",
+                "BBC News",
+                "gb",
+                now - timedelta(hours=4),
+            ),
+            _make_article(
+                "eq2",
+                "Coastal city earthquake causes widespread damage",
+                "CNN",
+                "us",
+                now - timedelta(hours=5),
+            ),
+        ]
+
+        groups = title_similarity.group_articles(articles)
+
+        self.assertEqual(len(groups), 2)
+        first_group, second_group = groups
+        self.assertEqual(sorted(first_group.countries), ["gb", "us"])
+        self.assertIn("eq1", first_group.article_ids)
+        self.assertIn("eq2", first_group.article_ids)
+        self.assertEqual(second_group.countries, ["us"])
+        self.assertEqual(len(second_group.article_ids), 4)
+
     def test_group_articles_uses_transitive_similarity_chain(self):
         """A~B and B~C should form one group even when A !~ C."""
         now = datetime.now(timezone.utc)
@@ -216,6 +276,131 @@ class ComparisonEndpointTest(unittest.TestCase):
                     country="gb",
                     processing_status="pending",
                 ),
+                # Sports articles — should be excluded from comparison by category filter
+                models.Article(
+                    id="comp-sports-1",
+                    original_title="Lakers defeat Warriors in overtime thriller",
+                    source_name="ESPN",
+                    source_id="espn",
+                    url="https://example.com/comp-sports-1",
+                    published_at=now - timedelta(hours=3),
+                    fetched_at=now,
+                    country="us",
+                    category="sports",
+                    processing_status="processed",
+                ),
+                models.Article(
+                    id="comp-sports-2",
+                    original_title="Warriors fall to Lakers in thrilling overtime finish",
+                    source_name="NBA.com",
+                    source_id="nba",
+                    url="https://example.com/comp-sports-2",
+                    published_at=now - timedelta(hours=3),
+                    fetched_at=now,
+                    country="us",
+                    category="sports",
+                    processing_status="processed",
+                ),
+                models.Article(
+                    id="comp-sports-3",
+                    original_title="Overtime Lakers edge out Warriors in thriller",
+                    source_name="Sports Illustrated",
+                    source_id="si",
+                    url="https://example.com/comp-sports-3",
+                    published_at=now - timedelta(hours=3),
+                    fetched_at=now,
+                    country="us",
+                    category="sports",
+                    processing_status="processed",
+                ),
+                # Entertainment articles — should also be excluded by category filter
+                models.Article(
+                    id="comp-ent-1",
+                    original_title="Marvel superhero blockbuster breaks opening weekend records",
+                    source_name="Variety",
+                    source_id="variety",
+                    url="https://example.com/comp-ent-1",
+                    published_at=now - timedelta(hours=4),
+                    fetched_at=now,
+                    country="us",
+                    category="entertainment",
+                    processing_status="processed",
+                ),
+                models.Article(
+                    id="comp-ent-2",
+                    original_title="Superhero blockbuster shatters opening weekend records",
+                    source_name="Hollywood Reporter",
+                    source_id="hollywood",
+                    url="https://example.com/comp-ent-2",
+                    published_at=now - timedelta(hours=4),
+                    fetched_at=now,
+                    country="us",
+                    category="entertainment",
+                    processing_status="processed",
+                ),
+                models.Article(
+                    id="comp-ent-3",
+                    original_title="Marvel blockbuster opening weekend breaks box office records",
+                    source_name="Deadline",
+                    source_id="deadline",
+                    url="https://example.com/comp-ent-3",
+                    published_at=now - timedelta(hours=4),
+                    fetched_at=now,
+                    country="us",
+                    category="entertainment",
+                    processing_status="processed",
+                ),
+                # US-only tech group of 4 — larger than the earthquake group, but
+                # single-country, so it must sort below the earthquake group after
+                # the country-diversity sort change.
+                models.Article(
+                    id="comp-tech-1",
+                    original_title="Startup unveils quantum computing chip breakthrough",
+                    source_name="Wired",
+                    source_id="wired",
+                    url="https://example.com/comp-tech-1",
+                    published_at=now - timedelta(hours=5),
+                    fetched_at=now,
+                    country="us",
+                    category="technology",
+                    processing_status="processed",
+                ),
+                models.Article(
+                    id="comp-tech-2",
+                    original_title="Quantum computing startup claims chip breakthrough",
+                    source_name="The Verge",
+                    source_id="verge",
+                    url="https://example.com/comp-tech-2",
+                    published_at=now - timedelta(hours=5),
+                    fetched_at=now,
+                    country="us",
+                    category="technology",
+                    processing_status="processed",
+                ),
+                models.Article(
+                    id="comp-tech-3",
+                    original_title="Quantum computing chip breakthrough announced by startup",
+                    source_name="Ars Technica",
+                    source_id="ars",
+                    url="https://example.com/comp-tech-3",
+                    published_at=now - timedelta(hours=5),
+                    fetched_at=now,
+                    country="us",
+                    category="technology",
+                    processing_status="processed",
+                ),
+                models.Article(
+                    id="comp-tech-4",
+                    original_title="Breakthrough quantum computing chip revealed by startup",
+                    source_name="MIT Tech Review",
+                    source_id="mit",
+                    url="https://example.com/comp-tech-4",
+                    published_at=now - timedelta(hours=5),
+                    fetched_at=now,
+                    country="us",
+                    category="technology",
+                    processing_status="processed",
+                ),
             ])
             session.commit()
         finally:
@@ -264,6 +449,45 @@ class ComparisonEndpointTest(unittest.TestCase):
             article = data["groups"][0]["articles"][0]
             for field in ["id", "original_title", "source_name", "country", "url"]:
                 self.assertIn(field, article)
+
+    def test_comparison_excludes_sports_and_entertainment_articles(self):
+        """Sports and entertainment articles should never appear in /api/comparison."""
+        resp = self.client.get("/api/comparison")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        all_ids = {
+            article["id"]
+            for group in data["groups"]
+            for article in group["articles"]
+        }
+        for sports_id in ("comp-sports-1", "comp-sports-2", "comp-sports-3"):
+            self.assertNotIn(
+                sports_id,
+                all_ids,
+                f"Sports article {sports_id} must be excluded from comparison",
+            )
+        for ent_id in ("comp-ent-1", "comp-ent-2", "comp-ent-3"):
+            self.assertNotIn(
+                ent_id,
+                all_ids,
+                f"Entertainment article {ent_id} must be excluded from comparison",
+            )
+
+    def test_comparison_prioritises_multi_country_groups(self):
+        """A mixed-country group must sort before a larger single-country group."""
+        resp = self.client.get("/api/comparison")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertGreaterEqual(data["total_groups"], 2)
+
+        first_group = data["groups"][0]
+        first_ids = [a["id"] for a in first_group["articles"]]
+        # The earthquake group (gb + us) should come first despite being smaller
+        # than the 4-article quantum computing tech group (us only).
+        self.assertGreaterEqual(len(first_group["countries"]), 2)
+        self.assertIn("comp-1", first_ids)
+        self.assertIn("comp-2", first_ids)
 
 
 class ComparisonAnalysisValidationTest(unittest.TestCase):
@@ -351,7 +575,17 @@ class ComparisonAnalyseEndpointTest(unittest.TestCase):
             existing = {
                 r[0]
                 for r in session.query(models.Article.id)
-                .filter(models.Article.id.in_(["comp-1", "comp-2", "comp-4"]))
+                .filter(
+                    models.Article.id.in_(
+                        [
+                            "comp-1",
+                            "comp-2",
+                            "comp-4",
+                            "comp-sports-1",
+                            "comp-sports-2",
+                        ]
+                    )
+                )
                 .all()
             }
             new_rows = []
@@ -401,6 +635,36 @@ class ComparisonAnalyseEndpointTest(unittest.TestCase):
                         url="https://example.com/comp-4",
                         country="gb",
                         processing_status="pending",
+                    )
+                )
+            if "comp-sports-1" not in existing:
+                new_rows.append(
+                    models.Article(
+                        id="comp-sports-1",
+                        original_title="Lakers defeat Warriors in overtime thriller",
+                        source_name="ESPN",
+                        source_id="espn",
+                        url="https://example.com/comp-sports-1",
+                        published_at=now - timedelta(hours=3),
+                        fetched_at=now,
+                        country="us",
+                        category="sports",
+                        processing_status="processed",
+                    )
+                )
+            if "comp-sports-2" not in existing:
+                new_rows.append(
+                    models.Article(
+                        id="comp-sports-2",
+                        original_title="Warriors fall to Lakers in thrilling overtime finish",
+                        source_name="NBA.com",
+                        source_id="nba",
+                        url="https://example.com/comp-sports-2",
+                        published_at=now - timedelta(hours=3),
+                        fetched_at=now,
+                        country="us",
+                        category="sports",
+                        processing_status="processed",
                     )
                 )
             if new_rows:
@@ -454,6 +718,14 @@ class ComparisonAnalyseEndpointTest(unittest.TestCase):
         resp = self.client.post(
             "/api/comparison/analyse",
             json={"article_ids": ["comp-1", "comp-4"]},
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_analyse_rejects_excluded_category_articles(self):
+        """Sports/entertainment articles must be filtered out before analysis."""
+        resp = self.client.post(
+            "/api/comparison/analyse",
+            json={"article_ids": ["comp-sports-1", "comp-sports-2"]},
         )
         self.assertEqual(resp.status_code, 404)
 

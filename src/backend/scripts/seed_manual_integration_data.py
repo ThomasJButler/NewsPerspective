@@ -405,6 +405,99 @@ SEED_ARTICLES: tuple[SeedArticle, ...] = (
         is_good_news=True,
         country="gb",
     ),
+    # ------------------------------------------------------------------
+    # Cross-country story pairs for the comparison view demo.
+    # Each pair is a globally-shared story covered by a UK and a US outlet
+    # with overlapping headline keywords, so the comparison grouping will
+    # cluster them into multi-country groups.
+    # ------------------------------------------------------------------
+    SeedArticle(
+        slug="apple-ai-chip-us",
+        source_name="Reuters",
+        source_id="reuters",
+        original_title="Apple reveals next-generation AI chip powering new Mac lineup",
+        rewritten_title="Apple announces next-generation AI chip for new Mac lineup",
+        tldr="Apple introduced a new generation of its custom silicon at a developer event, built around on-device machine learning workloads. The chip will ship first in updated Mac models later this year.",
+        author="Alex Chen",
+        category="technology",
+        was_rewritten=True,
+        original_sentiment="positive",
+        sentiment_score=0.4,
+        is_good_news=False,
+    ),
+    SeedArticle(
+        slug="apple-ai-chip-uk",
+        source_name="BBC News",
+        source_id="bbc-news",
+        original_title="Apple unveils next-generation AI chip for Mac computers",
+        rewritten_title="Apple unveils next-generation AI chip for Mac computers",
+        tldr="Apple has announced a new AI-focused chip for its Mac range. The company said the processor is designed for on-device machine learning and will debut in refreshed Mac models this year.",
+        author="Sam Patel",
+        category="technology",
+        was_rewritten=False,
+        original_sentiment="neutral",
+        sentiment_score=0.2,
+        is_good_news=False,
+        country="gb",
+    ),
+    SeedArticle(
+        slug="climate-summit-us",
+        source_name="Reuters",
+        source_id="reuters",
+        original_title="Global leaders commit to climate action agreement at Geneva summit",
+        rewritten_title="Global leaders sign climate action agreement at Geneva summit",
+        tldr="Representatives from major economies signed a framework climate agreement at the Geneva summit, covering emissions targets and finance commitments. Negotiators said the deal builds on previous international pledges.",
+        author="Jordan Miller",
+        category="general",
+        was_rewritten=True,
+        original_sentiment="neutral",
+        sentiment_score=0.1,
+        is_good_news=False,
+    ),
+    SeedArticle(
+        slug="climate-summit-uk",
+        source_name="The Guardian",
+        source_id="the-guardian-uk",
+        original_title="World leaders pledge climate action at Geneva summit",
+        rewritten_title="World leaders pledge climate action at Geneva summit",
+        tldr="Heads of government at the Geneva climate summit signed a new framework agreement on emissions and climate finance. UK officials said the pledges represent a meaningful step on international climate cooperation.",
+        author="Maya Ellis",
+        category="general",
+        was_rewritten=False,
+        original_sentiment="positive",
+        sentiment_score=0.3,
+        is_good_news=False,
+        country="gb",
+    ),
+    SeedArticle(
+        slug="spacex-launch-us",
+        source_name="Reuters",
+        source_id="reuters",
+        original_title="SpaceX launches astronauts to International Space Station in milestone mission",
+        rewritten_title="SpaceX launches astronauts to International Space Station",
+        tldr="SpaceX sent a new crew to the International Space Station in a routine rotation mission. The company confirmed a successful dock with the station several hours after liftoff.",
+        author="Alex Chen",
+        category="science",
+        was_rewritten=True,
+        original_sentiment="positive",
+        sentiment_score=0.6,
+        is_good_news=True,
+    ),
+    SeedArticle(
+        slug="spacex-launch-uk",
+        source_name="BBC News",
+        source_id="bbc-news",
+        original_title="SpaceX rocket launches astronauts to International Space Station",
+        rewritten_title="SpaceX rocket launches astronauts to International Space Station",
+        tldr="A SpaceX rocket has lifted off carrying a crew rotation for the International Space Station. The British space agency said the mission represents continued progress in international crewed flight operations.",
+        author="Sam Patel",
+        category="science",
+        was_rewritten=False,
+        original_sentiment="positive",
+        sentiment_score=0.6,
+        is_good_news=True,
+        country="gb",
+    ),
 )
 
 
@@ -413,11 +506,16 @@ def upsert_seed_articles() -> tuple[int, int]:
     session = SessionLocal()
     inserted = 0
     updated = 0
-    now = datetime.now(timezone.utc).replace(microsecond=0)
+    # Seed articles are offset ~14 days into the past so that a real NewsAPI
+    # refresh always produces newer articles that dominate the feed. Without
+    # this offset, seed rows sort above freshly-fetched BBC/Reuters content
+    # and bury the real headlines. For users running the app without an API
+    # key, "2 weeks ago" is an honest representation of demo cache data.
+    seed_base = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=14)
 
     try:
         for index, seed_article in enumerate(SEED_ARTICLES):
-            published_at = now - timedelta(hours=index)
+            published_at = seed_base - timedelta(hours=index)
             fetched_at = published_at + timedelta(minutes=15)
             url = f"https://example.com/manual-seed/{seed_article.slug}"
             article = session.query(Article).filter(Article.url == url).first()

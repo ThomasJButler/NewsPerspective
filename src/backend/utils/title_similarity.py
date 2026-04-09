@@ -122,6 +122,10 @@ def group_articles(
         )
         groups.append(group)
 
-    # Sort by group size descending, then alphabetically by representative title.
-    groups.sort(key=lambda g: (-len(g.article_ids), g.representative_title))
+    # Sort by country diversity first (multi-country groups surface the cross-border
+    # framing differences that make the comparison view valuable), then by group size
+    # descending, then alphabetically by representative title.
+    groups.sort(
+        key=lambda g: (-len(g.countries), -len(g.article_ids), g.representative_title)
+    )
     return groups

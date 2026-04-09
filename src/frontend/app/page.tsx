@@ -463,16 +463,22 @@ function HomeContent() {
         });
       }
 
+      const newCount = refreshStatus.new_articles;
+      const processedCount = refreshStatus.processed_articles;
+      const description =
+        newCount > 0
+          ? `Added ${newCount} new article${newCount === 1 ? "" : "s"}.`
+          : currentRequestValidatedKey
+            ? processedCount > 0
+              ? `Fetched ${processedCount} article${processedCount === 1 ? "" : "s"}, all already cached. No new stories to add right now.`
+              : "No articles returned from NewsAPI this time. Check your plan limits or try again shortly."
+            : "The in-progress refresh finished without adding new articles.";
+
       toast({
         title: currentRequestValidatedKey
           ? "Refresh complete"
           : "Refresh finished",
-        description:
-          refreshStatus.new_articles > 0
-            ? `Added ${refreshStatus.new_articles} new article${refreshStatus.new_articles === 1 ? "" : "s"}.`
-            : currentRequestValidatedKey
-              ? "No new articles were added this time."
-              : "The in-progress refresh finished without adding new articles.",
+        description,
       });
     } catch (err) {
       if (err instanceof RefreshRequestError) {
