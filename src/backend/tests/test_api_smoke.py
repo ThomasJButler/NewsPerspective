@@ -653,6 +653,69 @@ class BackendApiSmokeTest(unittest.TestCase):
         )
         self.assertEqual(parsed_latest_fetch.utcoffset(), timedelta(0))
 
+    def test_historical_stats_returns_shaped_buckets_and_sentiment_mix(self) -> None:
+        """Historical stats must honour base_filters and left-fill missing days.
+
+        The smoke fixture inserts 5 processed articles, all fetched within a
+        narrow window around "now". Expectations at days=30:
+        - Response has 30 articles_over_time buckets (one per day, contiguous).
+        - Exactly one bucket has count 5 (today); all others are 0.
+        - rewrite_rate has 30 buckets; today's rate is 2/5 = 0.4.
+        - sentiment_mix sums to 5: 1 positive, 1 negative, 3 neutral.
+        """
+        response = self.client.get("/api/stats/historical?days=30")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+
+        self.assertEqual(body["days"], 30)
+        self.assertEqual(len(body["articles_over_time"]), 30)
+        self.assertEqual(len(body["rewrite_rate"]), 30)
+
+        # Buckets are contiguous and date-sorted.
+        dates = [row["date"] for row in body["articles_over_time"]]
+        self.assertEqual(dates, sorted(dates))
+        parsed_dates = [
+            datetime.fromisoformat(d).replace(tzinfo=timezone.utc) for d in dates
+        ]
+        for earlier, later in zip(parsed_dates, parsed_dates[1:]):
+            self.assertEqual((later - earlier).days, 1)
+
+        # Exactly one day has the 5 fixture articles; all others are zero.
+        non_empty = [row for row in body["articles_over_time"] if row["count"] > 0]
+        self.assertEqual(len(non_empty), 1)
+        self.assertEqual(non_empty[0]["count"], 5)
+
+        # The corresponding rewrite_rate bucket should show 2 of 5 rewritten.
+        rewrite_today = next(
+            row for row in body["rewrite_rate"] if row["date"] == non_empty[0]["date"]
+        )
+        self.assertEqual(rewrite_today["total"], 5)
+        self.assertEqual(rewrite_today["rewritten"], 2)
+        self.assertAlmostEqual(rewrite_today["rate"], 2 / 5)
+
+        # Sentiment mix snapshots all 5 processed fixture rows.
+        mix = body["sentiment_mix"]
+        self.assertEqual(mix["positive"], 1)
+        self.assertEqual(mix["negative"], 1)
+        self.assertEqual(mix["neutral"], 3)
+        self.assertEqual(mix["positive"] + mix["negative"] + mix["neutral"], 5)
+
+    def test_historical_stats_honours_days_parameter_bounds(self) -> None:
+        response = self.client.get("/api/stats/historical?days=7")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["days"], 7)
+        self.assertEqual(len(body["articles_over_time"]), 7)
+        self.assertEqual(len(body["rewrite_rate"]), 7)
+
+        # Out-of-range days should be rejected by FastAPI Query validation.
+        self.assertEqual(
+            self.client.get("/api/stats/historical?days=0").status_code, 422
+        )
+        self.assertEqual(
+            self.client.get("/api/stats/historical?days=400").status_code, 422
+        )
+
     def test_stats_good_news_count_excludes_sports_and_entertainment_categories(self) -> None:
         session = database.SessionLocal()
         inserted_ids = ["article-sports-stats", "article-entertainment-stats"]

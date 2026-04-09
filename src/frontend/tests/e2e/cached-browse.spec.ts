@@ -320,9 +320,15 @@ test("filters seeded cached articles and opens article detail", async ({ page },
     })
   ).toBeVisible();
   await expect(page.getByText("Reuters")).toBeVisible();
+  // This seed article is a demo row (id "manual-seed-008"), so the detail
+  // page should surface the demo label instead of a live Read Full Article
+  // link. The link must be absent to prevent users landing on example.com.
+  await expect(
+    page.getByText("Demo article — add your NewsAPI key for live stories")
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Read Full Article →" })
-  ).toBeVisible();
+  ).toHaveCount(0);
 
   await captureScreenshot(page, testInfo, "cached-browse-article-detail.png");
 });

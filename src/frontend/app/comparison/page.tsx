@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
+import { DEMO_ARTICLE_LABEL, isDemoArticle } from "@/lib/demo-articles";
 
 function sentimentVariant(
   sentiment: string | null
@@ -122,14 +123,20 @@ function ComparisonGroupCard({ group }: { group: ComparisonGroup }) {
                       {formatDate(article.published_at)}
                     </p>
                   )}
-                  <a
-                    href={article.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block text-xs font-medium text-primary hover:underline"
-                  >
-                    Read Full Article →
-                  </a>
+                  {isDemoArticle(article) ? (
+                    <span className="inline-block text-xs italic text-muted-foreground">
+                      {DEMO_ARTICLE_LABEL}
+                    </span>
+                  ) : (
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block text-xs font-medium text-primary hover:underline"
+                    >
+                      Read Full Article →
+                    </a>
+                  )}
                 </div>
               ))}
             </div>

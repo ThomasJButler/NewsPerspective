@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TldrSection } from "@/components/tldr-section";
 import { getVisibleHeadline } from "@/lib/headlines";
 import { formatDate } from "@/lib/utils";
+import { DEMO_ARTICLE_LABEL, isDemoArticle } from "@/lib/demo-articles";
 import type { Article } from "@/types/article";
 
 function sentimentVariant(
@@ -31,6 +32,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
   });
   const showOriginalHeadline = article.was_rewritten && headline !== article.original_title;
   const showImage = Boolean(article.image_url) && !imgError;
+  const isDemo = isDemoArticle(article);
 
   return (
     <Card className="overflow-hidden">
@@ -70,6 +72,11 @@ export function ArticleCard({ article }: ArticleCardProps) {
                 {article.original_sentiment}
               </Badge>
             )}
+            {isDemo && (
+              <Badge variant="outline" className="text-xs">
+                Demo
+              </Badge>
+            )}
           </div>
 
           <Link href={`/article/${article.id}`}>
@@ -91,14 +98,20 @@ export function ArticleCard({ article }: ArticleCardProps) {
             </details>
           )}
 
-          <a
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block text-sm font-medium text-primary hover:underline"
-          >
-            Read Full Article →
-          </a>
+          {isDemo ? (
+            <span className="inline-block text-sm italic text-muted-foreground">
+              {DEMO_ARTICLE_LABEL}
+            </span>
+          ) : (
+            <a
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-sm font-medium text-primary hover:underline"
+            >
+              Read Full Article →
+            </a>
+          )}
         </div>
       </CardContent>
     </Card>

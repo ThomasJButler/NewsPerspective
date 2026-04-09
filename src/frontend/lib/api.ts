@@ -5,6 +5,7 @@ import type {
   ComparisonAnalysis,
   ComparisonResponse,
   GuardrailsResponse,
+  HistoricalStatsResponse,
   SourcesResponse,
   StatsResponse,
   RefreshErrorCode,
@@ -128,6 +129,16 @@ export async function fetchCategories(): Promise<CategoriesResponse> {
 export async function fetchStats(): Promise<StatsResponse> {
   const res = await fetch("/api/stats");
   if (!res.ok) throw new Error(`Failed to fetch stats: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchHistoricalStats(
+  days = 30
+): Promise<HistoricalStatsResponse> {
+  const res = await fetch(`/api/stats/historical?days=${days}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch historical stats: ${res.status}`);
+  }
   return res.json();
 }
 

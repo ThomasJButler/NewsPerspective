@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { BarChart3, SplitSquareVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import { SearchBar } from "@/components/search-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -26,12 +28,21 @@ export function Header({
     <header className="border-b">
       <div className="container mx-auto px-4 py-4 max-w-3xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">NewsPerspective</h1>
-            <p className="text-sm text-muted-foreground">
-              See the news. Not the spin.
-            </p>
-          </div>
+          <Link
+            href="/"
+            className="flex items-center gap-3 no-underline hover:opacity-90 transition-opacity"
+            aria-label="NewsPerspective home"
+          >
+            <BrandLogo size={36} className="shrink-0" />
+            <div>
+              <h1 className="text-2xl font-bold leading-tight">
+                NewsPerspective
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                See the news. Not the spin.
+              </p>
+            </div>
+          </Link>
           <div className="flex items-center gap-2">
             <SearchBar value={searchValue} onChange={onSearchChange} />
             <Button
@@ -41,20 +52,17 @@ export function Header({
               aria-label="Compare articles"
             >
               <Link href="/comparison">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="2" y="4" width="8" height="16" rx="1" />
-                  <rect x="14" y="4" width="8" height="16" rx="1" />
-                </svg>
+                <SplitSquareVertical className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              asChild
+              aria-label="View stats"
+            >
+              <Link href="/stats">
+                <BarChart3 className="h-4 w-4" />
               </Link>
             </Button>
             <Button
